@@ -43,7 +43,7 @@ text = "Production: +0"
 
 [node name="EndTurnButton" type="Button" parent="HUD/TopBar"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 24
 text = "End Turn"
 
 [node name="BottomBar" type="HBoxContainer" parent="HUD"]
@@ -69,15 +69,7 @@ text = "No fleets in transit"
 
 [node name="SendPanel" type="Panel" parent="HUD"]
 visible = false
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -100.0
-offset_right = 150.0
-offset_bottom = 100.0
+custom_minimum_size = Vector2(300, 200)
 
 [node name="VBox" type="VBoxContainer" parent="HUD/SendPanel"]
 anchors_preset = 15
@@ -181,15 +173,7 @@ text = "Start Game"
 
 [node name="CombatReportScreen" type="Panel" parent="HUD"]
 visible = false
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -250.0
-offset_top = -200.0
-offset_right = 250.0
-offset_bottom = 200.0
+custom_minimum_size = Vector2(400, 300)
 
 [node name="VBox" type="VBoxContainer" parent="HUD/CombatReportScreen"]
 anchors_preset = 15

@@ -16,14 +16,20 @@ signal system_hover_ended(system: StarSystem)
 var is_selected: bool = false
 var is_hovered: bool = false
 
+# Selection animation
+var selection_pulse_time: float = 0.0
+const PULSE_SPEED: float = 2.0  # Cycles per second
+const HALO_SIZE: float = 12.0  # Extra pixels for halo effect
+const SELECTION_OUTLINE_WIDTH: float = 4.0
+
 @onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D
 @onready var label: Label = $Label
 @onready var name_label: Label = $NameLabel
 
 
 func _get_radius() -> float:
-	# Radius based on production rate (1-5) -> (20-40 px)
-	return 15.0 + (production_rate * 5.0)
+	# Radius based on production rate (1-8) -> (12.5-30 px)
+	return 10.0 + (production_rate * 2.5)
 
 var sprite: Sprite2D = null
 
@@ -40,14 +46,23 @@ func _ready() -> void:
 	collision_shape.shape = shape
 
 
+func _process(delta: float) -> void:
+	if is_selected:
+		selection_pulse_time += delta * PULSE_SPEED
+		_update_circle_visuals()
+	elif selection_pulse_time != 0.0:
+		selection_pulse_time = 0.0
+
+
 func _create_sprite_visual() -> void:
-	# Create a circle texture programmatically
+	# Create a circle texture programmatically (with extra space for halo)
 	var radius = _get_radius()
-	var img = Image.create(int(radius * 2 + 4), int(radius * 2 + 4), false, Image.FORMAT_RGBA8)
-	var center = Vector2(radius + 2, radius + 2)
+	var total_size = int((radius + HALO_SIZE + SELECTION_OUTLINE_WIDTH) * 2 + 4)
+	var img = Image.create(total_size, total_size, false, Image.FORMAT_RGBA8)
+	var center = Vector2(total_size / 2.0, total_size / 2.0)
 	var color = _get_owner_color()
 
-	# Fill with circle
+	# Fill with circle (no selection initially)
 	for x in range(img.get_width()):
 		for y in range(img.get_height()):
 			var dist = Vector2(x, y).distance_to(center)
@@ -79,18 +94,42 @@ func _update_circle_visuals() -> void:
 	if sprite:
 		# Regenerate texture with new color
 		var radius = _get_radius()
-		var img = Image.create(int(radius * 2 + 4), int(radius * 2 + 4), false, Image.FORMAT_RGBA8)
-		var center = Vector2(radius + 2, radius + 2)
+		var total_size = int((radius + HALO_SIZE + SELECTION_OUTLINE_WIDTH) * 2 + 4)
+		var img = Image.create(total_size, total_size, false, Image.FORMAT_RGBA8)
+		var center = Vector2(total_size / 2.0, total_size / 2.0)
 		var color = _get_owner_color()
-		var outline_color = Color.WHITE if is_selected else color.lightened(0.3)
+
+		# Calculate pulse value (0.0 to 1.0)
+		var pulse = (sin(selection_pulse_time * TAU) + 1.0) / 2.0 if is_selected else 0.0
+
+		# Selection colors - cyan with pulse
+		var selection_color = Color(0.0, 0.9, 1.0, 0.8 + pulse * 0.2)  # Cyan, pulsing alpha
+		var halo_base_alpha = 0.3 + pulse * 0.2
 
 		for x in range(img.get_width()):
 			for y in range(img.get_height()):
 				var dist = Vector2(x, y).distance_to(center)
+
 				if dist <= radius:
+					# Star core
 					img.set_pixel(x, y, color)
 				elif dist <= radius + 2:
+					# Normal outline
+					var outline_color = color.lightened(0.3)
 					img.set_pixel(x, y, outline_color)
+				elif is_selected:
+					# Selection effects
+					if dist <= radius + 2 + SELECTION_OUTLINE_WIDTH:
+						# Solid selection outline (4px)
+						img.set_pixel(x, y, selection_color)
+					elif dist <= radius + 2 + SELECTION_OUTLINE_WIDTH + HALO_SIZE:
+						# Soft halo glow
+						var halo_dist = dist - (radius + 2 + SELECTION_OUTLINE_WIDTH)
+						var halo_alpha = (1.0 - halo_dist / HALO_SIZE) * halo_base_alpha
+						var halo_color = Color(0.0, 0.9, 1.0, halo_alpha)
+						img.set_pixel(x, y, halo_color)
+					else:
+						img.set_pixel(x, y, Color(0, 0, 0, 0))
 				else:
 					img.set_pixel(x, y, Color(0, 0, 0, 0))
 
@@ -135,6 +174,8 @@ func show_fighter_count() -> void:
 
 func set_selected(selected: bool) -> void:
 	is_selected = selected
+	if not selected:
+		selection_pulse_time = 0.0
 	_update_circle_visuals()
 
 

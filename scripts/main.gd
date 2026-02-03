@@ -63,14 +63,65 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 # Send fleet state
 var send_source_system: StarSystem = null
 var send_target_system: StarSystem = null
+var show_fleet_arrow: bool = false
 
-# Combat reports (player_id -> Array of report strings)
+# Arrow drawing constants
+const ARROW_WIDTH: float = 3.0
+const ARROW_HEAD_SIZE: float = 15.0
+# Distinct colors for each travel time
+const ARROW_COLORS: Array[Color] = [
+	Color(0.0, 1.0, 1.0, 0.9),   # 1 turn: Cyan
+	Color(0.0, 1.0, 0.3, 0.9),   # 2 turns: Green
+	Color(1.0, 1.0, 0.0, 0.9),   # 3 turns: Yellow
+	Color(1.0, 0.6, 0.0, 0.9),   # 4 turns: Orange
+	Color(1.0, 0.2, 0.0, 0.9),   # 5+ turns: Red
+]
+
+# Combat reports (player_id -> Array of {report: String, system_id: int})
 var pending_combat_reports: Dictionary = {}
+var current_report_index: int = 0
+var combat_report_system: StarSystem = null
 
 
 func _ready() -> void:
 	_setup_ui_connections()
 	_show_setup_screen()
+
+
+func _draw() -> void:
+	if show_fleet_arrow and send_source_system and send_target_system:
+		var start_pos = send_source_system.global_position
+		var end_pos = send_target_system.global_position
+
+		# Calculate travel time for color
+		var distance = send_source_system.get_distance_to(send_target_system)
+		var travel_turns = max(1, ceili(distance / Fleet.TRAVEL_SPEED))
+
+		# Determine arrow color based on travel time
+		# 1=cyan, 2=green, 3=yellow, 4=orange, 5+=red
+		var color_index = min(travel_turns - 1, ARROW_COLORS.size() - 1)
+		var arrow_color = ARROW_COLORS[color_index]
+
+		# Calculate direction and shorten arrow to not overlap with stars
+		var direction = (end_pos - start_pos).normalized()
+		var source_radius = send_source_system._get_radius() + 10
+		var target_radius = send_target_system._get_radius() + 10
+
+		var arrow_start = start_pos + direction * source_radius
+		var arrow_end = end_pos - direction * target_radius
+
+		# Draw line
+		draw_line(arrow_start, arrow_end, arrow_color, ARROW_WIDTH)
+
+		# Draw arrow head
+		var arrow_dir = (arrow_end - arrow_start).normalized()
+		var perpendicular = Vector2(-arrow_dir.y, arrow_dir.x)
+		var head_base = arrow_end - arrow_dir * ARROW_HEAD_SIZE
+		var head_left = head_base + perpendicular * ARROW_HEAD_SIZE * 0.5
+		var head_right = head_base - perpendicular * ARROW_HEAD_SIZE * 0.5
+
+		var head_points = PackedVector2Array([arrow_end, head_left, head_right])
+		draw_colored_polygon(head_points, arrow_color)
 
 
 func _setup_ui_connections() -> void:
@@ -233,7 +284,8 @@ func _on_continue_pressed() -> void:
 	_update_fog_of_war()
 	_update_ui()
 
-	# Show combat report if this player was involved in battles
+	# Show combat reports if this player was involved in battles
+	current_report_index = 0
 	if pending_combat_reports.has(current_player) and pending_combat_reports[current_player].size() > 0:
 		_show_combat_report()
 
@@ -279,7 +331,7 @@ func _get_player_total_ships(player_id: int) -> int:
 
 
 func _on_system_clicked(system: StarSystem) -> void:
-	if game_ended or transition_screen.visible:
+	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
 
 	# If we have a source selected and click a different system, that's the target
@@ -293,6 +345,8 @@ func _on_system_clicked(system: StarSystem) -> void:
 		system.set_selected(false)
 		selected_system = null
 		send_panel.visible = false
+		show_fleet_arrow = false
+		queue_redraw()
 	else:
 		if selected_system:
 			selected_system.set_selected(false)
@@ -309,13 +363,25 @@ func _on_system_clicked(system: StarSystem) -> void:
 
 
 func _on_system_hover_started(system: StarSystem) -> void:
+	if combat_report_screen.visible:
+		return
 	if system.owner_id == current_player:
 		system_info_label.text = "%s - %d fighters (+%d/turn)" % [
 			system.system_name, system.fighter_count, system.production_rate
 		]
+	elif system.owner_id < 0:
+		system_info_label.text = "%s - Neutral (+%d/turn)" % [
+			system.system_name, system.production_rate
+		]
+	else:
+		system_info_label.text = "%s - %s (+%d/turn)" % [
+			system.system_name, players[system.owner_id].player_name, system.production_rate
+		]
 
 
 func _on_system_hover_ended(_system: StarSystem) -> void:
+	if combat_report_screen.visible:
+		return
 	if selected_system and selected_system.owner_id == current_player:
 		system_info_label.text = "%s - Fighters: %d" % [
 			selected_system.system_name, selected_system.fighter_count
@@ -331,8 +397,78 @@ func _start_send_fleet(source: StarSystem, target: StarSystem) -> void:
 	send_slider.max_value = source.fighter_count
 	send_slider.value = ceili(source.fighter_count / 2.0)
 	send_panel.visible = true
+	show_fleet_arrow = true
+	queue_redraw()
+
+	# Position panel to not obscure stars or arrow
+	_position_send_panel()
 
 	_on_send_slider_changed(send_slider.value)
+
+
+func _position_send_panel() -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_size = send_panel.size
+	var margin = 20.0
+	var star_margin = 60.0  # Distance from star center
+
+	var source_pos = send_source_system.global_position
+	var target_pos = send_target_system.global_position
+	var source_radius = send_source_system._get_radius()
+
+	# Direction from source to target (we want to place panel away from this direction)
+	var to_target = (target_pos - source_pos).normalized()
+
+	# Try positions around the source star (away from target direction)
+	var positions = []
+
+	# Perpendicular directions (left and right of the arrow)
+	var perp = Vector2(-to_target.y, to_target.x)
+
+	# Position candidates: perpendicular left, perpendicular right, behind source
+	var offsets = [
+		perp * (source_radius + star_margin + panel_size.x / 2),  # Left of arrow
+		-perp * (source_radius + star_margin + panel_size.x / 2),  # Right of arrow
+		-to_target * (source_radius + star_margin + panel_size.y / 2),  # Behind source
+	]
+
+	for offset in offsets:
+		var panel_center = source_pos + offset
+		var panel_pos = panel_center - panel_size / 2.0
+
+		# Clamp to viewport bounds
+		panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+		panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)  # +50 for top bar
+
+		positions.append(panel_pos)
+
+	# Find position that doesn't overlap with target star or arrow
+	var best_pos = positions[0]
+	var best_score = -INF
+
+	for pos in positions:
+		var panel_rect = Rect2(pos, panel_size)
+		var panel_center = pos + panel_size / 2.0
+
+		# Check distance to target star
+		var dist_target = panel_center.distance_to(target_pos)
+
+		# Check distance to arrow line
+		var line_dir = to_target
+		var to_panel = panel_center - source_pos
+		var projection = to_panel.dot(line_dir)
+		var closest_on_line = source_pos + line_dir * clamp(projection, 0, source_pos.distance_to(target_pos))
+		var dist_line = panel_center.distance_to(closest_on_line)
+
+		# Score: prefer positions far from target and arrow, but close to source
+		var dist_source = panel_center.distance_to(source_pos)
+		var score = min(dist_target, dist_line) - dist_source * 0.3
+
+		if score > best_score:
+			best_score = score
+			best_pos = pos
+
+	send_panel.position = best_pos
 
 
 func _on_send_slider_changed(value: float) -> void:
@@ -351,6 +487,8 @@ func _on_send_confirmed() -> void:
 	var count = int(send_slider.value)
 	if count <= 0:
 		send_panel.visible = false
+		show_fleet_arrow = false
+		queue_redraw()
 		return
 
 	# Create fleet
@@ -370,9 +508,16 @@ func _on_send_confirmed() -> void:
 
 	# Update UI
 	send_panel.visible = false
+	show_fleet_arrow = false
+	queue_redraw()
 	_update_ui()
 
-	if selected_system:
+	# Deselect system if all fighters were sent
+	if selected_system and selected_system.fighter_count == 0:
+		selected_system.set_selected(false)
+		selected_system = null
+		system_info_label.text = ""
+	elif selected_system:
 		system_info_label.text = "%s - Fighters: %d" % [
 			selected_system.system_name, selected_system.fighter_count
 		]
@@ -380,6 +525,8 @@ func _on_send_confirmed() -> void:
 
 func _on_send_cancelled() -> void:
 	send_panel.visible = false
+	show_fleet_arrow = false
+	queue_redraw()
 	send_source_system = null
 	send_target_system = null
 
@@ -412,19 +559,90 @@ func _show_combat_report() -> void:
 	if not pending_combat_reports.has(current_player):
 		return
 	var player_reports = pending_combat_reports[current_player]
-	var full_report = ""
-	for report in player_reports:
-		full_report += report + "\n\n"
-	report_label.text = full_report.strip_edges()
+	if current_report_index >= player_reports.size():
+		return
+
+	var report_data = player_reports[current_report_index]
+	report_label.text = report_data["report"]
+
+	# Highlight the system this report is about
+	if combat_report_system:
+		combat_report_system.set_selected(false)
+	combat_report_system = systems[report_data["system_id"]]
+	combat_report_system.set_selected(true)
+
+	# Position the panel near the system
+	_position_combat_report_panel()
+
 	combat_report_screen.visible = true
+	end_turn_button.disabled = true
+
+
+func _position_combat_report_panel() -> void:
+	if not combat_report_system:
+		return
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_size = combat_report_screen.size
+	var margin = 20.0
+	var star_margin = 60.0
+
+	var system_pos = combat_report_system.global_position
+	var system_radius = combat_report_system._get_radius()
+
+	# Try positions around the system (right, left, below, above)
+	var offsets = [
+		Vector2(system_radius + star_margin + panel_size.x / 2, 0),  # Right
+		Vector2(-(system_radius + star_margin + panel_size.x / 2), 0),  # Left
+		Vector2(0, system_radius + star_margin + panel_size.y / 2),  # Below
+		Vector2(0, -(system_radius + star_margin + panel_size.y / 2)),  # Above
+	]
+
+	var best_pos = Vector2.ZERO
+	var best_score = -INF
+
+	for offset in offsets:
+		var panel_center = system_pos + offset
+		var panel_pos = panel_center - panel_size / 2.0
+
+		# Clamp to viewport bounds
+		panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+		panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
+
+		# Score: prefer positions that keep panel fully visible
+		var clamped_center = panel_pos + panel_size / 2.0
+		var dist_from_ideal = clamped_center.distance_to(panel_center)
+		var score = -dist_from_ideal  # Less clamping = better
+
+		if score > best_score:
+			best_score = score
+			best_pos = panel_pos
+
+	combat_report_screen.position = best_pos
 
 
 func _on_close_report_pressed() -> void:
-	combat_report_screen.visible = false
-	# Don't clear reports here - other players may still need to see theirs
-	# Reports are cleared at the start of _process_turn_end()
+	# Deselect the highlighted system
+	if combat_report_system:
+		combat_report_system.set_selected(false)
+		combat_report_system = null
 
-	# Check for game over after closing report
+	# Move to next report
+	current_report_index += 1
+
+	# Check if there are more reports for this player
+	if pending_combat_reports.has(current_player):
+		var player_reports = pending_combat_reports[current_player]
+		if current_report_index < player_reports.size():
+			_show_combat_report()
+			return
+
+	# No more reports - close and re-enable UI
+	combat_report_screen.visible = false
+	end_turn_button.disabled = false
+	current_report_index = 0
+
+	# Check for game over after closing all reports
 	_check_victory()
 
 
@@ -470,11 +688,16 @@ func _process_turn_end() -> void:
 
 		# Build combat report
 		if result["log"].size() > 0:
-			var report = "=== %s ===\n" % system.system_name
-			report += "Defender: %s (%d fighters)\n" % [_get_owner_name(old_owner), old_fighters]
+			var report_text = "=== %s ===\n" % system.system_name
+			report_text += "Defender: %s (%d fighters)\n" % [_get_owner_name(old_owner), old_fighters]
 			for log_entry in result["log"]:
-				report += log_entry + "\n"
-			report += "Outcome: %s controls with %d fighters" % [_get_owner_name(result["winner"]), result["remaining"]]
+				report_text += log_entry + "\n"
+			report_text += "Outcome: %s controls with %d fighters" % [_get_owner_name(result["winner"]), result["remaining"]]
+
+			var report_data = {
+				"report": report_text,
+				"system_id": system_id
+			}
 
 			# Add report for all involved players (defender + attackers)
 			var involved_players: Array[int] = []
@@ -487,7 +710,7 @@ func _process_turn_end() -> void:
 			for player_id in involved_players:
 				if not pending_combat_reports.has(player_id):
 					pending_combat_reports[player_id] = []
-				pending_combat_reports[player_id].append(report)
+				pending_combat_reports[player_id].append(report_data)
 
 
 func _get_owner_name(owner_id: int) -> String:

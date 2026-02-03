@@ -57,7 +57,7 @@
 | C-02 | Combat outcome probability shall be based on attacking vs defending fighters | ✅ Done |
 | C-03 | The winner of combat shall control the star system                           | ✅ Done |
 | C-04 | Surviving fighters shall remain at the system after combat                   | ✅ Done |
-| C-05 | Combat reports shall be shown to involved players                            | ✅ Done |
+| C-05 | Combat reports shall be shown to involved players, one at a time, with the relevant system highlighted | ✅ Done |
 | C-06 | When multiple fleets arrive simultaneously, they attack in order of size (largest first) | ✅ Done |
 | C-07 | Reinforcements shall be processed before any combat occurs                   | ✅ Done |
 | C-08 | If both sides are eliminated in combat, the system shall become neutral      | ✅ Done |
@@ -92,7 +92,7 @@
 |-------|--------------------------------------------------------------------|--------|
 | UI-01 | Players shall select systems by clicking on them                   | ✅ Done |
 | UI-02 | A slider shall allow players to choose how many fighters to send   | ✅ Done |
-| UI-03 | The travel time to a target system shall be displayed before sending | ✅ Done |
+| UI-03 | The travel time to a target system shall be displayed before sending and visualized by arrow color (cyan=1, green=2, yellow=3, orange=4, red=5+ turns) | ✅ Done |
 | UI-04 | The current turn number shall be visible                           | ✅ Done |
 | UI-05 | The current player's total ship count shall be visible             | ✅ Done |
 | UI-06 | An "End Turn" button shall advance the game                        | ✅ Done |
@@ -103,6 +103,10 @@
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
 | UI-12 | A setup screen shall allow player count selection before game start | ✅ Done |
 | UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
+| UI-14 | Hovering over any visible system shows its name, owner, and production rate | ✅ Done |
+| UI-15 | Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow | ✅ Done |
+| UI-16 | Combat report dialog shall be positioned near the relevant system  | ✅ Done |
+| UI-17 | During combat report display, only the close button shall be interactive | ✅ Done |
 
 ---
 
