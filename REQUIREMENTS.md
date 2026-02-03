@@ -53,6 +53,7 @@
 | C-03 | The winner of combat shall control the star system                           | ✅ Done |
 | C-04 | Surviving fighters shall remain at the system after combat                   | ✅ Done |
 | C-05 | Combat reports shall be shown to involved players                            | ✅ Done |
+| C-06 | When multiple fleets arrive simultaneously, they attack in order of size (largest first) | ✅ Done |
 
 ---
 

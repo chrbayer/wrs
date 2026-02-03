@@ -104,9 +104,16 @@ static func resolve_system_combat(system_owner: int, system_fighters: int,
 		result["remaining"] += arriving_fleets[system_owner]
 		arriving_fleets.erase(system_owner)
 
-	# Process each attacking force
+	# Sort attackers by fleet size (largest first)
+	var attackers_sorted: Array = []
 	for attacker_id in arriving_fleets:
-		var attacker_count = arriving_fleets[attacker_id]
+		attackers_sorted.append({"id": attacker_id, "count": arriving_fleets[attacker_id]})
+	attackers_sorted.sort_custom(func(a, b): return a["count"] > b["count"])
+
+	# Process each attacking force (largest first)
+	for attacker in attackers_sorted:
+		var attacker_id = attacker["id"]
+		var attacker_count = attacker["count"]
 
 		if result["remaining"] == 0 and result["winner"] == -1:
 			# Empty neutral system - attacker takes it
