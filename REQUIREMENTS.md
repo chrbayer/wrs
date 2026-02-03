@@ -103,7 +103,7 @@
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
 | UI-12 | A setup screen shall allow player count selection before game start | ✅ Done |
 | UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
-| UI-14 | Hovering over any visible system shows its name, owner, and production rate | ✅ Done |
+| UI-14 | Hovering over any visible system shows its name, owner, production rate, and travel time from selected system | ✅ Done |
 | UI-15 | Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow | ✅ Done |
 | UI-16 | Combat report dialog shall be positioned near the relevant system  | ✅ Done |
 | UI-17 | During combat report display, only the close button shall be interactive | ✅ Done |

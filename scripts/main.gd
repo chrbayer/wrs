@@ -52,8 +52,9 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 
 # Combat report screen
 @onready var combat_report_screen: Panel = $HUD/CombatReportScreen
-@onready var report_label: Label = $HUD/CombatReportScreen/VBox/ScrollContainer/ReportLabel
-@onready var close_report_button: Button = $HUD/CombatReportScreen/VBox/CloseReportButton
+@onready var combat_report_title: Label = $HUD/CombatReportScreen/VBox/TitleLabel
+@onready var report_label: Label = $HUD/CombatReportScreen/VBox/ContentBox/ReportLabel
+@onready var close_report_button: Button = $HUD/CombatReportScreen/VBox/ContentBox/CloseReportButton
 
 # Game over screen
 @onready var game_over_screen: Panel = $HUD/GameOverScreen
@@ -365,18 +366,28 @@ func _on_system_clicked(system: StarSystem) -> void:
 func _on_system_hover_started(system: StarSystem) -> void:
 	if combat_report_screen.visible:
 		return
+
+	var info_text: String
 	if system.owner_id == current_player:
-		system_info_label.text = "%s - %d fighters (+%d/turn)" % [
+		info_text = "%s - %d fighters (+%d/turn)" % [
 			system.system_name, system.fighter_count, system.production_rate
 		]
 	elif system.owner_id < 0:
-		system_info_label.text = "%s - Neutral (+%d/turn)" % [
+		info_text = "%s - Neutral (+%d/turn)" % [
 			system.system_name, system.production_rate
 		]
 	else:
-		system_info_label.text = "%s - %s (+%d/turn)" % [
+		info_text = "%s - %s (+%d/turn)" % [
 			system.system_name, players[system.owner_id].player_name, system.production_rate
 		]
+
+	# Show travel time if another system is selected
+	if selected_system and selected_system != system:
+		var distance = selected_system.get_distance_to(system)
+		var travel_turns = max(1, ceili(distance / Fleet.TRAVEL_SPEED))
+		info_text += " [%d turns]" % travel_turns
+
+	system_info_label.text = info_text
 
 
 func _on_system_hover_ended(_system: StarSystem) -> void:
@@ -563,7 +574,22 @@ func _show_combat_report() -> void:
 		return
 
 	var report_data = player_reports[current_report_index]
-	report_label.text = report_data["report"]
+
+	# Set title to system name with decorative lines
+	combat_report_title.text = "━━━ %s ━━━" % report_data["system_name"]
+
+	# Build structured report text
+	var report_text = ""
+	report_text += "DEFENDER\n"
+	report_text += "%s  •  %d fighters\n\n" % [report_data["defender_name"], report_data["defender_count"]]
+	report_text += "ATTACKER\n"
+	report_text += "%s  •  %d fighters\n\n" % [report_data["attacker_name"], report_data["attacker_count"]]
+	report_text += "BATTLE\n"
+	report_text += "Losses: %d vs %d\n\n" % [report_data["defender_losses"], report_data["attacker_losses"]]
+	report_text += "OUTCOME\n"
+	report_text += "%s wins with %d fighters" % [report_data["winner_name"], report_data["remaining"]]
+
+	report_label.text = report_text
 
 	# Highlight the system this report is about
 	if combat_report_system:
@@ -686,26 +712,41 @@ func _process_turn_end() -> void:
 		system.fighter_count = result["remaining"]
 		system.update_visuals()
 
-		# Build combat report
+		# Build combat report data
 		if result["log"].size() > 0:
-			var report_text = "=== %s ===\n" % system.system_name
-			report_text += "Defender: %s (%d fighters)\n" % [_get_owner_name(old_owner), old_fighters]
-			for log_entry in result["log"]:
-				report_text += log_entry + "\n"
-			report_text += "Outcome: %s controls with %d fighters" % [_get_owner_name(result["winner"]), result["remaining"]]
+			# Calculate attacker info
+			var attacker_id = -1
+			var attacker_count = 0
+			for aid in merged.keys():
+				if aid != old_owner:
+					attacker_id = aid
+					attacker_count = merged[aid]
+					break
+
+			# Calculate losses
+			var defender_losses = old_fighters - (result["remaining"] if result["winner"] == old_owner else 0)
+			var attacker_losses = attacker_count - (result["remaining"] if result["winner"] == attacker_id else 0)
 
 			var report_data = {
-				"report": report_text,
-				"system_id": system_id
+				"system_name": system.system_name,
+				"system_id": system_id,
+				"defender_name": _get_owner_name(old_owner),
+				"defender_count": old_fighters,
+				"defender_losses": defender_losses,
+				"attacker_name": _get_owner_name(attacker_id),
+				"attacker_count": attacker_count,
+				"attacker_losses": attacker_losses,
+				"winner_name": _get_owner_name(result["winner"]),
+				"remaining": result["remaining"]
 			}
 
 			# Add report for all involved players (defender + attackers)
 			var involved_players: Array[int] = []
 			if old_owner >= 0:
 				involved_players.append(old_owner)
-			for attacker_id in merged.keys():
-				if attacker_id not in involved_players:
-					involved_players.append(attacker_id)
+			for involved_id in merged.keys():
+				if involved_id not in involved_players:
+					involved_players.append(involved_id)
 
 			for player_id in involved_players:
 				if not pending_combat_reports.has(player_id):

@@ -1,6 +1,17 @@
-[gd_scene load_steps=2 format=3 uid="uid://bw8k5e3qm2hxr"]
+[gd_scene load_steps=3 format=3 uid="uid://bw8k5e3qm2hxr"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dialog"]
+bg_color = Color(0.12, 0.12, 0.15, 0.95)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 10.0
+content_margin_top = 10.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main")
@@ -69,7 +80,8 @@ text = "No fleets in transit"
 
 [node name="SendPanel" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(300, 200)
+custom_minimum_size = Vector2(340, 240)
+theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/SendPanel"]
 anchors_preset = 15
@@ -83,7 +95,7 @@ theme_override_constants/separation = 15
 
 [node name="TitleLabel" type="Label" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 26
 text = "Send Fleet"
 horizontal_alignment = 1
 
@@ -95,6 +107,7 @@ value = 50.0
 
 [node name="CountLabel" type="Label" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 20
 text = "Send 50 fighters"
 horizontal_alignment = 1
 
@@ -105,15 +118,18 @@ theme_override_constants/separation = 10
 [node name="SendButton" type="Button" parent="HUD/SendPanel/VBox/SendButtonContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
 text = "Send"
 
 [node name="SendAllButton" type="Button" parent="HUD/SendPanel/VBox/SendButtonContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
 text = "Send All"
 
 [node name="CancelButton" type="Button" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 20
 text = "Cancel"
 
 [node name="SetupScreen" type="Panel" parent="HUD"]
@@ -173,37 +189,40 @@ text = "Start Game"
 
 [node name="CombatReportScreen" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(400, 300)
+custom_minimum_size = Vector2(500, 450)
+theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/CombatReportScreen"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
+offset_left = 25.0
 offset_top = 20.0
-offset_right = -20.0
+offset_right = -25.0
 offset_bottom = -20.0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 15
 
 [node name="TitleLabel" type="Label" parent="HUD/CombatReportScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Combat Report"
+theme_override_font_sizes/font_size = 32
+text = ""
 horizontal_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="HUD/CombatReportScreen/VBox"]
+[node name="ContentBox" type="VBoxContainer" parent="HUD/CombatReportScreen/VBox"]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 20
 
-[node name="ReportLabel" type="Label" parent="HUD/CombatReportScreen/VBox/ScrollContainer"]
+[node name="ReportLabel" type="Label" parent="HUD/CombatReportScreen/VBox/ContentBox"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_font_sizes/font_size = 22
 text = ""
-autowrap_mode = 2
 
-[node name="CloseReportButton" type="Button" parent="HUD/CombatReportScreen/VBox"]
+[node name="CloseReportButton" type="Button" parent="HUD/CombatReportScreen/VBox/ContentBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
+size_flags_horizontal = 4
+theme_override_font_sizes/font_size = 22
 text = "Close"
 
 [node name="GameOverScreen" type="Panel" parent="HUD"]
