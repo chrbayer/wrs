@@ -29,6 +29,7 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var player_label: Label = $HUD/TopBar/PlayerLabel
 @onready var star_count_label: Label = $HUD/TopBar/StarCountLabel
 @onready var ship_count_label: Label = $HUD/TopBar/ShipCountLabel
+@onready var production_label: Label = $HUD/TopBar/ProductionLabel
 @onready var end_turn_button: Button = $HUD/TopBar/EndTurnButton
 @onready var fleet_info_label: Label = $HUD/BottomBar/FleetInfoLabel
 @onready var system_info_label: Label = $HUD/BottomBar/SystemInfoLabel
@@ -242,11 +243,16 @@ func _update_ui() -> void:
 	player_label.text = players[current_player].player_name
 	player_label.add_theme_color_override("font_color", players[current_player].color)
 
-	# Update star and ship count
-	var total_stars = systems.filter(func(s): return s.owner_id == current_player).size()
+	# Update star, ship, and production count
+	var owned_systems = systems.filter(func(s): return s.owner_id == current_player)
+	var total_stars = owned_systems.size()
 	var total_ships = _get_player_total_ships(current_player)
+	var total_production = 0
+	for system in owned_systems:
+		total_production += system.production_rate
 	star_count_label.text = "Stars: %d" % total_stars
 	ship_count_label.text = "Ships: %d" % total_ships
+	production_label.text = "Production: +%d" % total_production
 
 	# Update fleet info
 	var my_fleets = fleets_in_transit.filter(func(f): return f.owner_id == current_player)

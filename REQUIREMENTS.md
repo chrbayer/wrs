@@ -93,6 +93,8 @@
 | UI-06 | An "End Turn" button shall advance the game                        | ✅ Done |
 | UI-07 | A "Play Again" option shall be available after game over           | ✅ Done |
 | UI-08 | A "Send All" button shall allow sending all fighters at once       | ✅ Done |
+| UI-09 | The current player's owned star count shall be visible             | ✅ Done |
+| UI-10 | The current player's total production rate shall be visible        | ✅ Done |
 
 ---
 

@@ -36,6 +36,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Ships: 0"
 
+[node name="ProductionLabel" type="Label" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Production: +0"
+
 [node name="EndTurnButton" type="Button" parent="HUD/TopBar"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
