@@ -15,11 +15,15 @@ signal system_hover_ended(system: StarSystem)
 
 var is_selected: bool = false
 var is_hovered: bool = false
-var base_radius: float = 30.0
 
 @onready var collision_shape: CollisionShape2D = $Area2D/CollisionShape2D
 @onready var label: Label = $Label
-@onready var production_label: Label = $ProductionLabel
+@onready var name_label: Label = $NameLabel
+
+
+func _get_radius() -> float:
+	# Radius based on production rate (1-5) -> (20-40 px)
+	return 15.0 + (production_rate * 5.0)
 
 var sprite: Sprite2D = null
 
@@ -30,25 +34,26 @@ func _ready() -> void:
 
 	update_visuals()
 
-	# Setup collision shape
+	# Setup collision shape based on production rate
 	var shape = CircleShape2D.new()
-	shape.radius = base_radius + 10
+	shape.radius = _get_radius() + 10
 	collision_shape.shape = shape
 
 
 func _create_sprite_visual() -> void:
 	# Create a circle texture programmatically
-	var img = Image.create(int(base_radius * 2 + 4), int(base_radius * 2 + 4), false, Image.FORMAT_RGBA8)
-	var center = Vector2(base_radius + 2, base_radius + 2)
+	var radius = _get_radius()
+	var img = Image.create(int(radius * 2 + 4), int(radius * 2 + 4), false, Image.FORMAT_RGBA8)
+	var center = Vector2(radius + 2, radius + 2)
 	var color = _get_owner_color()
 
 	# Fill with circle
 	for x in range(img.get_width()):
 		for y in range(img.get_height()):
 			var dist = Vector2(x, y).distance_to(center)
-			if dist <= base_radius:
+			if dist <= radius:
 				img.set_pixel(x, y, color)
-			elif dist <= base_radius + 2:
+			elif dist <= radius + 2:
 				img.set_pixel(x, y, color.lightened(0.3))
 			else:
 				img.set_pixel(x, y, Color(0, 0, 0, 0))
@@ -73,17 +78,18 @@ func update_visuals() -> void:
 func _update_circle_visuals() -> void:
 	if sprite:
 		# Regenerate texture with new color
-		var img = Image.create(int(base_radius * 2 + 4), int(base_radius * 2 + 4), false, Image.FORMAT_RGBA8)
-		var center = Vector2(base_radius + 2, base_radius + 2)
+		var radius = _get_radius()
+		var img = Image.create(int(radius * 2 + 4), int(radius * 2 + 4), false, Image.FORMAT_RGBA8)
+		var center = Vector2(radius + 2, radius + 2)
 		var color = _get_owner_color()
 		var outline_color = Color.WHITE if is_selected else color.lightened(0.3)
 
 		for x in range(img.get_width()):
 			for y in range(img.get_height()):
 				var dist = Vector2(x, y).distance_to(center)
-				if dist <= base_radius:
+				if dist <= radius:
 					img.set_pixel(x, y, color)
-				elif dist <= base_radius + 2:
+				elif dist <= radius + 2:
 					img.set_pixel(x, y, outline_color)
 				else:
 					img.set_pixel(x, y, Color(0, 0, 0, 0))
@@ -92,13 +98,17 @@ func _update_circle_visuals() -> void:
 
 
 func _update_labels() -> void:
+	var radius = _get_radius()
 	if label:
 		label.text = str(fighter_count)
 		label.add_theme_color_override("font_color", Color.WHITE)
-
-	if production_label:
-		production_label.text = "+%d" % production_rate
-		production_label.add_theme_color_override("font_color", Color(0.56, 0.93, 0.56))
+		# Position label above the star based on radius
+		label.position = Vector2(-40, -radius - 30)
+	if name_label:
+		name_label.text = system_name
+		name_label.add_theme_color_override("font_color", Color.WHITE)
+		# Position name label below the star based on radius
+		name_label.position = Vector2(-60, radius + 5)
 
 
 ## Hide the entire star system (fog of war - not in visibility range)

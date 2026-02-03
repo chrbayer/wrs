@@ -30,6 +30,8 @@
 | S-06 | Each star system shall display its fighter count to its owner                    | ✅ Done |
 | S-07 | Star systems shall display "?" for fighter counts to non-owners (fog of war)     | ✅ Done |
 | S-08 | Star systems shall only be visible if within range of an owned system            | ✅ Done |
+| S-09 | Star system size shall indicate its production rate (larger = higher production) | ✅ Done |
+| S-10 | Each star system shall display its name below the star                           | ✅ Done |
 
 ---
 
@@ -43,6 +45,7 @@
 | F-04 | Fleets in transit shall not be visible to any player                     | ✅ Done |
 | F-05 | Fleets in transit cannot be redirected until they arrive                 | ✅ Done |
 | F-06 | Arriving fleets shall reinforce friendly systems or attack enemy/neutral | ✅ Done |
+| F-07 | Fleets shall require a minimum of 1 turn travel time                 | ✅ Done |
 
 ---
 
@@ -56,6 +59,8 @@
 | C-04 | Surviving fighters shall remain at the system after combat                   | ✅ Done |
 | C-05 | Combat reports shall be shown to involved players                            | ✅ Done |
 | C-06 | When multiple fleets arrive simultaneously, they attack in order of size (largest first) | ✅ Done |
+| C-07 | Reinforcements shall be processed before any combat occurs                   | ✅ Done |
+| C-08 | If both sides are eliminated in combat, the system shall become neutral      | ✅ Done |
 
 ---
 
@@ -95,6 +100,9 @@
 | UI-08 | A "Send All" button shall allow sending all fighters at once       | ✅ Done |
 | UI-09 | The current player's owned star count shall be visible             | ✅ Done |
 | UI-10 | The current player's total production rate shall be visible        | ✅ Done |
+| UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
+| UI-12 | A setup screen shall allow player count selection before game start | ✅ Done |
+| UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
 
 ---
 
