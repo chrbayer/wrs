@@ -3,3 +3,9 @@
 
 # Claude Code
 .claude/
+
+# Obsidian
+.obsidian/
+
+# VS Code
+*.code-workspace

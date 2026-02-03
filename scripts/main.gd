@@ -34,7 +34,8 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var send_panel: Panel = $HUD/SendPanel
 @onready var send_slider: HSlider = $HUD/SendPanel/VBox/SendSlider
 @onready var send_count_label: Label = $HUD/SendPanel/VBox/CountLabel
-@onready var send_button: Button = $HUD/SendPanel/VBox/SendButton
+@onready var send_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendButton
+@onready var send_all_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendAllButton
 @onready var cancel_button: Button = $HUD/SendPanel/VBox/CancelButton
 
 # Player transition screen (in separate CanvasLayer to avoid rendering issues)
@@ -73,6 +74,7 @@ func _ready() -> void:
 func _setup_ui_connections() -> void:
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	send_button.pressed.connect(_on_send_confirmed)
+	send_all_button.pressed.connect(_on_send_all_confirmed)
 	cancel_button.pressed.connect(_on_send_cancelled)
 	send_slider.value_changed.connect(_on_send_slider_changed)
 	continue_button.pressed.connect(_on_continue_pressed)
@@ -307,6 +309,11 @@ func _on_send_slider_changed(value: float) -> void:
 	var distance = send_source_system.get_distance_to(send_target_system)
 	var travel_time = ceili(distance / Fleet.TRAVEL_SPEED)
 	send_count_label.text = "Send %d fighters (arrives in %d turns)" % [count, max(1, travel_time)]
+
+
+func _on_send_all_confirmed() -> void:
+	send_slider.value = send_slider.max_value
+	_on_send_confirmed()
 
 
 func _on_send_confirmed() -> void:

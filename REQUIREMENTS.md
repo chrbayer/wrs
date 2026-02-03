@@ -88,6 +88,7 @@
 | UI-05 | The current player's total ship count shall be visible             | ✅ Done |
 | UI-06 | An "End Turn" button shall advance the game                        | ✅ Done |
 | UI-07 | A "Play Again" option shall be available after game over           | ✅ Done |
+| UI-08 | A "Send All" button shall allow sending all fighters at once       | ✅ Done |
 
 ---
 
@@ -110,3 +111,5 @@
 - **These requirements take precedence over the original specification.**
 - Implementation language: GDScript (Godot 4.6)
 - All core requirements from the original specification are complete.
+- ~~Strikethrough requirements~~ are no longer valid (applies only to completed requirements).
+- If a completed requirement needs to be changed, the old requirement shall be struck through and a new requirement shall be created.
