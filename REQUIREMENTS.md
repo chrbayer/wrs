@@ -14,6 +14,7 @@
 | U-03 | The universe shall fill a rectangular area                         | ✅ Done |
 | U-04 | The number of star systems shall scale with the number of players  | ✅ Done |
 | U-05 | Star systems shall maintain a minimum distance from the map edges  | ✅ Done |
+| U-06 | Each star system shall have at least one neighbor within visibility range | ✅ Done |
 
 ---
 
@@ -28,6 +29,7 @@
 | S-05 | Conquered star systems shall produce fighters each turn based on production rate | ✅ Done |
 | S-06 | Each star system shall display its fighter count to its owner                    | ✅ Done |
 | S-07 | Star systems shall display "?" for fighter counts to non-owners (fog of war)     | ✅ Done |
+| S-08 | Star systems shall only be visible if within range of an owned system            | ✅ Done |
 
 ---
 
@@ -112,6 +114,7 @@
 | Parameter | Value | Description |
 |-----------|-------|-------------|
 | MIN_SYSTEM_DISTANCE | 120 px | Minimum distance between star systems |
+| MAX_SYSTEM_DISTANCE | 250 px | Maximum distance for visibility and connectivity |
 | PLAYER_START_MIN_DISTANCE | 400 px | Minimum distance between player starting systems |
 | MAP_EDGE_MARGIN | 100 px | Minimum distance from map edges |
 | SYSTEM_COUNT | 15 + (players × 5) | Number of star systems based on player count |

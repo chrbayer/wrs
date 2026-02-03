@@ -4,6 +4,7 @@ extends RefCounted
 ## Generates a universe with star systems
 
 const MIN_SYSTEM_DISTANCE: float = 120.0
+const MAX_SYSTEM_DISTANCE: float = 250.0  # Max distance for visibility/connectivity
 const PLAYER_START_MIN_DISTANCE: float = 400.0
 const MAX_PLACEMENT_ATTEMPTS: int = 100
 
@@ -44,12 +45,17 @@ static func _find_valid_position(existing: Array[Vector2], bounds: Rect2) -> Vec
 		)
 
 		var valid = true
+		var has_neighbor = existing.is_empty()  # First star doesn't need neighbor
+
 		for existing_pos in existing:
-			if pos.distance_to(existing_pos) < MIN_SYSTEM_DISTANCE:
+			var dist = pos.distance_to(existing_pos)
+			if dist < MIN_SYSTEM_DISTANCE:
 				valid = false
 				break
+			if dist <= MAX_SYSTEM_DISTANCE:
+				has_neighbor = true
 
-		if valid:
+		if valid and has_neighbor:
 			return pos
 
 	return Vector2.INF  # Failed to find position

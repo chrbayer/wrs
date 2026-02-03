@@ -101,7 +101,17 @@ func _update_labels() -> void:
 		production_label.add_theme_color_override("font_color", Color(0.56, 0.93, 0.56))
 
 
-## Show hidden info for fog of war
+## Hide the entire star system (fog of war - not in visibility range)
+func hide_system() -> void:
+	visible = false
+
+
+## Show the star system
+func show_system() -> void:
+	visible = true
+
+
+## Show hidden info for fog of war (visible but not owned)
 func show_hidden_info() -> void:
 	if label:
 		label.text = "?"

@@ -182,13 +182,35 @@ func _generate_universe() -> void:
 
 
 func _update_fog_of_war() -> void:
+	# First, determine which systems are visible to current player
+	var owned_systems: Array[StarSystem] = []
+	for system in systems:
+		if system.owner_id == current_player:
+			owned_systems.append(system)
+
 	# Update visibility based on current player
 	for system in systems:
-		system.update_visuals()
+		var system_visible = false
+
+		# Check if system is owned by current player
 		if system.owner_id == current_player:
-			system.show_fighter_count()
+			system_visible = true
 		else:
-			system.show_hidden_info()
+			# Check if any owned system is within visibility range
+			for owned in owned_systems:
+				if system.global_position.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+					system_visible = true
+					break
+
+		if system_visible:
+			system.show_system()
+			system.update_visuals()
+			if system.owner_id == current_player:
+				system.show_fighter_count()
+			else:
+				system.show_hidden_info()
+		else:
+			system.hide_system()
 
 
 func _show_player_transition() -> void:
