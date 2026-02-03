@@ -186,3 +186,106 @@ Option C: Nur Bomber (langsam, spezialisiert)
 - Alle 8 Features greifen sinnvoll ineinander
 
 **Das Paket ist vollständig und bereit zur Implementierung.**
+
+---
+
+## Nachtrag: Batterie-Decay und Bauzeit
+
+> Datum: 2026-02-03 (nach Implementierung)
+
+### Neue Mechaniken
+
+| Mechanik | Beschreibung |
+|----------|--------------|
+| Batterie-Decay | -1 Batterie/Runde wenn nicht BUILD oder MAINTAIN |
+| Bauzeit | 2 Runden pro Batterie (statt 1) |
+
+### Auswirkungen auf das Spiel
+
+```
+Vorher:                          Nachher:
+┌─────────────┐                  ┌─────────────┐
+│ BUILD: +1   │                  │ BUILD: +0.5 │
+│ pro Runde   │                  │ pro Runde   │
+└─────────────┘                  └─────────────┘
+       │                                │
+       ▼                                ▼
+┌─────────────┐                  ┌─────────────┐
+│ MAINTAIN:   │                  │ MAINTAIN:   │
+│ Stabil      │                  │ Stabil      │
+└─────────────┘                  └─────────────┘
+       │                                │
+       ▼                                ▼
+┌─────────────┐                  ┌─────────────┐
+│ ANDERE:     │                  │ ANDERE:     │
+│ Stabil      │  ───────────►    │ -1/Runde    │
+└─────────────┘                  └─────────────┘
+```
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Opportunitätskosten | ★★★★★ | Batterien sind jetzt echte Investition, nicht "Fire-and-Forget" |
+| Turtle-Nerf | ★★★★☆ | Defensive Spieler können nicht mehr "Max Batterien + Schiffe" |
+| Commitment | ★★★★★ | Entscheidung für Batterien = Entscheidung gegen Mobilität |
+| Timing-Fenster | ★★★★★ | Angreifer kann warten bis Batterien verfallen |
+| Counter-Play | ★★★★★ | Belagerer kann Verteidiger zur Wartung zwingen |
+
+### Neue Taktiken
+
+```
+Batterie-Bluff:
+├── Spieler baut 3 Batterien
+├── Wechselt zu Fighter-Produktion
+├── Gegner wartet auf Decay (3 Runden)
+└── Spieler nutzt die Zeit für Angriffsflotte
+
+Batterie-Belagerung:
+├── Angreifer positioniert Flotte in Reichweite
+├── Verteidiger muss MAINTAIN wählen (keine neuen Schiffe)
+├── Angreifer produziert weiter
+└── Übermacht aufbauen, dann angreifen
+
+Timing-Angriff:
+├── Scout beobachtet Batterien (Präsenz sichtbar)
+├── Warte auf Modus-Wechsel (kein MAINTAIN)
+├── Angriff nach 2-3 Runden (Batterien geschwächt)
+└── Weniger Batterie-Schaden beim Angriff
+```
+
+### Tempo-Update
+
+| Strategie | Änderung | Neue Bewertung |
+|-----------|----------|----------------|
+| Batterie-Turtle | Geschwächt | ★★★☆☆ → ★★☆☆☆ (früh), ★★★☆☆ (spät) |
+| Fighter-Rush | Gestärkt | Kann Batterie-Decay abwarten |
+| Bomber-Angriff | Unverändert | Batterien immer noch relevant |
+
+### Bewertung der Änderung
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Balance-Verbesserung | ★★★★★ | Turtle-Strategie war zu stark |
+| Strategische Tiefe | ★★★★★ | Timing-Entscheidungen wichtiger |
+| Komplexität | ★★★★☆ | Eine zusätzliche Regel, aber intuitiv |
+| Fairness | ★★★★★ | Batterien haben jetzt echte Kosten |
+| Emergenz | ★★★★★ | Neue Taktiken entstehen natürlich |
+
+### Fazit
+
+**Bewertung: +0.3 zur Gesamtbewertung → 9.8/10**
+
+Die Änderung löst ein potenzielles Balance-Problem:
+
+**Problem (vorher):**
+- Batterien einmal bauen → permanent stark
+- Defensiv-Spieler konnte Batterien + Schiffe gleichzeitig haben
+- Kein Zeitdruck für Angreifer
+
+**Lösung (nachher):**
+- Batterien erfordern kontinuierliche Aufmerksamkeit
+- Trade-off: Verteidigung vs. Produktion
+- Angreifer kann Timing ausnutzen
+
+**Diese Änderung macht das Spiel dynamischer und belohnt aktives Spielen.**
