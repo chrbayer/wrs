@@ -1,0 +1,31 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5xmv3yqk2rte"]
+
+[ext_resource type="Script" path="res://scripts/star_system.gd" id="1_star"]
+
+[node name="StarSystem" type="Node2D"]
+script = ExtResource("1_star")
+
+[node name="Area2D" type="Area2D" parent="."]
+input_pickable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+
+[node name="Label" type="Label" parent="."]
+offset_left = -30.0
+offset_top = -55.0
+offset_right = 30.0
+offset_bottom = -35.0
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ProductionLabel" type="Label" parent="."]
+offset_left = -20.0
+offset_top = 30.0
+offset_right = 20.0
+offset_bottom = 50.0
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[connection signal="input_event" from="Area2D" to="." method="_on_area_2d_input_event"]
+[connection signal="mouse_entered" from="Area2D" to="." method="_on_area_2d_mouse_entered"]
+[connection signal="mouse_exited" from="Area2D" to="." method="_on_area_2d_mouse_exited"]

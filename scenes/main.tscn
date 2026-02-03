@@ -1,0 +1,285 @@
+[gd_scene load_steps=2 format=3 uid="uid://bw8k5e3qm2hxr"]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_main")
+
+[node name="SystemsContainer" type="Node2D" parent="."]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TopBar" type="HBoxContainer" parent="HUD"]
+offset_left = 20.0
+offset_top = 10.0
+offset_right = 600.0
+offset_bottom = 50.0
+theme_override_constants/separation = 30
+
+[node name="TurnLabel" type="Label" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Turn: 1"
+
+[node name="PlayerLabel" type="Label" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Player 1"
+
+[node name="ShipCountLabel" type="Label" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Ships: 0"
+
+[node name="EndTurnButton" type="Button" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "End Turn"
+
+[node name="BottomBar" type="HBoxContainer" parent="HUD"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -60.0
+offset_right = -20.0
+offset_bottom = -10.0
+theme_override_constants/separation = 50
+
+[node name="SystemInfoLabel" type="Label" parent="HUD/BottomBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = ""
+
+[node name="FleetInfoLabel" type="Label" parent="HUD/BottomBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "No fleets in transit"
+
+[node name="SendPanel" type="Panel" parent="HUD"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -150.0
+offset_top = -100.0
+offset_right = 150.0
+offset_bottom = 100.0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/SendPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+theme_override_constants/separation = 15
+
+[node name="TitleLabel" type="Label" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Send Fleet"
+horizontal_alignment = 1
+
+[node name="SendSlider" type="HSlider" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+min_value = 1.0
+max_value = 100.0
+value = 50.0
+
+[node name="CountLabel" type="Label" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+text = "Send 50 fighters"
+horizontal_alignment = 1
+
+[node name="SendButton" type="Button" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+text = "Send"
+
+[node name="CancelButton" type="Button" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+text = "Cancel"
+
+[node name="SetupScreen" type="Panel" parent="HUD"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -280.0
+offset_top = -220.0
+offset_right = 280.0
+offset_bottom = 220.0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/SetupScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = -30.0
+theme_override_constants/separation = 20
+
+[node name="TitleLabel" type="Label" parent="HUD/SetupScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 42
+text = "Weltraumschlacht"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="HUD/SetupScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Space Battle"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="HUD/SetupScreen/VBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="PlayerCountLabel" type="Label" parent="HUD/SetupScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Number of Players:"
+
+[node name="PlayerCountOption" type="OptionButton" parent="HUD/SetupScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="Spacer2" type="Control" parent="HUD/SetupScreen/VBox"]
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+
+[node name="StartGameButton" type="Button" parent="HUD/SetupScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Start Game"
+
+[node name="CombatReportScreen" type="Panel" parent="HUD"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -250.0
+offset_top = -200.0
+offset_right = 250.0
+offset_bottom = 200.0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/CombatReportScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 20.0
+offset_right = -20.0
+offset_bottom = -20.0
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="HUD/CombatReportScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Combat Report"
+horizontal_alignment = 1
+
+[node name="ScrollContainer" type="ScrollContainer" parent="HUD/CombatReportScreen/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ReportLabel" type="Label" parent="HUD/CombatReportScreen/VBox/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = ""
+autowrap_mode = 2
+
+[node name="CloseReportButton" type="Button" parent="HUD/CombatReportScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Close"
+
+[node name="GameOverScreen" type="Panel" parent="HUD"]
+visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -100.0
+offset_right = 200.0
+offset_bottom = 100.0
+
+[node name="VBox" type="VBoxContainer" parent="HUD/GameOverScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = 30.0
+offset_right = -30.0
+offset_bottom = -30.0
+theme_override_constants/separation = 20
+
+[node name="GameOverLabel" type="Label" parent="HUD/GameOverScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Game Over"
+horizontal_alignment = 1
+
+[node name="WinnerLabel" type="Label" parent="HUD/GameOverScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "Player 1 Wins!"
+horizontal_alignment = 1
+
+[node name="RestartButton" type="Button" parent="HUD/GameOverScreen/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Play Again"
+
+[node name="TransitionLayer" type="CanvasLayer" parent="."]
+layer = 10
+
+[node name="TransitionScreen" type="Control" parent="TransitionLayer"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Background" type="ColorRect" parent="TransitionLayer/TransitionScreen"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0.95)
+
+[node name="TransitionLabel" type="Label" parent="TransitionLayer/TransitionScreen"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -400.0
+offset_top = -280.0
+offset_right = 400.0
+offset_bottom = 0.0
+theme_override_font_sizes/font_size = 48
+text = "Player 1's Turn"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ContinueButton" type="Button" parent="TransitionLayer/TransitionScreen"]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -120.0
+offset_top = 120.0
+offset_right = 120.0
+offset_bottom = 180.0
+theme_override_font_sizes/font_size = 24
+text = "Continue"
