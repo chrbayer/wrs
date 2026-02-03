@@ -26,6 +26,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Player 1"
 
+[node name="StarCountLabel" type="Label" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Stars: 0"
+
 [node name="ShipCountLabel" type="Label" parent="HUD/TopBar"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24

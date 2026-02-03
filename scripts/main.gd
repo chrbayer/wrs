@@ -27,6 +27,7 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var systems_container: Node2D = $SystemsContainer
 @onready var turn_label: Label = $HUD/TopBar/TurnLabel
 @onready var player_label: Label = $HUD/TopBar/PlayerLabel
+@onready var star_count_label: Label = $HUD/TopBar/StarCountLabel
 @onready var ship_count_label: Label = $HUD/TopBar/ShipCountLabel
 @onready var end_turn_button: Button = $HUD/TopBar/EndTurnButton
 @onready var fleet_info_label: Label = $HUD/BottomBar/FleetInfoLabel
@@ -219,8 +220,10 @@ func _update_ui() -> void:
 	player_label.text = players[current_player].player_name
 	player_label.add_theme_color_override("font_color", players[current_player].color)
 
-	# Update total ship count
+	# Update star and ship count
+	var total_stars = systems.filter(func(s): return s.owner_id == current_player).size()
 	var total_ships = _get_player_total_ships(current_player)
+	star_count_label.text = "Stars: %d" % total_stars
 	ship_count_label.text = "Ships: %d" % total_ships
 
 	# Update fleet info

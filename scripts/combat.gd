@@ -102,7 +102,6 @@ static func resolve_system_combat(system_owner: int, system_fighters: int,
 	# If system owner has arriving reinforcements, add them first
 	if arriving_fleets.has(system_owner):
 		result["remaining"] += arriving_fleets[system_owner]
-		result["log"].append("Reinforcements arrived: +%d fighters" % arriving_fleets[system_owner])
 		arriving_fleets.erase(system_owner)
 
 	# Process each attacking force

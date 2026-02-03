@@ -13,6 +13,7 @@
 | U-02 | Star systems shall maintain a minimum distance from each other     | ✅ Done |
 | U-03 | The universe shall fill a rectangular area                         | ✅ Done |
 | U-04 | The number of star systems shall scale with the number of players  | ✅ Done |
+| U-05 | Star systems shall maintain a minimum distance from the map edges  | ✅ Done |
 
 ---
 
@@ -102,6 +103,25 @@
 | FUT-04 | Optional AI opponents for single-player mode             | ❌ Not implemented |
 | FUT-05 | Visual effects for fleet movement on the map             | ❌ Not implemented |
 | FUT-06 | Game settings (combat balance, universe size, etc.)      | ❌ Not implemented |
+
+---
+
+## Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| MIN_SYSTEM_DISTANCE | 120 px | Minimum distance between star systems |
+| PLAYER_START_MIN_DISTANCE | 400 px | Minimum distance between player starting systems |
+| MAP_EDGE_MARGIN | 100 px | Minimum distance from map edges |
+| SYSTEM_COUNT | 15 + (players × 5) | Number of star systems based on player count |
+| PRODUCTION_RATE | 1–5 | Random production rate per turn for neutral systems |
+| HOME_PRODUCTION_RATE | 3 | Production rate for player home systems |
+| INITIAL_FIGHTERS_NEUTRAL | 5–20 | Random starting fighters for neutral systems |
+| INITIAL_FIGHTERS_HOME | 30 | Starting fighters for player home systems |
+| TRAVEL_SPEED | 150 px/turn | Fleet movement speed |
+| DEFENDER_BONUS | 1.5× | Combat effectiveness multiplier for defenders |
+| HIT_CHANCE | 30% | Base chance to destroy one enemy fighter per round |
+| MAX_COMBAT_ROUNDS | 100 | Safety limit for combat resolution |
 
 ---
 
