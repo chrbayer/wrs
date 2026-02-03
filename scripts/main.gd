@@ -34,11 +34,21 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var fleet_info_label: Label = $HUD/BottomBar/FleetInfoLabel
 @onready var system_info_label: Label = $HUD/BottomBar/SystemInfoLabel
 @onready var send_panel: Panel = $HUD/SendPanel
-@onready var send_slider: HSlider = $HUD/SendPanel/VBox/SendSlider
+@onready var fighter_slider: HSlider = $HUD/SendPanel/VBox/FighterSlider
+@onready var bomber_slider: HSlider = $HUD/SendPanel/VBox/BomberSlider
 @onready var send_count_label: Label = $HUD/SendPanel/VBox/CountLabel
 @onready var send_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendButton
 @onready var send_all_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendAllButton
 @onready var cancel_button: Button = $HUD/SendPanel/VBox/CancelButton
+
+# Production action panel
+@onready var action_panel: Panel = $HUD/ActionPanel
+@onready var produce_fighters_btn: Button = $HUD/ActionPanel/VBox/ProduceFightersBtn
+@onready var produce_bombers_btn: Button = $HUD/ActionPanel/VBox/ProduceBombersBtn
+@onready var upgrade_btn: Button = $HUD/ActionPanel/VBox/UpgradeBtn
+@onready var build_battery_btn: Button = $HUD/ActionPanel/VBox/BuildBatteryBtn
+@onready var maintain_battery_btn: Button = $HUD/ActionPanel/VBox/MaintainBatteryBtn
+@onready var action_close_btn: Button = $HUD/ActionPanel/VBox/CloseBtn
 
 # Player transition screen (in separate CanvasLayer to avoid rendering issues)
 @onready var transition_screen: Control = $TransitionLayer/TransitionScreen
@@ -94,9 +104,11 @@ func _draw() -> void:
 		var start_pos = send_source_system.global_position
 		var end_pos = send_target_system.global_position
 
-		# Calculate travel time for color
+		# Calculate travel time for color based on current slider values
 		var distance = send_source_system.get_distance_to(send_target_system)
-		var travel_turns = max(1, ceili(distance / Fleet.TRAVEL_SPEED))
+		var fighters = int(fighter_slider.value) if fighter_slider else 0
+		var bombers = int(bomber_slider.value) if bomber_slider else 0
+		var travel_turns = Fleet.calculate_travel_time(distance, fighters, bombers)
 
 		# Determine arrow color based on travel time
 		# 1=cyan, 2=green, 3=yellow, 4=orange, 5+=red
@@ -130,11 +142,20 @@ func _setup_ui_connections() -> void:
 	send_button.pressed.connect(_on_send_confirmed)
 	send_all_button.pressed.connect(_on_send_all_confirmed)
 	cancel_button.pressed.connect(_on_send_cancelled)
-	send_slider.value_changed.connect(_on_send_slider_changed)
+	fighter_slider.value_changed.connect(_on_fighter_slider_changed)
+	bomber_slider.value_changed.connect(_on_bomber_slider_changed)
 	continue_button.pressed.connect(_on_continue_pressed)
 	start_game_button.pressed.connect(_on_start_game_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	close_report_button.pressed.connect(_on_close_report_pressed)
+
+	# Action panel connections
+	produce_fighters_btn.pressed.connect(_on_produce_fighters_pressed)
+	produce_bombers_btn.pressed.connect(_on_produce_bombers_pressed)
+	upgrade_btn.pressed.connect(_on_upgrade_pressed)
+	build_battery_btn.pressed.connect(_on_build_battery_pressed)
+	maintain_battery_btn.pressed.connect(_on_maintain_battery_pressed)
+	action_close_btn.pressed.connect(_on_action_close_pressed)
 
 
 func _show_setup_screen() -> void:
@@ -143,6 +164,7 @@ func _show_setup_screen() -> void:
 	game_over_screen.visible = false
 	combat_report_screen.visible = false
 	send_panel.visible = false
+	action_panel.visible = false
 	# Hide game UI during setup
 	$HUD/TopBar.visible = false
 	$HUD/BottomBar.visible = false
@@ -278,6 +300,7 @@ func _show_player_transition() -> void:
 		selected_system.set_selected(false)
 		selected_system = null
 	send_panel.visible = false
+	action_panel.visible = false
 
 
 func _on_continue_pressed() -> void:
@@ -310,7 +333,15 @@ func _update_ui() -> void:
 	# Update fleet info
 	var my_fleets = fleets_in_transit.filter(func(f): return f.owner_id == current_player)
 	if my_fleets.size() > 0:
-		var fleet_text = "Fleets in transit: %d" % my_fleets.size()
+		var total_fighters = 0
+		var total_bombers = 0
+		for fleet in my_fleets:
+			total_fighters += fleet.fighter_count
+			total_bombers += fleet.bomber_count
+		var fleet_text = "Fleets: %d (%d fighters" % [my_fleets.size(), total_fighters]
+		if total_bombers > 0:
+			fleet_text += ", %d bombers" % total_bombers
+		fleet_text += ")"
 		fleet_info_label.text = fleet_text
 	else:
 		fleet_info_label.text = "No fleets in transit"
@@ -323,11 +354,11 @@ func _get_player_total_ships(player_id: int) -> int:
 	# Ships in owned systems
 	for system in systems:
 		if system.owner_id == player_id:
-			total += system.fighter_count
+			total += system.fighter_count + system.bomber_count
 	# Ships in transit
 	for fleet in fleets_in_transit:
 		if fleet.owner_id == player_id:
-			total += fleet.fighter_count
+			total += fleet.fighter_count + fleet.bomber_count
 	return total
 
 
@@ -337,7 +368,7 @@ func _on_system_clicked(system: StarSystem) -> void:
 
 	# If we have a source selected and click a different system, that's the target
 	if selected_system and selected_system != system:
-		if selected_system.owner_id == current_player and selected_system.fighter_count > 0:
+		if selected_system.owner_id == current_player and selected_system.get_total_ships() > 0:
 			_start_send_fleet(selected_system, system)
 		return
 
@@ -346,6 +377,7 @@ func _on_system_clicked(system: StarSystem) -> void:
 		system.set_selected(false)
 		selected_system = null
 		send_panel.visible = false
+		action_panel.visible = false
 		show_fleet_arrow = false
 		queue_redraw()
 	else:
@@ -356,11 +388,105 @@ func _on_system_clicked(system: StarSystem) -> void:
 
 		# Show system info
 		if system.owner_id == current_player:
-			system_info_label.text = "%s - Fighters: %d, Production: +%d/turn" % [
-				system.system_name, system.fighter_count, system.production_rate
-			]
+			_show_owned_system_info(system)
+			_show_action_panel(system)
 		else:
 			system_info_label.text = "%s - Enemy/Neutral Territory" % system.system_name
+			action_panel.visible = false
+
+
+func _show_owned_system_info(system: StarSystem) -> void:
+	var info = "%s - F:%d B:%d (+%d/turn)" % [
+		system.system_name, system.fighter_count, system.bomber_count, system.production_rate
+	]
+	if system.battery_count > 0:
+		info += " [%d batteries]" % system.battery_count
+	info += "\n%s" % system.get_production_mode_string()
+	system_info_label.text = info
+
+
+func _show_action_panel(system: StarSystem) -> void:
+	# Update button states based on system state
+	produce_fighters_btn.disabled = (system.production_mode == StarSystem.ProductionMode.FIGHTERS)
+	produce_bombers_btn.disabled = (system.production_mode == StarSystem.ProductionMode.BOMBERS)
+	upgrade_btn.disabled = (system.production_rate >= ShipTypes.MAX_PRODUCTION_RATE or
+						   system.production_mode == StarSystem.ProductionMode.UPGRADE)
+	build_battery_btn.disabled = (system.battery_count >= ShipTypes.MAX_BATTERIES or
+								 system.production_mode == StarSystem.ProductionMode.BATTERY_BUILD)
+	maintain_battery_btn.disabled = (system.battery_count == 0 or
+									system.production_mode == StarSystem.ProductionMode.BATTERY_MAINTAIN)
+
+	# Update button text to show current state
+	upgrade_btn.text = "Upgrade Production (%d/%d)" % [system.production_rate, ShipTypes.MAX_PRODUCTION_RATE]
+	build_battery_btn.text = "Build Battery (%d/%d)" % [system.battery_count, ShipTypes.MAX_BATTERIES]
+
+	# Position action panel
+	_position_action_panel()
+	action_panel.visible = true
+
+
+func _position_action_panel() -> void:
+	if not selected_system:
+		return
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_size = action_panel.size
+	var margin = 20.0
+	var star_margin = 60.0
+
+	var system_pos = selected_system.global_position
+	var system_radius = selected_system._get_radius()
+
+	# Try to position to the right of the system
+	var panel_pos = Vector2(
+		system_pos.x + system_radius + star_margin,
+		system_pos.y - panel_size.y / 2.0
+	)
+
+	# Clamp to viewport
+	panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+	panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
+
+	action_panel.position = panel_pos
+
+
+func _on_produce_fighters_pressed() -> void:
+	if selected_system and selected_system.owner_id == current_player:
+		selected_system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
+
+
+func _on_produce_bombers_pressed() -> void:
+	if selected_system and selected_system.owner_id == current_player:
+		selected_system.set_production_mode(StarSystem.ProductionMode.BOMBERS)
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
+
+
+func _on_upgrade_pressed() -> void:
+	if selected_system and selected_system.owner_id == current_player:
+		selected_system.set_production_mode(StarSystem.ProductionMode.UPGRADE)
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
+
+
+func _on_build_battery_pressed() -> void:
+	if selected_system and selected_system.owner_id == current_player:
+		selected_system.set_production_mode(StarSystem.ProductionMode.BATTERY_BUILD)
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
+
+
+func _on_maintain_battery_pressed() -> void:
+	if selected_system and selected_system.owner_id == current_player:
+		selected_system.set_production_mode(StarSystem.ProductionMode.BATTERY_MAINTAIN)
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
+
+
+func _on_action_close_pressed() -> void:
+	action_panel.visible = false
 
 
 func _on_system_hover_started(system: StarSystem) -> void:
@@ -369,23 +495,34 @@ func _on_system_hover_started(system: StarSystem) -> void:
 
 	var info_text: String
 	if system.owner_id == current_player:
-		info_text = "%s - %d fighters (+%d/turn)" % [
-			system.system_name, system.fighter_count, system.production_rate
+		info_text = "%s - F:%d B:%d (+%d/turn)" % [
+			system.system_name, system.fighter_count, system.bomber_count, system.production_rate
 		]
+		if system.battery_count > 0:
+			info_text += " [%d bat]" % system.battery_count
 	elif system.owner_id < 0:
 		info_text = "%s - Neutral (+%d/turn)" % [
 			system.system_name, system.production_rate
 		]
+		if system.battery_count > 0:
+			info_text += " [batteries]"
 	else:
 		info_text = "%s - %s (+%d/turn)" % [
 			system.system_name, players[system.owner_id].player_name, system.production_rate
 		]
+		if system.battery_count > 0:
+			info_text += " [batteries]"
 
 	# Show travel time if another system is selected
 	if selected_system and selected_system != system:
 		var distance = selected_system.get_distance_to(system)
-		var travel_turns = max(1, ceili(distance / Fleet.TRAVEL_SPEED))
-		info_text += " [%d turns]" % travel_turns
+		# Show both fighter-only and mixed fleet travel times
+		var fighter_time = Fleet.calculate_travel_time(distance, 1, 0)
+		var bomber_time = Fleet.calculate_travel_time(distance, 1, 1)
+		if fighter_time != bomber_time:
+			info_text += " [F:%d B:%d turns]" % [fighter_time, bomber_time]
+		else:
+			info_text += " [%d turns]" % fighter_time
 
 	system_info_label.text = info_text
 
@@ -394,9 +531,7 @@ func _on_system_hover_ended(_system: StarSystem) -> void:
 	if combat_report_screen.visible:
 		return
 	if selected_system and selected_system.owner_id == current_player:
-		system_info_label.text = "%s - Fighters: %d" % [
-			selected_system.system_name, selected_system.fighter_count
-		]
+		_show_owned_system_info(selected_system)
 	else:
 		system_info_label.text = ""
 
@@ -405,16 +540,29 @@ func _start_send_fleet(source: StarSystem, target: StarSystem) -> void:
 	send_source_system = source
 	send_target_system = target
 
-	send_slider.max_value = source.fighter_count
-	send_slider.value = ceili(source.fighter_count / 2.0)
+	# Setup fighter slider
+	fighter_slider.max_value = source.fighter_count
+	fighter_slider.value = ceili(source.fighter_count / 2.0)
+
+	# Setup bomber slider
+	bomber_slider.max_value = source.bomber_count
+	bomber_slider.value = ceili(source.bomber_count / 2.0) if source.bomber_count > 0 else 0
+	bomber_slider.visible = source.bomber_count > 0
+
+	# Find and update bomber label visibility
+	var bomber_label = $HUD/SendPanel/VBox/BomberLabel
+	if bomber_label:
+		bomber_label.visible = source.bomber_count > 0
+
 	send_panel.visible = true
+	action_panel.visible = false
 	show_fleet_arrow = true
 	queue_redraw()
 
 	# Position panel to not obscure stars or arrow
 	_position_send_panel()
 
-	_on_send_slider_changed(send_slider.value)
+	_update_send_count_label()
 
 
 func _position_send_panel() -> void:
@@ -482,21 +630,40 @@ func _position_send_panel() -> void:
 	send_panel.position = best_pos
 
 
-func _on_send_slider_changed(value: float) -> void:
-	var count = int(value)
+func _on_fighter_slider_changed(_value: float) -> void:
+	_update_send_count_label()
+	queue_redraw()  # Update arrow color based on fleet composition
+
+
+func _on_bomber_slider_changed(_value: float) -> void:
+	_update_send_count_label()
+	queue_redraw()  # Update arrow color based on fleet composition
+
+
+func _update_send_count_label() -> void:
+	var fighters = int(fighter_slider.value)
+	var bombers = int(bomber_slider.value) if bomber_slider.visible else 0
 	var distance = send_source_system.get_distance_to(send_target_system)
-	var travel_time = ceili(distance / Fleet.TRAVEL_SPEED)
-	send_count_label.text = "Send %d fighters (arrives in %d turns)" % [count, max(1, travel_time)]
+	var travel_time = Fleet.calculate_travel_time(distance, fighters, bombers)
+
+	var text = "Send %d fighters" % fighters
+	if bombers > 0:
+		text += ", %d bombers" % bombers
+	text += " (arrives in %d turns)" % max(1, travel_time)
+	send_count_label.text = text
 
 
 func _on_send_all_confirmed() -> void:
-	send_slider.value = send_slider.max_value
+	fighter_slider.value = fighter_slider.max_value
+	bomber_slider.value = bomber_slider.max_value
 	_on_send_confirmed()
 
 
 func _on_send_confirmed() -> void:
-	var count = int(send_slider.value)
-	if count <= 0:
+	var fighters = int(fighter_slider.value)
+	var bombers = int(bomber_slider.value) if bomber_slider.visible else 0
+
+	if fighters <= 0 and bombers <= 0:
 		send_panel.visible = false
 		show_fleet_arrow = false
 		queue_redraw()
@@ -506,15 +673,17 @@ func _on_send_confirmed() -> void:
 	var distance = send_source_system.get_distance_to(send_target_system)
 	var fleet = Fleet.new(
 		current_player,
-		count,
+		fighters,
 		send_source_system.system_id,
 		send_target_system.system_id,
 		current_turn,
-		distance
+		distance,
+		bombers
 	)
 
-	# Remove fighters from source
-	send_source_system.remove_fighters(count)
+	# Remove ships from source
+	send_source_system.remove_fighters(fighters)
+	send_source_system.remove_bombers(bombers)
 	fleets_in_transit.append(fleet)
 
 	# Update UI
@@ -523,15 +692,15 @@ func _on_send_confirmed() -> void:
 	queue_redraw()
 	_update_ui()
 
-	# Deselect system if all fighters were sent
-	if selected_system and selected_system.fighter_count == 0:
+	# Deselect system if all ships were sent
+	if selected_system and selected_system.get_total_ships() == 0:
 		selected_system.set_selected(false)
 		selected_system = null
+		action_panel.visible = false
 		system_info_label.text = ""
 	elif selected_system:
-		system_info_label.text = "%s - Fighters: %d" % [
-			selected_system.system_name, selected_system.fighter_count
-		]
+		_show_owned_system_info(selected_system)
+		_show_action_panel(selected_system)
 
 
 func _on_send_cancelled() -> void:
@@ -548,6 +717,7 @@ func _on_end_turn_pressed() -> void:
 		selected_system.set_selected(false)
 		selected_system = null
 	send_panel.visible = false
+	action_panel.visible = false
 
 	# Move to next player
 	current_player += 1
@@ -581,13 +751,46 @@ func _show_combat_report() -> void:
 	# Build structured report text
 	var report_text = ""
 	report_text += "DEFENDER\n"
-	report_text += "%s  •  %d fighters\n\n" % [report_data["defender_name"], report_data["defender_count"]]
+	report_text += "%s  •  %d F / %d B\n\n" % [
+		report_data["defender_name"],
+		report_data["defender_fighters"],
+		report_data["defender_bombers"]
+	]
 	report_text += "ATTACKER\n"
-	report_text += "%s  •  %d fighters\n\n" % [report_data["attacker_name"], report_data["attacker_count"]]
+	report_text += "%s  •  %d F / %d B\n\n" % [
+		report_data["attacker_name"],
+		report_data["attacker_fighters"],
+		report_data["attacker_bombers"]
+	]
+
+	if report_data["battery_kills"] > 0:
+		report_text += "BATTERIES\n"
+		report_text += "Destroyed %d attackers\n\n" % report_data["battery_kills"]
+
 	report_text += "BATTLE\n"
-	report_text += "Losses: %d vs %d\n\n" % [report_data["defender_losses"], report_data["attacker_losses"]]
+	report_text += "Attacker losses: %d F / %d B\n" % [
+		report_data["attacker_fighter_losses"],
+		report_data["attacker_bomber_losses"]
+	]
+	report_text += "Defender losses: %d F / %d B\n\n" % [
+		report_data["defender_fighter_losses"],
+		report_data["defender_bomber_losses"]
+	]
+
+	if report_data["production_damage"] > 0:
+		report_text += "BOMBER DAMAGE\n"
+		report_text += "Production reduced by %d\n\n" % report_data["production_damage"]
+
+	if report_data["conquest_occurred"]:
+		report_text += "CONQUEST\n"
+		report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
+
 	report_text += "OUTCOME\n"
-	report_text += "%s wins with %d fighters" % [report_data["winner_name"], report_data["remaining"]]
+	report_text += "%s wins with %d F / %d B" % [
+		report_data["winner_name"],
+		report_data["remaining_fighters"],
+		report_data["remaining_bombers"]
+	]
 
 	report_label.text = report_text
 
@@ -679,7 +882,7 @@ func _process_turn_end() -> void:
 	# 1. Production in owned systems
 	for system in systems:
 		if system.owner_id >= 0:
-			system.produce_fighters()
+			system.process_production()
 
 	# 2. Process arriving fleets
 	var arriving_fleets: Dictionary = {}  # system_id -> Array[Fleet]
@@ -702,42 +905,58 @@ func _process_turn_end() -> void:
 		var fleets_here = arriving_fleets[system_id]
 		var old_owner = system.owner_id
 		var old_fighters = system.fighter_count
+		var old_bombers = system.bomber_count
 
 		var merged = Combat.merge_fleets_by_owner(fleets_here)
-		var result = Combat.resolve_system_combat(
-			system.owner_id, system.fighter_count, merged
-		)
+		var result = Combat.resolve_system_combat(system, merged)
 
+		# Apply results to system
 		system.owner_id = result["winner"]
-		system.fighter_count = result["remaining"]
+		system.fighter_count = result["remaining_fighters"]
+		system.bomber_count = result["remaining_bombers"]
+
+		# Apply conquest penalty (FUT-08)
+		if result["conquest_occurred"] and result["winner"] >= 0:
+			system.apply_conquest_penalty()
+
+		# Apply production damage from bombers (FUT-12)
+		if result["production_damage"] > 0:
+			system.apply_production_damage(result["production_damage"])
+
 		system.update_visuals()
 
 		# Build combat report data
 		if result["log"].size() > 0:
 			# Calculate attacker info
 			var attacker_id = -1
-			var attacker_count = 0
+			var attacker_fighters = 0
+			var attacker_bombers = 0
 			for aid in merged.keys():
 				if aid != old_owner:
 					attacker_id = aid
-					attacker_count = merged[aid]
+					attacker_fighters = merged[aid]["fighters"]
+					attacker_bombers = merged[aid]["bombers"]
 					break
-
-			# Calculate losses
-			var defender_losses = old_fighters - (result["remaining"] if result["winner"] == old_owner else 0)
-			var attacker_losses = attacker_count - (result["remaining"] if result["winner"] == attacker_id else 0)
 
 			var report_data = {
 				"system_name": system.system_name,
 				"system_id": system_id,
 				"defender_name": _get_owner_name(old_owner),
-				"defender_count": old_fighters,
-				"defender_losses": defender_losses,
+				"defender_fighters": old_fighters,
+				"defender_bombers": old_bombers,
+				"defender_fighter_losses": result["defender_fighter_losses"],
+				"defender_bomber_losses": result["defender_bomber_losses"],
 				"attacker_name": _get_owner_name(attacker_id),
-				"attacker_count": attacker_count,
-				"attacker_losses": attacker_losses,
+				"attacker_fighters": attacker_fighters,
+				"attacker_bombers": attacker_bombers,
+				"attacker_fighter_losses": result["attacker_fighter_losses"],
+				"attacker_bomber_losses": result["attacker_bomber_losses"],
 				"winner_name": _get_owner_name(result["winner"]),
-				"remaining": result["remaining"]
+				"remaining_fighters": result["remaining_fighters"],
+				"remaining_bombers": result["remaining_bombers"],
+				"battery_kills": result["battery_kills"],
+				"production_damage": result["production_damage"],
+				"conquest_occurred": result["conquest_occurred"]
 			}
 
 			# Add report for all involved players (defender + attackers)

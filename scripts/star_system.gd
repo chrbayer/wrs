@@ -7,11 +7,25 @@ signal system_clicked(system: StarSystem)
 signal system_hover_started(system: StarSystem)
 signal system_hover_ended(system: StarSystem)
 
+enum ProductionMode {
+	FIGHTERS,
+	BOMBERS,
+	UPGRADE,
+	BATTERY_BUILD,
+	BATTERY_MAINTAIN
+}
+
 @export var system_id: int = 0
 @export var system_name: String = "System"
 @export var owner_id: int = -1  # -1 = neutral
 @export var fighter_count: int = 10
+@export var bomber_count: int = 0
 @export var production_rate: int = 2  # Fighters produced per turn
+@export var battery_count: int = 0  # Defense batteries (max 3)
+
+var production_mode: ProductionMode = ProductionMode.FIGHTERS
+var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
+var upgrade_progress: float = 0.0  # Progress towards next production rate
 
 var is_selected: bool = false
 var is_hovered: bool = false
@@ -139,7 +153,16 @@ func _update_circle_visuals() -> void:
 func _update_labels() -> void:
 	var radius = _get_radius()
 	if label:
-		label.text = str(fighter_count)
+		# Show fighters/bombers count
+		if bomber_count > 0:
+			label.text = "%d/%d" % [fighter_count, bomber_count]
+		else:
+			label.text = str(fighter_count)
+
+		# Add battery indicator if batteries exist
+		if battery_count > 0:
+			label.text += " [%d]" % battery_count
+
 		label.add_theme_color_override("font_color", Color.WHITE)
 		# Position label above the star based on radius
 		label.position = Vector2(-40, -radius - 30)
@@ -163,13 +186,16 @@ func show_system() -> void:
 ## Show hidden info for fog of war (visible but not owned)
 func show_hidden_info() -> void:
 	if label:
-		label.text = "?"
+		var text = "?"
+		# Show battery presence (but not count) to non-owners
+		if battery_count > 0:
+			text += " [?]"
+		label.text = text
 
 
-## Show actual fighter count
+## Show actual fighter/bomber count
 func show_fighter_count() -> void:
-	if label:
-		label.text = str(fighter_count)
+	_update_labels()
 
 
 func set_selected(selected: bool) -> void:
@@ -189,6 +215,11 @@ func add_fighters(count: int) -> void:
 	update_visuals()
 
 
+func add_bombers(count: int) -> void:
+	bomber_count = max(0, bomber_count + count)
+	update_visuals()
+
+
 func remove_fighters(count: int) -> int:
 	var removed = min(fighter_count, count)
 	fighter_count -= removed
@@ -196,9 +227,99 @@ func remove_fighters(count: int) -> int:
 	return removed
 
 
-func produce_fighters() -> void:
-	if owner_id >= 0:  # Only owned systems produce
-		fighter_count += production_rate
+func remove_bombers(count: int) -> int:
+	var removed = min(bomber_count, count)
+	bomber_count -= removed
+	update_visuals()
+	return removed
+
+
+func get_total_ships() -> int:
+	return fighter_count + bomber_count
+
+
+## Process production for this turn based on production mode
+func process_production() -> void:
+	if owner_id < 0:  # Only owned systems produce
+		return
+
+	match production_mode:
+		ProductionMode.FIGHTERS:
+			fighter_count += production_rate
+		ProductionMode.BOMBERS:
+			# Bombers produce at half rate (1 per 2 production points)
+			bomber_production_progress += production_rate * ShipTypes.BOMBER_PRODUCTION_RATE
+			var new_bombers = int(bomber_production_progress)
+			bomber_count += new_bombers
+			bomber_production_progress = fmod(bomber_production_progress, 1.0)
+		ProductionMode.UPGRADE:
+			if production_rate < ShipTypes.MAX_PRODUCTION_RATE:
+				# Higher production rates take longer to upgrade
+				upgrade_progress += 1.0 / production_rate
+				if upgrade_progress >= 1.0:
+					production_rate += 1
+					upgrade_progress = 0.0
+					# Auto-switch back to fighters after upgrade
+					production_mode = ProductionMode.FIGHTERS
+		ProductionMode.BATTERY_BUILD:
+			if battery_count < ShipTypes.MAX_BATTERIES:
+				battery_count += 1
+				# After building, switch to maintain mode
+				production_mode = ProductionMode.BATTERY_MAINTAIN
+		ProductionMode.BATTERY_MAINTAIN:
+			# No production, just maintaining batteries
+			pass
+
+	update_visuals()
+
+
+## Apply production damage from bomber attack
+## damage_ratio is the ratio of attackers to defenders (capped at reasonable values)
+func apply_production_damage(damage_ratio: float) -> int:
+	var damage = int(ceil(damage_ratio))
+	var old_rate = production_rate
+	production_rate = max(ShipTypes.MIN_PRODUCTION_RATE, production_rate - damage)
+	update_visuals()
+	return old_rate - production_rate
+
+
+## Apply conquest penalty (FUT-08)
+func apply_conquest_penalty() -> void:
+	production_rate = max(ShipTypes.MIN_PRODUCTION_RATE, production_rate - ShipTypes.CONQUEST_PRODUCTION_LOSS)
+	update_visuals()
+
+
+## Set production mode
+func set_production_mode(mode: ProductionMode) -> void:
+	production_mode = mode
+	# Reset progress when switching modes
+	if mode != ProductionMode.BOMBERS:
+		bomber_production_progress = 0.0
+	if mode != ProductionMode.UPGRADE:
+		upgrade_progress = 0.0
+
+
+## Get current production mode as string
+func get_production_mode_string() -> String:
+	match production_mode:
+		ProductionMode.FIGHTERS:
+			return "Producing Fighters"
+		ProductionMode.BOMBERS:
+			var progress_pct = int(bomber_production_progress * 100)
+			return "Producing Bombers (%d%%)" % progress_pct
+		ProductionMode.UPGRADE:
+			var progress_pct = int(upgrade_progress * 100)
+			return "Upgrading (%d%%)" % progress_pct
+		ProductionMode.BATTERY_BUILD:
+			return "Building Battery"
+		ProductionMode.BATTERY_MAINTAIN:
+			return "Maintaining Batteries"
+	return "Unknown"
+
+
+## Check if batteries need maintenance (they decay without it)
+func batteries_maintained() -> bool:
+	return production_mode == ProductionMode.BATTERY_MAINTAIN or battery_count == 0
 
 
 func get_distance_to(other_system: StarSystem) -> float:

@@ -80,7 +80,7 @@ text = "No fleets in transit"
 
 [node name="SendPanel" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(340, 240)
+custom_minimum_size = Vector2(340, 320)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/SendPanel"]
@@ -91,7 +91,7 @@ offset_left = 20.0
 offset_top = 20.0
 offset_right = -20.0
 offset_bottom = -20.0
-theme_override_constants/separation = 15
+theme_override_constants/separation = 12
 
 [node name="TitleLabel" type="Label" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
@@ -99,11 +99,27 @@ theme_override_font_sizes/font_size = 26
 text = "Send Fleet"
 horizontal_alignment = 1
 
-[node name="SendSlider" type="HSlider" parent="HUD/SendPanel/VBox"]
+[node name="FighterLabel" type="Label" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Fighters:"
+
+[node name="FighterSlider" type="HSlider" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
 min_value = 1.0
 max_value = 100.0
 value = 50.0
+
+[node name="BomberLabel" type="Label" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Bombers:"
+
+[node name="BomberSlider" type="HSlider" parent="HUD/SendPanel/VBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 100.0
+value = 0.0
 
 [node name="CountLabel" type="Label" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
@@ -131,6 +147,57 @@ text = "Send All"
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "Cancel"
+
+[node name="ActionPanel" type="Panel" parent="HUD"]
+visible = false
+custom_minimum_size = Vector2(280, 320)
+theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
+
+[node name="VBox" type="VBoxContainer" parent="HUD/ActionPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 15.0
+offset_top = 15.0
+offset_right = -15.0
+offset_bottom = -15.0
+theme_override_constants/separation = 10
+
+[node name="TitleLabel" type="Label" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Production Mode"
+horizontal_alignment = 1
+
+[node name="ProduceFightersBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Produce Fighters"
+
+[node name="ProduceBombersBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Produce Bombers"
+
+[node name="UpgradeBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Upgrade Production (3/8)"
+
+[node name="BuildBatteryBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Build Battery (0/3)"
+
+[node name="MaintainBatteryBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Maintain Batteries"
+
+[node name="CloseBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Close"
 
 [node name="SetupScreen" type="Panel" parent="HUD"]
 anchors_preset = 8
@@ -189,7 +256,7 @@ text = "Start Game"
 
 [node name="CombatReportScreen" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(500, 450)
+custom_minimum_size = Vector2(500, 520)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/CombatReportScreen"]
@@ -216,7 +283,7 @@ theme_override_constants/separation = 20
 [node name="ReportLabel" type="Label" parent="HUD/CombatReportScreen/VBox/ContentBox"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 20
 text = ""
 
 [node name="CloseReportButton" type="Button" parent="HUD/CombatReportScreen/VBox/ContentBox"]

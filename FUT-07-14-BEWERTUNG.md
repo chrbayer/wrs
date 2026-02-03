@@ -4,16 +4,16 @@
 
 ## Übersicht der Mechaniken
 
-| Feature | Beschreibung |
-|---------|--------------|
-| FUT-07 | Bomber: halbe Geschwindigkeit, 3/2 Angriff, 2/3 Verteidigung, halbe Produktionsrate |
-| FUT-08 | Eroberung feindlicher Systeme: Produktion -1 |
-| FUT-09 | Produktionsrate steigern statt Schiffe (max 8) |
-| FUT-10 | Batterien: stark vs Fighter, schwach vs Bomber (max 3), Präsenz sichtbar |
-| FUT-11 | Batterie-Wartung blockiert andere Produktion |
-| FUT-12 | Bomber senken Produktion (skaliert mit Stärkeverhältnis) |
-| FUT-13 | Produktion minimum 1 |
-| FUT-14 | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff |
+| Feature | Beschreibung                                                                        |
+| ------- | ----------------------------------------------------------------------------------- |
+| FUT-07  | Bomber: halbe Geschwindigkeit, 3/2 Angriff, 2/3 Verteidigung, halbe Produktionsrate |
+| FUT-08  | Eroberung feindlicher Systeme: Produktion -1                                        |
+| FUT-09  | Produktionsrate steigern statt Schiffe (max 8)                                      |
+| FUT-10  | Batterien: stark vs Fighter, schwach vs Bomber (max 3), Präsenz sichtbar            |
+| FUT-11  | Batterie-Wartung blockiert andere Produktion                                        |
+| FUT-12  | Bomber senken Produktion (skaliert mit Stärkeverhältnis)                            |
+| FUT-13  | Produktion minimum 1                                                                |
+| FUT-14  | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff                             |
 
 ---
 
