@@ -83,6 +83,8 @@
 | DB-07 | Battery count shall only be visible to the system owner                 | ✅ Done |
 | DB-08 | Batteries require continuous maintenance to remain operational          | ✅ Done |
 | DB-09 | Maintaining batteries blocks all other production                       | ✅ Done |
+| DB-10 | Batteries decay by 1 point per turn when not building or maintaining   | ✅ Done |
+| DB-11 | Building one battery requires 2 turns                                   | ✅ Done |
 
 ---
 
@@ -97,7 +99,8 @@
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
 | PR-06 | Production rate shall have a maximum of 8                               | ✅ Done |
 | PR-07 | Production rate shall have a minimum of 1                               | ✅ Done |
-| PR-08 | Build Battery mode shall add one battery per turn (max 3)               | ✅ Done |
+| ~~PR-08~~ | ~~Build Battery mode shall add one battery per turn (max 3)~~       | ~~Done~~ |
+| PR-08a | Build Battery mode shall add one battery every 2 turns (max 3)         | ✅ Done |
 | PR-09 | After building a battery, production mode shall switch to Maintain Batteries | ✅ Done |
 | PR-10 | Conquering an enemy system shall reduce its production rate by 1        | ✅ Done |
 | PR-11 | Conquest penalty shall not apply to neutral systems                     | ✅ Done |
@@ -232,6 +235,8 @@
 | BATTERY_VS_FIGHTER | 1.0× | Battery effectiveness against fighters |
 | BATTERY_VS_BOMBER | 0.5× | Battery effectiveness against bombers |
 | BATTERY_DAMAGE | 2.0 | Damage dealt per battery per combat round |
+| BATTERY_BUILD_TURNS | 2 | Turns required to build one battery |
+| BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |

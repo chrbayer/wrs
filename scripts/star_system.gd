@@ -26,6 +26,7 @@ enum ProductionMode {
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
 var upgrade_progress: float = 0.0  # Progress towards next production rate
+var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
 
 var is_selected: bool = false
 var is_hovered: bool = false
@@ -263,12 +264,20 @@ func process_production() -> void:
 					production_mode = ProductionMode.FIGHTERS
 		ProductionMode.BATTERY_BUILD:
 			if battery_count < ShipTypes.MAX_BATTERIES:
-				battery_count += 1
-				# After building, switch to maintain mode
-				production_mode = ProductionMode.BATTERY_MAINTAIN
+				battery_build_progress += 1.0 / ShipTypes.BATTERY_BUILD_TURNS
+				if battery_build_progress >= 1.0:
+					battery_count += 1
+					battery_build_progress = 0.0
+					# After building, switch to maintain mode
+					production_mode = ProductionMode.BATTERY_MAINTAIN
 		ProductionMode.BATTERY_MAINTAIN:
 			# No production, just maintaining batteries
 			pass
+
+	# Battery decay: if not building or maintaining, batteries lose 1 point per turn
+	if production_mode != ProductionMode.BATTERY_BUILD and production_mode != ProductionMode.BATTERY_MAINTAIN:
+		if battery_count > 0:
+			battery_count = max(0, battery_count - ShipTypes.BATTERY_DECAY_PER_TURN)
 
 	update_visuals()
 
@@ -297,6 +306,8 @@ func set_production_mode(mode: ProductionMode) -> void:
 		bomber_production_progress = 0.0
 	if mode != ProductionMode.UPGRADE:
 		upgrade_progress = 0.0
+	if mode != ProductionMode.BATTERY_BUILD:
+		battery_build_progress = 0.0
 
 
 ## Get current production mode as string
@@ -311,7 +322,8 @@ func get_production_mode_string() -> String:
 			var progress_pct = int(upgrade_progress * 100)
 			return "Upgrading (%d%%)" % progress_pct
 		ProductionMode.BATTERY_BUILD:
-			return "Building Battery"
+			var progress_pct = int(battery_build_progress * 100)
+			return "Building Battery (%d%%)" % progress_pct
 		ProductionMode.BATTERY_MAINTAIN:
 			return "Maintaining Batteries"
 	return "Unknown"
