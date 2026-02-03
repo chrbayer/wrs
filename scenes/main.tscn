@@ -147,13 +147,13 @@ theme_override_constants/separation = 20
 
 [node name="TitleLabel" type="Label" parent="HUD/SetupScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 42
+theme_override_font_sizes/font_size = 52
 text = "Weltraumschlacht"
 horizontal_alignment = 1
 
 [node name="SubtitleLabel" type="Label" parent="HUD/SetupScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
+theme_override_font_sizes/font_size = 30
 text = "Space Battle"
 horizontal_alignment = 1
 
@@ -163,12 +163,12 @@ layout_mode = 2
 
 [node name="PlayerCountLabel" type="Label" parent="HUD/SetupScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 26
 text = "Number of Players:"
 
 [node name="PlayerCountOption" type="OptionButton" parent="HUD/SetupScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 24
 
 [node name="Spacer2" type="Control" parent="HUD/SetupScreen/VBox"]
 custom_minimum_size = Vector2(0, 30)
@@ -176,7 +176,7 @@ layout_mode = 2
 
 [node name="StartGameButton" type="Button" parent="HUD/SetupScreen/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 32
 text = "Start Game"
 
 [node name="CombatReportScreen" type="Panel" parent="HUD"]

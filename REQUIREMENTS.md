@@ -108,14 +108,22 @@
 
 ## Future Requirements (Not in Original Spec)
 
-| ID     | Requirement                                              | Status         |
-|--------|----------------------------------------------------------|----------------|
-| FUT-01 | Save and load game state                                 | ❌ Not implemented |
-| FUT-02 | Show fleets in transit to their owner on the map         | ❌ Not implemented |
-| FUT-03 | Sound effects for combat and UI actions                  | ❌ Not implemented |
-| FUT-04 | Optional AI opponents for single-player mode             | ❌ Not implemented |
-| FUT-05 | Visual effects for fleet movement on the map             | ❌ Not implemented |
-| FUT-06 | Game settings (combat balance, universe size, etc.)      | ❌ Not implemented |
+| ID     | Requirement                                                                                        | Status            |
+|--------|----------------------------------------------------------------------------------------------------|-------------------|
+| FUT-01 | Save and load game state                                                                           | ❌ Not implemented |
+| FUT-02 | Show fleets in transit to their owner on the map                                                   | ❌ Not implemented |
+| FUT-03 | Sound effects for combat and UI actions                                                            | ❌ Not implemented |
+| FUT-04 | Optional AI opponents for single-player mode                                                       | ❌ Not implemented |
+| FUT-05 | Visual effects for fleet movement on the map                                                       | ❌ Not implemented |
+| FUT-06 | Game settings (combat balance, universe size, etc.)                                                | ❌ Not implemented |
+| FUT-07 | Second ship type (Bomber): half speed, 2/3 defense strength, 3/2 attack strength, half production rate | ❌ Not implemented |
+| FUT-08 | Conquering an enemy system reduces its production rate by 1 (exception: neutral systems)           | ❌ Not implemented |
+| FUT-09 | Instead of producing fighters, a system can slowly increase its production rate (max 8)            | ❌ Not implemented |
+| FUT-10 | Instead of ships or production, build defense batteries: strong vs fighters, weaker vs bombers (max 3 per system). Presence visible to all, strength only to owner | ❌ Not implemented |
+| FUT-11 | Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades | ❌ Not implemented |
+| FUT-12 | Bomber attacks cause greater production rate loss on conquest and can reduce production even on failed attacks. Damage scales with attacker/defender strength ratio | ❌ Not implemented |
+| FUT-13 | Production rate cannot fall below 1 | ❌ Not implemented |
+| FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type | ❌ Not implemented |
 
 ---
 
