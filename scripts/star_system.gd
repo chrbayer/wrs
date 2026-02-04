@@ -24,6 +24,7 @@ enum ProductionMode {
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var maintaining_batteries: bool = false  # Independent toggle for battery maintenance
+var fighter_production_progress: float = 0.0  # Fighters use batch delivery (1 turn normally, 3 turns with maintenance)
 var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
@@ -275,7 +276,11 @@ func process_production() -> void:
 
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			fighter_count += int(production_rate * rate_multiplier)
+			# Fighters use batch delivery (1 turn normally, 3 turns with maintenance)
+			fighter_production_progress += ShipTypes.FIGHTER_PRODUCTION_RATE * rate_multiplier
+			if fighter_production_progress >= 1.0:
+				fighter_count += production_rate
+				fighter_production_progress = 0.0
 		ProductionMode.BOMBERS:
 			# Bombers take 2 turns to produce, then deliver full production rate
 			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
@@ -331,6 +336,8 @@ func apply_conquest_penalty() -> void:
 func set_production_mode(mode: ProductionMode) -> void:
 	production_mode = mode
 	# Reset progress when switching modes
+	if mode != ProductionMode.FIGHTERS:
+		fighter_production_progress = 0.0
 	if mode != ProductionMode.BOMBERS:
 		bomber_production_progress = 0.0
 	if mode != ProductionMode.UPGRADE:
@@ -344,7 +351,8 @@ func get_production_mode_string() -> String:
 	var suffix = " (33%)" if maintaining_batteries else ""
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			return "Producing Fighters" + suffix
+			var progress_pct = int(fighter_production_progress * 100)
+			return "Producing Fighters (%d%%)" % progress_pct + suffix
 		ProductionMode.BOMBERS:
 			var progress_pct = int(bomber_production_progress * 100)
 			return "Producing Bombers (%d%%)" % progress_pct + suffix

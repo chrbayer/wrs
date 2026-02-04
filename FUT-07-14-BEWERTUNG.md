@@ -595,17 +595,16 @@ Bomber-Produktion (Batch-Modell):
 
 ### Auswirkung mit Maintenance (33%)
 
-| Runde | Progress (ohne) | Progress (mit 33%) |
+| Runde | Progress (ohne) | Progress (mit 1/3) |
 |-------|-----------------|-------------------|
-| 1 | 50% | 16.5% |
-| 2 | 100% → Lieferung | 33% |
-| 3 | 50% | 49.5% |
-| 4 | 100% → Lieferung | 66% |
-| 5 | 50% | 82.5% |
-| 6 | 100% → Lieferung | 99% |
-| 7 | 50% | 100% → Lieferung |
+| 1 | 50% | 16.7% |
+| 2 | 100% → Lieferung | 33.3% |
+| 3 | 50% | 50% |
+| 4 | 100% → Lieferung | 66.7% |
+| 5 | 50% | 83.3% |
+| 6 | 100% → Lieferung | 100% → Lieferung |
 
-**Effekt:** Mit Maintenance dauert ein Bomber-Batch ~6 Runden statt 2.
+**Effekt:** Mit Maintenance dauert ein Bomber-Batch 6 Runden statt 2.
 
 ### Strategische Implikationen
 
@@ -619,6 +618,83 @@ Bomber-Produktion (Batch-Modell):
 ### Fazit
 
 Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe hinzu: Spieler müssen den Lieferzyklus berücksichtigen.
+
+---
+
+## Nachtrag: Fighter Batch-Produktion
+
+> Datum: 2026-02-04
+
+### Änderung
+
+| Aspekt | Vorher | Nachher |
+|--------|--------|---------|
+| Produktionsmodell | Sofortige Lieferung (int(rate × multiplier)) | Batch (volle Rate alle 1/FIGHTER_PRODUCTION_RATE Runden) |
+| Normale Produktion | rate Fighter pro Runde | rate Fighter pro Runde (identisch) |
+| Mit Maintenance | int(rate × 0.33) pro Runde | rate Fighter alle 3 Runden |
+
+### Problem
+
+Das vorherige Modell hatte bei Maintenance (33% Multiplikator) ein Rundungsproblem:
+
+| Production Rate | Vorher (int(rate × 0.33)) | Problem |
+|-----------------|---------------------------|---------|
+| 1 | 0 Fighter/Runde | Keine Produktion! |
+| 2 | 0 Fighter/Runde | Keine Produktion! |
+| 3 | 0 Fighter/Runde | Keine Produktion! |
+| 4 | 1 Fighter/Runde | Nur 25% statt 33% |
+| 6 | 1 Fighter/Runde | Nur 17% statt 33% |
+| 8 | 2 Fighter/Runde | Nur 25% statt 33% |
+
+**Inkonsistenz:** Bomber verwendeten bereits Batch-Produktion, Fighter nicht.
+
+### Neues Verhalten
+
+```
+Fighter-Produktion (Batch-Modell):
+├── Normal (rate_multiplier = 1.0):
+│   └── Progress += 1.0 → 100% → rate Fighter sofort geliefert
+│
+└── Mit Maintenance (rate_multiplier = 1/3):
+    ├── Runde 1: Progress += 1/3 → 33% → 0 Fighter
+    ├── Runde 2: Progress += 1/3 → 67% → 0 Fighter
+    ├── Runde 3: Progress += 1/3 → 100% → rate Fighter geliefert
+    └── Progress reset auf 0%, Zyklus wiederholt (alle 3 Runden)
+```
+
+### Auswirkung mit Maintenance (1/3)
+
+| Runde | Progress | Lieferung |
+|-------|----------|-----------|
+| 1 | 33% | - |
+| 2 | 67% | - |
+| 3 | 100% → 0% | rate Fighter |
+| 4 | 33% | - |
+| 5 | 67% | - |
+| 6 | 100% → 0% | rate Fighter |
+
+**Effekt:** Mit Maintenance dauert ein Fighter-Batch 3 Runden statt 1.
+
+### Vergleich mit Bomber
+
+| Aspekt | Fighter | Bomber |
+|--------|---------|--------|
+| PRODUCTION_RATE | 1.0 | 0.5 |
+| Normaler Zyklus | 1 Runde | 2 Runden |
+| Mit Maintenance | 3 Runden | 6 Runden |
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Konsistenz | ★★★★★ | Identisches Modell für Fighter und Bomber |
+| Maintenance-Fairness | ★★★★★ | Alle Production Rates produzieren mit 33% |
+| Burst-Dynamik | ★★★☆☆ | Leichte Verzögerung bei Maintenance |
+| Timing-Relevanz | ★★★★☆ | Angriff vor/nach Lieferung kann wichtig sein |
+
+### Fazit
+
+Die Batch-Produktion für Fighter stellt Konsistenz mit der Bomber-Produktion her und löst das Rundungsproblem bei Maintenance. Im Normalbetrieb (ohne Maintenance) ist das Verhalten identisch zum vorherigen Modell.
 
 ---
 

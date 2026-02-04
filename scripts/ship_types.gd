@@ -15,9 +15,9 @@ const BOMBER_ATTACK: float = 1.5  # 3/2 attack power
 const FIGHTER_DEFENSE: float = 1.0
 const BOMBER_DEFENSE: float = 0.67  # 2/3 defense
 
-# Production rates
-const FIGHTER_PRODUCTION_RATE: float = 1.0  # 1 per turn per production point
-const BOMBER_PRODUCTION_RATE: float = 0.5  # 0.5 per turn per production point (1 every 2 turns)
+# Production rates (batch delivery)
+const FIGHTER_PRODUCTION_RATE: float = 1.0  # Batch every 1 turn (3 turns with maintenance)
+const BOMBER_PRODUCTION_RATE: float = 0.5  # Batch every 2 turns (6 turns with maintenance)
 
 # Battery constants
 const MAX_BATTERIES: int = 5
@@ -26,7 +26,7 @@ const BATTERY_VS_BOMBER: float = 0.5  # Reduced effectiveness vs bombers
 const BATTERY_DAMAGE_PER_ROUND: float = 2.0  # Damage dealt per battery per round
 const BATTERY_DECAY_PER_TURN: int = 1  # Battery points lost per turn without maintenance
 # Note: Battery build time now scales with level (1 turn for 1st, 2 for 2nd, etc.)
-const MAINTENANCE_PRODUCTION_MULTIPLIER: float = 0.33  # Production rate when maintaining batteries
+const MAINTENANCE_PRODUCTION_MULTIPLIER: float = 1.0 / 3.0  # Production rate when maintaining batteries (1/3)
 
 # Production rate limits
 const MIN_PRODUCTION_RATE: int = 1
