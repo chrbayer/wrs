@@ -242,7 +242,7 @@
 | BATTERY_DAMAGE | 2.0 | Damage dealt per battery per combat round |
 | BATTERY_BUILD_TURNS | 2 | Turns required to build one battery |
 | BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
-| MAINTENANCE_PRODUCTION_MULTIPLIER | 0.5 | Production rate multiplier when maintaining batteries |
+| MAINTENANCE_PRODUCTION_MULTIPLIER | 0.33 | Production rate multiplier when maintaining batteries |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |

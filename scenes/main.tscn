@@ -192,7 +192,7 @@ text = "Build Battery (0/3)"
 [node name="MaintainBatteryBtn" type="CheckButton" parent="HUD/ActionPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Maintain Batteries (50% prod.)"
+text = "Maintain Batteries (33% prod.)"
 
 [node name="CloseBtn" type="Button" parent="HUD/ActionPanel/VBox"]
 layout_mode = 2

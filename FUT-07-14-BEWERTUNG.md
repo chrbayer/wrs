@@ -406,3 +406,34 @@ Die Änderung von "Maintenance blockiert Produktion" zu "Maintenance halbiert Pr
 - Defensive Spielweise etwas stärker
 
 **Gesamt:** Die Änderung macht Batterien attraktiver ohne sie übermächtig zu machen. Das 50%-Modell ist ein guter Kompromiss zwischen "kostenlos" und "blockiert alles".
+
+---
+
+## Nachtrag: Balance-Anpassung auf 33%
+
+> Datum: 2026-02-04
+
+### Änderung
+
+| Parameter | Vorher | Nachher |
+|-----------|--------|---------|
+| `MAINTENANCE_PRODUCTION_MULTIPLIER` | 0.5 | 0.33 |
+
+### Begründung
+
+Die 50%-Rate verschob das Balance leicht zugunsten des Verteidigers:
+- Verteidiger konnte Batterien warten UND nennenswerte Produktion haben
+- Angreifer-Fenster wurden zu klein
+- Turtle-Strategie wurde wieder zu stark
+
+### Auswirkung
+
+| Modus | Mit 50% Maintenance | Mit 33% Maintenance |
+|-------|---------------------|---------------------|
+| Fighters (Rate 3) | +1.5/turn | +1/turn |
+| Fighters (Rate 6) | +3/turn | +2/turn |
+| Upgrade (Rate 3) | 6 turns | 9 turns |
+
+### Fazit
+
+Die Reduzierung auf 33% stellt das ursprüngliche Balance-Ziel wieder her: Batterie-Wartung ist ein signifikanter Trade-off, aber kein vollständiger Produktionsstopp.

@@ -419,7 +419,7 @@ func _show_action_panel(system: StarSystem) -> void:
 	maintain_battery_btn.button_pressed = system.maintaining_batteries
 
 	# Update button text to show current state
-	var rate_suffix = " (50%)" if system.maintaining_batteries else ""
+	var rate_suffix = " (33%)" if system.maintaining_batteries else ""
 	produce_fighters_btn.text = "Produce Fighters" + rate_suffix
 	produce_bombers_btn.text = "Produce Bombers" + rate_suffix
 	upgrade_btn.text = "Upgrade Production (%d/%d)" % [system.production_rate, ShipTypes.MAX_PRODUCTION_RATE] + rate_suffix

@@ -314,7 +314,7 @@ func set_production_mode(mode: ProductionMode) -> void:
 
 ## Get current production mode as string
 func get_production_mode_string() -> String:
-	var suffix = " (50%)" if maintaining_batteries else ""
+	var suffix = " (33%)" if maintaining_batteries else ""
 	match production_mode:
 		ProductionMode.FIGHTERS:
 			return "Producing Fighters" + suffix
