@@ -267,7 +267,8 @@ func process_production() -> void:
 					production_mode = ProductionMode.FIGHTERS
 		ProductionMode.BATTERY_BUILD:
 			if battery_count < ShipTypes.MAX_BATTERIES:
-				battery_build_progress += 1.0 / ShipTypes.BATTERY_BUILD_TURNS
+				# Build time scales with target level (like production upgrade)
+				battery_build_progress += 1.0 / (battery_count + 1)
 				if battery_build_progress >= 1.0:
 					battery_count += 1
 					battery_build_progress = 0.0

@@ -86,7 +86,8 @@
 | ~~DB-09~~ | ~~Maintaining batteries blocks all other production~~               | ~~Done~~ |
 | DB-09a | Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` | ✅ Done |
 | DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
-| DB-11 | Building one battery requires `BATTERY_BUILD_TURNS` turns               | ✅ Done |
+| ~~DB-11~~ | ~~Building one battery requires `BATTERY_BUILD_TURNS` turns~~       | ~~Done~~ |
+| DB-11a | Battery build time scales with target level (like production upgrade) | ✅ Done |
 
 ---
 
@@ -103,7 +104,8 @@
 | PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
 | PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
 | ~~PR-08~~ | ~~Build Battery mode shall add one battery per turn (max 3)~~       | ~~Done~~ |
-| PR-08a | Build Battery mode shall add one battery every `BATTERY_BUILD_TURNS` turns (max `MAX_BATTERIES`) | ✅ Done |
+| ~~PR-08a~~ | ~~Build Battery mode shall add one battery every `BATTERY_BUILD_TURNS` turns (max `MAX_BATTERIES`)~~ | ~~Done~~ |
+| PR-08b | Battery build time scales with target level (1 turn for 1st, 2 for 2nd, etc.), max `MAX_BATTERIES` | ✅ Done |
 | ~~PR-09~~ | ~~After building a battery, production mode shall switch to Maintain Batteries~~ | ~~Done~~ |
 | PR-09a | After building a battery, maintenance toggle shall be enabled automatically | ✅ Done |
 | PR-13 | Battery maintenance is an independent toggle, orthogonal to production mode | ✅ Done |
@@ -209,6 +211,7 @@
 | FUT-12 | Bomber attacks cause greater production rate loss on conquest and can reduce production even on failed attacks. Damage scales with attacker/defender strength ratio | ✅ Done |
 | FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
 | FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
+| FUT-15 | Battery build time scales with current level (like production upgrade). Maximum increased to 5     | ✅ Done |
 
 ---
 
@@ -236,11 +239,11 @@
 | BOMBER_DEFENSE | 0.67× | Bomber defense power multiplier |
 | FIGHTER_PRODUCTION_RATE | 1.0 | Fighters produced per production point per turn |
 | BOMBER_PRODUCTION_RATE | 0.5 | Bombers produced per production point per turn |
-| MAX_BATTERIES | 3 | Maximum defense batteries per system |
+| MAX_BATTERIES | 5 | Maximum defense batteries per system |
 | BATTERY_VS_FIGHTER | 1.0× | Battery effectiveness against fighters |
 | BATTERY_VS_BOMBER | 0.5× | Battery effectiveness against bombers |
 | BATTERY_DAMAGE | 2.0 | Damage dealt per battery per combat round |
-| BATTERY_BUILD_TURNS | 2 | Turns required to build one battery |
+| ~~BATTERY_BUILD_TURNS~~ | ~~2~~ | ~~Turns required to build one battery~~ (now scales with level) |
 | BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
 | MAINTENANCE_PRODUCTION_MULTIPLIER | 0.33 | Production rate multiplier when maintaining batteries |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |

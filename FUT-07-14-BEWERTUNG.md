@@ -14,6 +14,7 @@
 | FUT-12  | Bomber senken Produktion (skaliert mit Stärkeverhältnis)                            |
 | FUT-13  | Produktion minimum 1                                                                |
 | FUT-14  | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff                             |
+| FUT-15  | Batterie-Bauzeit skaliert mit Level, Maximum auf 5 erhöht                           |
 
 ---
 
@@ -437,3 +438,80 @@ Die 50%-Rate verschob das Balance leicht zugunsten des Verteidigers:
 ### Fazit
 
 Die Reduzierung auf 33% stellt das ursprüngliche Balance-Ziel wieder her: Batterie-Wartung ist ein signifikanter Trade-off, aber kein vollständiger Produktionsstopp.
+
+---
+
+## Nachtrag: FUT-15 - Skalierende Batterie-Bauzeit
+
+> Datum: 2026-02-04
+
+### Requirement
+
+**FUT-15:** Battery build time scales with current level (like production upgrade). Maximum increased to 5.
+
+### Änderung
+
+| Parameter | Vorher | Nachher |
+|-----------|--------|---------|
+| `MAX_BATTERIES` | 3 | 5 |
+| Bauzeit | Konstant (2 Runden) | Skalierend (Level = Runden) |
+
+### Bauzeit-Vergleich
+
+| Batterie | Vorher | Nachher |
+|----------|--------|---------|
+| 1. | 2 Runden | 1 Runde |
+| 2. | 2 Runden | 2 Runden |
+| 3. | 2 Runden | 3 Runden |
+| 4. | - | 4 Runden |
+| 5. | - | 5 Runden |
+| **Gesamt** | **6 Runden** | **15 Runden** |
+
+### Schaden-Vergleich
+
+| Batterien | Schaden/Runde |
+|-----------|---------------|
+| 3 (alt max) | 6 |
+| 5 (neu max) | 10 |
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Konsistenz | ★★★★★ | Gleiche Mechanik wie Produktions-Upgrade |
+| Frühe Batterien | ★★★★★ | Günstiger als vorher (1 Runde statt 2) |
+| Späte Batterien | ★★★★☆ | Signifikante Investition (4-5 Runden) |
+| Entscheidungstiefe | ★★★★★ | "Wie viele Batterien lohnen sich?" |
+| Balance | ★★★★☆ | 5 Batterien stark, aber 15 Runden Investition |
+
+### Neue Taktiken
+
+```
+Schnelle Verteidigung:
+├── 1-2 Batterien bauen (1+2 = 3 Runden)
+├── Günstige Abschreckung
+└── Schnell zurück zur Produktion
+
+Festung:
+├── Alle 5 Batterien (15 Runden)
+├── 10 Schaden/Runde gegen Angreifer
+├── Hohe Maintenance-Last (33% Produktion)
+└── Langfristige Strategie
+
+Stufenweiser Ausbau:
+├── Start mit 2-3 Batterien
+├── Zwischendurch produzieren
+├── Bei Bedrohung weiter ausbauen
+└── Flexibler Ansatz
+```
+
+### Fazit
+
+**Bewertung: +0.1 zur Gesamtbewertung → 10/10**
+
+Die Änderung bringt volle Konsistenz zwischen Produktions- und Batterie-Ausbau:
+- Beide folgen der Formel `Fortschritt = 1 / Ziellevel`
+- Frühe Level sind günstig, späte teuer
+- Maximales Investment für maximale Stärke
+
+Das Design ist jetzt vollständig symmetrisch und elegant.
