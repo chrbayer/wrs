@@ -629,13 +629,16 @@ Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe
 
 | Aspekt | Vorher | Nachher |
 |--------|--------|---------|
-| Produktionsmodell | Sofortige Lieferung (int(rate × multiplier)) | Batch (volle Rate alle 1/FIGHTER_PRODUCTION_RATE Runden) |
-| Normale Produktion | rate Fighter pro Runde | rate Fighter pro Runde (identisch) |
-| Mit Maintenance | int(rate × 0.33) pro Runde | rate Fighter alle 3 Runden |
+| Produktionsmodell | Sofortige Lieferung (int(rate × multiplier)) | Batch (volle Rate alle 2 Runden) |
+| FIGHTER_PRODUCTION_RATE | 1.0 | 0.5 |
+| Normale Produktion | rate Fighter pro Runde | rate Fighter alle 2 Runden |
+| Mit Maintenance | int(rate × 0.33) pro Runde | rate Fighter alle 6 Runden |
 
 ### Problem
 
-Das vorherige Modell hatte bei Maintenance (33% Multiplikator) ein Rundungsproblem:
+Das vorherige Modell hatte zwei Probleme:
+
+**1. Rundungsproblem bei Maintenance (33% Multiplikator):**
 
 | Production Rate | Vorher (int(rate × 0.33)) | Problem |
 |-----------------|---------------------------|---------|
@@ -646,42 +649,50 @@ Das vorherige Modell hatte bei Maintenance (33% Multiplikator) ein Rundungsprobl
 | 6 | 1 Fighter/Runde | Nur 17% statt 33% |
 | 8 | 2 Fighter/Runde | Nur 25% statt 33% |
 
-**Inkonsistenz:** Bomber verwendeten bereits Batch-Produktion, Fighter nicht.
+**2. Fehlende Burst-Dynamik:** Bomber hatten Burst-Produktion (alle 2 Runden), Fighter nicht.
 
 ### Neues Verhalten
 
 ```
-Fighter-Produktion (Batch-Modell):
+Fighter-Produktion (Batch-Modell, RATE = 0.5):
 ├── Normal (rate_multiplier = 1.0):
-│   └── Progress += 1.0 → 100% → rate Fighter sofort geliefert
+│   ├── Runde 1: Progress += 0.5 → 50% → 0 Fighter
+│   ├── Runde 2: Progress += 0.5 → 100% → rate Fighter geliefert
+│   └── Progress reset auf 0%, Zyklus wiederholt (alle 2 Runden)
 │
 └── Mit Maintenance (rate_multiplier = 1/3):
-    ├── Runde 1: Progress += 1/3 → 33% → 0 Fighter
-    ├── Runde 2: Progress += 1/3 → 67% → 0 Fighter
-    ├── Runde 3: Progress += 1/3 → 100% → rate Fighter geliefert
-    └── Progress reset auf 0%, Zyklus wiederholt (alle 3 Runden)
+    ├── Runde 1: Progress += 1/6 → 16.7% → 0 Fighter
+    ├── Runde 2: Progress += 1/6 → 33.3% → 0 Fighter
+    ├── Runde 3: Progress += 1/6 → 50% → 0 Fighter
+    ├── Runde 4: Progress += 1/6 → 66.7% → 0 Fighter
+    ├── Runde 5: Progress += 1/6 → 83.3% → 0 Fighter
+    ├── Runde 6: Progress += 1/6 → 100% → rate Fighter geliefert
+    └── Progress reset auf 0%, Zyklus wiederholt (alle 6 Runden)
 ```
 
-### Auswirkung mit Maintenance (1/3)
+### Auswirkung Normal vs. Maintenance
 
-| Runde | Progress | Lieferung |
-|-------|----------|-----------|
-| 1 | 33% | - |
-| 2 | 67% | - |
-| 3 | 100% → 0% | rate Fighter |
-| 4 | 33% | - |
-| 5 | 67% | - |
-| 6 | 100% → 0% | rate Fighter |
+| Runde | Progress (normal) | Progress (Maintenance) |
+|-------|-------------------|------------------------|
+| 1 | 50% | 16.7% |
+| 2 | 100% → Lieferung | 33.3% |
+| 3 | 50% | 50% |
+| 4 | 100% → Lieferung | 66.7% |
+| 5 | 50% | 83.3% |
+| 6 | 100% → Lieferung | 100% → Lieferung |
 
-**Effekt:** Mit Maintenance dauert ein Fighter-Batch 3 Runden statt 1.
+**Effekt:** Identischer Rhythmus wie Bomber (2 Runden normal, 6 Runden mit Maintenance).
 
 ### Vergleich mit Bomber
 
 | Aspekt | Fighter | Bomber |
 |--------|---------|--------|
-| PRODUCTION_RATE | 1.0 | 0.5 |
-| Normaler Zyklus | 1 Runde | 2 Runden |
-| Mit Maintenance | 3 Runden | 6 Runden |
+| PRODUCTION_RATE | 0.5 | 0.5 |
+| Normaler Zyklus | 2 Runden | 2 Runden |
+| Mit Maintenance | 6 Runden | 6 Runden |
+| Menge pro Batch | production_rate | production_rate |
+
+**Vollständige Symmetrie:** Fighter und Bomber haben nun identischen Produktionsrhythmus.
 
 ### Strategische Implikationen
 
@@ -689,12 +700,14 @@ Fighter-Produktion (Batch-Modell):
 |--------|-----------|------------|
 | Konsistenz | ★★★★★ | Identisches Modell für Fighter und Bomber |
 | Maintenance-Fairness | ★★★★★ | Alle Production Rates produzieren mit 33% |
-| Burst-Dynamik | ★★★☆☆ | Leichte Verzögerung bei Maintenance |
-| Timing-Relevanz | ★★★★☆ | Angriff vor/nach Lieferung kann wichtig sein |
+| Burst-Dynamik | ★★★★★ | Immer Burst, synchron mit Bomber |
+| Timing-Relevanz | ★★★★★ | Angriffszeitpunkt immer taktisch relevant |
+| Anfangsphase | ★★★☆☆ | Erste Fighter erst nach 2 Runden |
+| Taktische Tiefe | ★★★★★ | Lieferzyklus muss berücksichtigt werden |
 
 ### Fazit
 
-Die Batch-Produktion für Fighter stellt Konsistenz mit der Bomber-Produktion her und löst das Rundungsproblem bei Maintenance. Im Normalbetrieb (ohne Maintenance) ist das Verhalten identisch zum vorherigen Modell.
+Die Batch-Produktion für Fighter mit RATE 0.5 schafft vollständige Symmetrie mit der Bomber-Produktion. Der Lieferzyklus ist nun immer taktisch relevant - Angriffe kurz vor einer Lieferung können entscheidend sein. Der langsamere Start (erste Fighter nach 2 Runden) betrifft alle Spieler gleich und erhöht die strategische Tiefe.
 
 ---
 

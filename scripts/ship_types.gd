@@ -16,7 +16,7 @@ const FIGHTER_DEFENSE: float = 1.0
 const BOMBER_DEFENSE: float = 0.67  # 2/3 defense
 
 # Production rates (batch delivery)
-const FIGHTER_PRODUCTION_RATE: float = 1.0  # Batch every 1 turn (3 turns with maintenance)
+const FIGHTER_PRODUCTION_RATE: float = 0.5  # Batch every 2 turns (6 turns with maintenance)
 const BOMBER_PRODUCTION_RATE: float = 0.5  # Batch every 2 turns (6 turns with maintenance)
 
 # Battery constants

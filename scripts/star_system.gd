@@ -24,7 +24,7 @@ enum ProductionMode {
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var maintaining_batteries: bool = false  # Independent toggle for battery maintenance
-var fighter_production_progress: float = 0.0  # Fighters use batch delivery (1 turn normally, 3 turns with maintenance)
+var fighter_production_progress: float = 0.0  # Fighters use batch delivery (2 turns normally, 6 turns with maintenance)
 var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
@@ -276,7 +276,7 @@ func process_production() -> void:
 
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			# Fighters use batch delivery (1 turn normally, 3 turns with maintenance)
+			# Fighters use batch delivery (2 turns normally, 6 turns with maintenance)
 			fighter_production_progress += ShipTypes.FIGHTER_PRODUCTION_RATE * rate_multiplier
 			if fighter_production_progress >= 1.0:
 				fighter_count += production_rate

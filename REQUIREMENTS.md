@@ -250,7 +250,7 @@
 | BOMBER_ATTACK | 1.5× | Bomber attack power multiplier |
 | FIGHTER_DEFENSE | 1.0× | Fighter defense power multiplier |
 | BOMBER_DEFENSE | 0.67× | Bomber defense power multiplier |
-| FIGHTER_PRODUCTION_RATE | 1.0 | Fighter batch delivery rate (1.0 = every turn, with maintenance: every 3 turns) |
+| FIGHTER_PRODUCTION_RATE | 0.5 | Fighter batch delivery rate (0.5 = every 2 turns, with maintenance: every 6 turns) |
 | BOMBER_PRODUCTION_RATE | 0.5 | Bomber batch delivery rate (0.5 = every 2 turns, with maintenance: every 6 turns) |
 | MAX_BATTERIES | 5 | Maximum defense batteries per system |
 | BATTERY_VS_FIGHTER | 1.0× | Battery effectiveness against fighters |
