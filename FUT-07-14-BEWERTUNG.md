@@ -622,21 +622,23 @@ Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe
 
 ---
 
-## Nachtrag: Batterien bei Eroberung (DB-12)
+## Nachtrag: Eroberungsverhalten (DB-12, PR-14)
 
 > Datum: 2026-02-04
 
-### Requirement
+### Requirements
 
-**DB-12:** On conquest, batteries are reduced to 50% (rounded down), maintenance enabled, production set to Fighters.
+**DB-12:** On conquest, batteries are reduced to 50% (rounded down) and maintenance is enabled.
+
+**PR-14:** On conquest, production mode shall reset to Fighters.
 
 ### Verhalten
 
-| Aspekt | Verhalten |
-|--------|-----------|
-| Batterie-Schaden | 50% Verlust (abgerundet) |
-| Maintenance | Automatisch aktiviert |
-| Produktionsmodus | Auf Fighters gesetzt |
+| Aspekt | Verhalten | Requirement |
+|--------|-----------|-------------|
+| Batterie-Schaden | 50% Verlust (abgerundet) | DB-12 |
+| Maintenance | Automatisch aktiviert | DB-12 |
+| Produktionsmodus | Auf Fighters gesetzt | PR-14 |
 
 ### Beispiele
 

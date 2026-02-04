@@ -91,7 +91,7 @@
 | DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
 | ~~DB-11~~ | ~~Building one battery requires `BATTERY_BUILD_TURNS` turns~~       | ~~Done~~ |
 | DB-11a | Battery build time scales with target level (like production upgrade) | ✅ Done |
-| DB-12 | On conquest, batteries are reduced to 50% (rounded down), maintenance enabled, production set to Fighters | ✅ Done |
+| DB-12 | On conquest, batteries are reduced to 50% (rounded down) and maintenance is enabled | ✅ Done |
 
 ---
 
@@ -117,6 +117,7 @@
 | PR-10 | Conquering an enemy system shall reduce its production rate by `CONQUEST_PRODUCTION_LOSS` | ✅ Done |
 | PR-11 | Conquest penalty shall not apply to neutral systems                     | ✅ Done |
 | PR-12 | Production rate reductions shall respect `MIN_PRODUCTION_RATE`          | ✅ Done |
+| PR-14 | On conquest, production mode shall reset to Fighters                    | ✅ Done |
 
 ---
 
