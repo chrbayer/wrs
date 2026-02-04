@@ -23,7 +23,8 @@
 | ID   | Requirement                                                                      | Status |
 |------|----------------------------------------------------------------------------------|--------|
 | S-01 | Each star system shall have a randomly assigned production rate                  | ✅ Done |
-| S-02 | Each neutral star system shall start with a random number of defending fighters  | ✅ Done |
+| ~~S-02~~ | ~~Each neutral star system shall start with a random number of defending fighters~~  | ~~Done~~ |
+| S-02a | Neutral systems start with random fighters scaled by production rate (rate×2 to rate×5) | ✅ Done |
 | S-03 | Player starting systems shall have a guaranteed minimum distance between them    | ✅ Done |
 | S-04 | All star systems except player starting systems shall be neutral at game start   | ✅ Done |
 | ~~S-05~~ | ~~Conquered star systems shall produce fighters each turn based on production rate~~ | ~~Done~~ |
@@ -177,7 +178,8 @@
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
 | UI-12 | A setup screen shall allow player count selection before game start | ✅ Done |
 | UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
-| UI-14 | Hovering over any visible system shows its name, owner, production rate, and travel time from selected system | ✅ Done |
+| ~~UI-14~~ | ~~Hovering over any visible system shows its name, owner, production rate, and travel time from selected system~~ | ~~Done~~ |
+| UI-14a | Hovering over systems shows name, owner, production rate; owned systems also show production mode | ✅ Done |
 | UI-15 | Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow | ✅ Done |
 | UI-16 | Combat report dialog shall be positioned near the relevant system  | ✅ Done |
 | UI-17 | During combat report display, only the close button shall be interactive | ✅ Done |
@@ -230,7 +232,7 @@
 | SYSTEM_COUNT | 15 + (players × 5) | Number of star systems based on player count |
 | PRODUCTION_RATE | 1–5 | Random production rate per turn for neutral systems |
 | HOME_PRODUCTION_RATE | 3 | Production rate for player home systems |
-| INITIAL_FIGHTERS_NEUTRAL | 5–20 | Random starting fighters for neutral systems |
+| INITIAL_FIGHTERS_NEUTRAL | rate×2 to rate×5 | Random starting fighters for neutral systems (scaled by production rate) |
 | INITIAL_FIGHTERS_HOME | 30 | Starting fighters for player home systems |
 | FIGHTER_SPEED | 150 px/turn | Fighter movement speed |
 | BOMBER_SPEED | 75 px/turn | Bomber movement speed (half of fighter) |

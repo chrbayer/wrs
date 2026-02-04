@@ -109,9 +109,12 @@ static func generate_production_rate() -> int:
 	return randi_range(1, 5)
 
 
-## Generate random initial fighter count
-static func generate_initial_fighters() -> int:
-	return randi_range(5, 20)
+## Generate random initial fighter count based on production rate
+## Higher production = more defenders on average
+static func generate_initial_fighters(production_rate: int) -> int:
+	var min_fighters = production_rate * 2
+	var max_fighters = production_rate * 5
+	return randi_range(min_fighters, max_fighters)
 
 
 ## Generate starting fighters for player home system

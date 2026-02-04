@@ -246,8 +246,8 @@ func _generate_universe() -> void:
 			system.production_rate = 3  # Standard production for home systems
 		else:
 			system.owner_id = -1  # Neutral
-			system.fighter_count = UniverseGenerator.generate_initial_fighters()
 			system.production_rate = UniverseGenerator.generate_production_rate()
+			system.fighter_count = UniverseGenerator.generate_initial_fighters(system.production_rate)
 
 		# Connect signals
 		system.system_clicked.connect(_on_system_clicked)
