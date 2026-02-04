@@ -47,7 +47,7 @@
 | ~~F-02a~~ | ~~Players shall be able to send mixed fleets containing both fighters and bombers~~ | ~~Done~~ |
 | F-02b | Players shall be able to send fleets (fighters, bombers, or mixed) from one system to another | ✅ Done |
 | F-03 | Fleet travel time shall depend on the distance between systems           | ✅ Done |
-| F-03a | Mixed fleet speed shall be determined by the slowest ship type (bombers = half speed) | ✅ Done |
+| F-03a | Mixed fleet speed shall be determined by the slowest ship type (`BOMBER_SPEED`) | ✅ Done |
 | F-04 | Fleets in transit shall not be visible to any player                     | ✅ Done |
 | F-05 | Fleets in transit cannot be redirected until they arrive                 | ✅ Done |
 | F-06 | Arriving fleets shall reinforce friendly systems or attack enemy/neutral | ✅ Done |
@@ -100,7 +100,7 @@
 | ~~PR-02~~ | ~~Production modes shall be: Fighters, Bombers, Upgrade, Build Battery, Maintain Batteries~~ | ~~Done~~ |
 | PR-02a | Production modes shall be: Fighters, Bombers, Upgrade, Build Battery | ✅ Done |
 | PR-03 | Fighter production mode shall produce fighters at full rate             | ✅ Done |
-| PR-04 | Bomber production mode shall produce bombers at half rate               | ✅ Done |
+| PR-04 | Bomber production mode shall produce bombers at `BOMBER_PRODUCTION_RATE` | ✅ Done |
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
 | PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
 | PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
@@ -207,8 +207,10 @@
 | FUT-07 | Second ship type (Bomber): half speed, 2/3 defense strength, 3/2 attack strength, half production rate | ✅ Done |
 | FUT-08 | Conquering an enemy system reduces its production rate by 1 (exception: neutral systems)           | ✅ Done |
 | FUT-09 | Instead of producing fighters, a system can slowly increase its production rate (max 8)            | ✅ Done |
-| FUT-10 | Instead of ships or production, build defense batteries: strong vs fighters, weaker vs bombers (max 3 per system). Presence visible to all, strength only to owner | ✅ Done |
-| FUT-11 | Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades | ✅ Done |
+| ~~FUT-10~~ | ~~Instead of ships or production, build defense batteries: strong vs fighters, weaker vs bombers (max 3 per system). Presence visible to all, strength only to owner~~ | ~~Done~~ |
+| FUT-10a | Build defense batteries: strong vs fighters (`BATTERY_VS_FIGHTER`), weaker vs bombers (`BATTERY_VS_BOMBER`), max `MAX_BATTERIES`. Presence visible to all, count only to owner | ✅ Done |
+| ~~FUT-11~~ | ~~Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades~~ | ~~Done~~ |
+| FUT-11a | Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` (independent toggle) | ✅ Done |
 | FUT-12 | Bomber attacks cause greater production rate loss on conquest and can reduce production even on failed attacks. Damage scales with attacker/defender strength ratio | ✅ Done |
 | FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
 | FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
@@ -244,7 +246,7 @@
 | MAX_BATTERIES | 5 | Maximum defense batteries per system |
 | BATTERY_VS_FIGHTER | 1.0× | Battery effectiveness against fighters |
 | BATTERY_VS_BOMBER | 0.5× | Battery effectiveness against bombers |
-| BATTERY_DAMAGE | 2.0 | Damage dealt per battery per combat round |
+| BATTERY_DAMAGE_PER_ROUND | 2.0 | Damage dealt per battery per combat round |
 | ~~BATTERY_BUILD_TURNS~~ | ~~2~~ | ~~Turns required to build one battery~~ (now scales with level) |
 | BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
 | MAINTENANCE_PRODUCTION_MULTIPLIER | 0.33 | Production rate multiplier when maintaining batteries |
@@ -262,4 +264,4 @@
 - All core requirements from the original specification are complete.
 - ~~Strikethrough requirements~~ are no longer valid (applies only to completed requirements).
 - If a completed requirement needs to be changed, the old requirement shall be struck through and a new requirement shall be created.
-- **Update 2026-02:** FUT-07 through FUT-14 implemented, adding bombers, defense batteries, production modes, and conquest mechanics.
+- **Update 2026-02:** FUT-07 through FUT-16 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, and fog of war memory.
