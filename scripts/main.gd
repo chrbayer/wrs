@@ -518,6 +518,10 @@ func _on_system_hover_started(system: StarSystem) -> void:
 	if combat_report_screen.visible:
 		return
 
+	# If hovering over the selected owned system, keep the detailed info
+	if system == selected_system and system.owner_id == current_player:
+		return
+
 	var info_text: String
 	if system.is_remembered:
 		# Show remembered (outdated) info
