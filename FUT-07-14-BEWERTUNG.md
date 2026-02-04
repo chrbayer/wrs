@@ -10,7 +10,7 @@
 | FUT-08  | Eroberung feindlicher Systeme: Produktion -1                                        |
 | FUT-09  | Produktionsrate steigern statt Schiffe (max 8)                                      |
 | FUT-10  | Batterien: stark vs Fighter, schwach vs Bomber (max 3), Präsenz sichtbar            |
-| FUT-11  | Batterie-Wartung blockiert andere Produktion                                        |
+| FUT-11  | Batterie-Wartung reduziert Produktion auf 50% (Toggle)                              |
 | FUT-12  | Bomber senken Produktion (skaliert mit Stärkeverhältnis)                            |
 | FUT-13  | Produktion minimum 1                                                                |
 | FUT-14  | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff                             |
@@ -289,3 +289,120 @@ Die Änderung löst ein potenzielles Balance-Problem:
 - Angreifer kann Timing ausnutzen
 
 **Diese Änderung macht das Spiel dynamischer und belohnt aktives Spielen.**
+
+---
+
+## Nachtrag: Maintenance als Toggle mit 50% Produktion
+
+> Datum: 2026-02-04
+
+### Änderung
+
+| Vorher | Nachher |
+|--------|---------|
+| BATTERY_MAINTAIN als dedizierter Produktionsmodus | Maintenance als unabhängiger Toggle |
+| Wartung blockiert alle Produktion (0%) | Wartung reduziert Produktion auf 50% |
+| Entweder/Oder-Entscheidung | Parallele Entscheidung |
+
+### Neues Produktionssystem
+
+```
+Produktionsmodi (wählbar):          Maintenance-Toggle (unabhängig):
+┌─────────────────────────┐         ┌─────────────────────────┐
+│ • Fighters produzieren  │         │ ☐ Maintain Batteries    │
+│ • Bombers produzieren   │    +    │   (50% prod.)           │
+│ • Upgrade Production    │         │                         │
+│ • Build Battery         │         │ Wenn aktiv: alle Modi   │
+└─────────────────────────┘         │ laufen mit halber Rate  │
+                                    └─────────────────────────┘
+```
+
+### Verhalten im Detail
+
+| Modus | Maintenance OFF | Maintenance ON |
+|-------|-----------------|----------------|
+| Fighters | +rate/turn | +rate/2/turn |
+| Bombers | +rate×0.5/turn | +rate×0.25/turn |
+| Upgrade | Normal | Halb so schnell |
+| Build Battery | Normal (kein Decay) | Normal (kein Decay) |
+
+**Wichtig:** Battery Build verhindert immer Decay, unabhängig vom Maintenance-Toggle.
+
+### Automatisches Verhalten
+
+```
+Nach erfolgreichem Batterie-Bau:
+├── Maintenance-Toggle wird automatisch aktiviert
+├── Produktionsmodus wechselt zu Fighters
+└── Spieler behält 50% Fighter-Produktion
+```
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Flexibilität | ★★★★★ | Nicht mehr "alles oder nichts" |
+| Turtle-Viabilität | ★★★★☆ | Verteidiger kann jetzt auch produzieren |
+| Komplexität | ★★★★☆ | Eine Variable mehr, aber intuitive UI |
+| Mikromanagement | ★★★☆☆ | Toggle muss bewusst gesetzt werden |
+| Trade-off Klarheit | ★★★★★ | 50% ist einfach zu verstehen |
+
+### Neue Taktiken
+
+```
+Flexible Verteidigung:
+├── Batterien bauen (Auto-Maintenance ON)
+├── Mit 50% Fighter produzieren
+├── Bei Bedrohung: ausreichende Verteidigung
+└── Ohne Bedrohung: kontinuierlicher Aufbau
+
+Timing-Optimierung:
+├── Maintenance OFF kurz vor Angriff
+├── Volle Produktion für Verstärkung
+├── Batterien verfallen nur 1/Runde
+└── 2-3 Runden Fenster nutzbar
+
+Eco-Batterie-Hybrid:
+├── 3 Batterien bauen
+├── Maintenance ON
+├── Upgrade mit 50% Rate
+└── Langfristig stärker als pure Turtle
+```
+
+### Vergleich der Ansätze
+
+| Aspekt | Blockiert (vorher) | 50% Toggle (nachher) |
+|--------|-------------------|----------------------|
+| Verteidiger-Stärke | Mittel | Hoch |
+| Angreifer-Fenster | Groß | Kleiner |
+| Spieler-Kontrolle | Wenig | Viel |
+| Strategische Optionen | Binär | Graduell |
+| Lernkurve | Einfach | Mittel |
+
+### Bewertung der Änderung
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Balance | ★★★★☆ | Verteidiger etwas stärker, aber fair |
+| Spielerfreiheit | ★★★★★ | Mehr Optionen, mehr Kontrolle |
+| Intuitivität | ★★★★☆ | CheckButton-UI ist klar |
+| Strategische Tiefe | ★★★★★ | Neue Optimierungsmöglichkeiten |
+| Kompatibilität | ★★★★★ | Alte Taktiken funktionieren noch |
+
+### Fazit
+
+**Bewertung: +0.1 zur Gesamtbewertung → 9.9/10**
+
+Die Änderung von "Maintenance blockiert Produktion" zu "Maintenance halbiert Produktion" ist eine **Quality-of-Life-Verbesserung**:
+
+**Vorteile:**
+- Verteidiger fühlen sich nicht mehr "bestraft" für Batterien
+- Mehr graduelle Entscheidungen statt binärer Wahl
+- Toggle-UI ist intuitiver als zusätzlicher Produktionsmodus
+- Ermöglicht neue Hybrid-Strategien
+
+**Nachteile:**
+- Leicht komplexer (eine zusätzliche Checkbox)
+- Defensive Spielweise etwas stärker
+
+**Gesamt:** Die Änderung macht Batterien attraktiver ohne sie übermächtig zu machen. Das 50%-Modell ist ein guter Kompromiss zwischen "kostenlos" und "blockiert alles".

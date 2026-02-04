@@ -11,8 +11,7 @@ enum ProductionMode {
 	FIGHTERS,
 	BOMBERS,
 	UPGRADE,
-	BATTERY_BUILD,
-	BATTERY_MAINTAIN
+	BATTERY_BUILD
 }
 
 @export var system_id: int = 0
@@ -24,6 +23,7 @@ enum ProductionMode {
 @export var battery_count: int = 0  # Defense batteries (max 3)
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
+var maintaining_batteries: bool = false  # Independent toggle for battery maintenance
 var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
@@ -244,19 +244,22 @@ func process_production() -> void:
 	if owner_id < 0:  # Only owned systems produce
 		return
 
+	# Production rate multiplier: 50% when maintaining batteries
+	var rate_multiplier: float = 0.5 if maintaining_batteries else 1.0
+
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			fighter_count += production_rate
+			fighter_count += int(production_rate * rate_multiplier)
 		ProductionMode.BOMBERS:
 			# Bombers produce at half rate (1 per 2 production points)
-			bomber_production_progress += production_rate * ShipTypes.BOMBER_PRODUCTION_RATE
+			bomber_production_progress += production_rate * ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
 			var new_bombers = int(bomber_production_progress)
 			bomber_count += new_bombers
 			bomber_production_progress = fmod(bomber_production_progress, 1.0)
 		ProductionMode.UPGRADE:
 			if production_rate < ShipTypes.MAX_PRODUCTION_RATE:
 				# Higher production rates take longer to upgrade
-				upgrade_progress += 1.0 / production_rate
+				upgrade_progress += (1.0 / production_rate) * rate_multiplier
 				if upgrade_progress >= 1.0:
 					production_rate += 1
 					upgrade_progress = 0.0
@@ -268,14 +271,13 @@ func process_production() -> void:
 				if battery_build_progress >= 1.0:
 					battery_count += 1
 					battery_build_progress = 0.0
-					# After building, switch to maintain mode
-					production_mode = ProductionMode.BATTERY_MAINTAIN
-		ProductionMode.BATTERY_MAINTAIN:
-			# No production, just maintaining batteries
-			pass
+					# After building, enable maintenance automatically
+					maintaining_batteries = true
+					# Switch back to fighters production
+					production_mode = ProductionMode.FIGHTERS
 
-	# Battery decay: if not building or maintaining, batteries lose 1 point per turn
-	if production_mode != ProductionMode.BATTERY_BUILD and production_mode != ProductionMode.BATTERY_MAINTAIN:
+	# Battery decay: if not maintaining and not building, batteries lose 1 point per turn
+	if not maintaining_batteries and production_mode != ProductionMode.BATTERY_BUILD:
 		if battery_count > 0:
 			battery_count = max(0, battery_count - ShipTypes.BATTERY_DECAY_PER_TURN)
 
@@ -312,26 +314,30 @@ func set_production_mode(mode: ProductionMode) -> void:
 
 ## Get current production mode as string
 func get_production_mode_string() -> String:
+	var suffix = " (50%)" if maintaining_batteries else ""
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			return "Producing Fighters"
+			return "Producing Fighters" + suffix
 		ProductionMode.BOMBERS:
 			var progress_pct = int(bomber_production_progress * 100)
-			return "Producing Bombers (%d%%)" % progress_pct
+			return "Producing Bombers (%d%%)" % progress_pct + suffix
 		ProductionMode.UPGRADE:
 			var progress_pct = int(upgrade_progress * 100)
-			return "Upgrading (%d%%)" % progress_pct
+			return "Upgrading (%d%%)" % progress_pct + suffix
 		ProductionMode.BATTERY_BUILD:
 			var progress_pct = int(battery_build_progress * 100)
 			return "Building Battery (%d%%)" % progress_pct
-		ProductionMode.BATTERY_MAINTAIN:
-			return "Maintaining Batteries"
 	return "Unknown"
 
 
 ## Check if batteries need maintenance (they decay without it)
 func batteries_maintained() -> bool:
-	return production_mode == ProductionMode.BATTERY_MAINTAIN or battery_count == 0
+	return maintaining_batteries or battery_count == 0
+
+
+## Set battery maintenance toggle
+func set_maintaining_batteries(value: bool) -> void:
+	maintaining_batteries = value
 
 
 func get_distance_to(other_system: StarSystem) -> float:

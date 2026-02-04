@@ -47,7 +47,7 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var produce_bombers_btn: Button = $HUD/ActionPanel/VBox/ProduceBombersBtn
 @onready var upgrade_btn: Button = $HUD/ActionPanel/VBox/UpgradeBtn
 @onready var build_battery_btn: Button = $HUD/ActionPanel/VBox/BuildBatteryBtn
-@onready var maintain_battery_btn: Button = $HUD/ActionPanel/VBox/MaintainBatteryBtn
+@onready var maintain_battery_btn: CheckButton = $HUD/ActionPanel/VBox/MaintainBatteryBtn
 @onready var action_close_btn: Button = $HUD/ActionPanel/VBox/CloseBtn
 
 # Player transition screen (in separate CanvasLayer to avoid rendering issues)
@@ -413,11 +413,16 @@ func _show_action_panel(system: StarSystem) -> void:
 						   system.production_mode == StarSystem.ProductionMode.UPGRADE)
 	build_battery_btn.disabled = (system.battery_count >= ShipTypes.MAX_BATTERIES or
 								 system.production_mode == StarSystem.ProductionMode.BATTERY_BUILD)
-	maintain_battery_btn.disabled = (system.battery_count == 0 or
-									system.production_mode == StarSystem.ProductionMode.BATTERY_MAINTAIN)
+
+	# Maintain battery toggle: disabled only if no batteries
+	maintain_battery_btn.disabled = (system.battery_count == 0)
+	maintain_battery_btn.button_pressed = system.maintaining_batteries
 
 	# Update button text to show current state
-	upgrade_btn.text = "Upgrade Production (%d/%d)" % [system.production_rate, ShipTypes.MAX_PRODUCTION_RATE]
+	var rate_suffix = " (50%)" if system.maintaining_batteries else ""
+	produce_fighters_btn.text = "Produce Fighters" + rate_suffix
+	produce_bombers_btn.text = "Produce Bombers" + rate_suffix
+	upgrade_btn.text = "Upgrade Production (%d/%d)" % [system.production_rate, ShipTypes.MAX_PRODUCTION_RATE] + rate_suffix
 	build_battery_btn.text = "Build Battery (%d/%d)" % [system.battery_count, ShipTypes.MAX_BATTERIES]
 
 	# Position action panel
@@ -480,7 +485,8 @@ func _on_build_battery_pressed() -> void:
 
 func _on_maintain_battery_pressed() -> void:
 	if selected_system and selected_system.owner_id == current_player:
-		selected_system.set_production_mode(StarSystem.ProductionMode.BATTERY_MAINTAIN)
+		# Toggle maintaining_batteries
+		selected_system.maintaining_batteries = !selected_system.maintaining_batteries
 		_show_owned_system_info(selected_system)
 		_show_action_panel(selected_system)
 
