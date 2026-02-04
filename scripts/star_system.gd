@@ -277,11 +277,11 @@ func process_production() -> void:
 		ProductionMode.FIGHTERS:
 			fighter_count += int(production_rate * rate_multiplier)
 		ProductionMode.BOMBERS:
-			# Bombers produce at half rate (1 per 2 production points)
-			bomber_production_progress += production_rate * ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
-			var new_bombers = int(bomber_production_progress)
-			bomber_count += new_bombers
-			bomber_production_progress = fmod(bomber_production_progress, 1.0)
+			# Bombers take 2 turns to produce, then deliver full production rate
+			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
+			if bomber_production_progress >= 1.0:
+				bomber_count += production_rate
+				bomber_production_progress = 0.0
 		ProductionMode.UPGRADE:
 			if production_rate < ShipTypes.MAX_PRODUCTION_RATE:
 				# Higher production rates take longer to upgrade

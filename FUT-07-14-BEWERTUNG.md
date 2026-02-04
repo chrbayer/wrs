@@ -321,11 +321,11 @@ Produktionsmodi (wählbar):          Maintenance-Toggle (unabhängig):
 
 ### Verhalten im Detail
 
-| Modus | Maintenance OFF | Maintenance ON |
-|-------|-----------------|----------------|
-| Fighters | +rate/turn | +rate/2/turn |
-| Bombers | +rate×0.5/turn | +rate×0.25/turn |
-| Upgrade | Normal | Halb so schnell |
+| Modus | Maintenance OFF | Maintenance ON (33%) |
+|-------|-----------------|----------------------|
+| Fighters | +rate/turn | +rate×0.33/turn |
+| Bombers | +rate alle 2 Runden | +rate alle ~6 Runden |
+| Upgrade | Normal | 3× langsamer |
 | Build Battery | Normal (kein Decay) | Normal (kein Decay) |
 
 **Wichtig:** Battery Build verhindert immer Decay, unabhängig vom Maintenance-Toggle.
@@ -562,3 +562,60 @@ Pro Spieler wird für jedes gesehene System gespeichert:
 ### Fazit
 
 Quality-of-Life Feature, das die Spielerfahrung verbessert ohne Balance zu beeinflussen.
+
+---
+
+## Nachtrag: Bomber Batch-Produktion
+
+> Datum: 2026-02-04
+
+### Änderung
+
+| Aspekt | Vorher | Nachher |
+|--------|--------|---------|
+| Produktionsmodell | Fraktional (halbe Rate pro Runde) | Batch (volle Rate alle 2 Runden) |
+| Beispiel (Rate 3) | 1 Bomber Runde 1, 2 Bomber Runde 2 | 0 Bomber Runde 1, 3 Bomber Runde 2 |
+| Beispiel (Rate 5) | 2 Bomber Runde 1, 3 Bomber Runde 2 | 0 Bomber Runde 1, 5 Bomber Runde 2 |
+
+### Begründung
+
+Das fraktionale Modell hatte Probleme mit ungeraden Produktionsraten:
+- Rate 3: 1.5 Bomber/Runde → Rundungsfehler
+- Rate 5: 2.5 Bomber/Runde → Inkonsistente Lieferung
+
+### Neues Verhalten
+
+```
+Bomber-Produktion (Batch-Modell):
+├── Runde 1: Progress += 0.5 → 50% → 0 Bomber
+├── Runde 2: Progress += 0.5 → 100% → Rate Bomber geliefert
+├── Progress reset auf 0
+└── Zyklus wiederholt sich
+```
+
+### Auswirkung mit Maintenance (33%)
+
+| Runde | Progress (ohne) | Progress (mit 33%) |
+|-------|-----------------|-------------------|
+| 1 | 50% | 16.5% |
+| 2 | 100% → Lieferung | 33% |
+| 3 | 50% | 49.5% |
+| 4 | 100% → Lieferung | 66% |
+| 5 | 50% | 82.5% |
+| 6 | 100% → Lieferung | 99% |
+| 7 | 50% | 100% → Lieferung |
+
+**Effekt:** Mit Maintenance dauert ein Bomber-Batch ~6 Runden statt 2.
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Vorhersagbarkeit | ★★★★★ | Klare Lieferzyklen, keine Rundungsfehler |
+| Burst-Dynamik | ★★★★☆ | Große Bomber-Wellen statt stetiger Strom |
+| Timing-Relevanz | ★★★★★ | Angriff vor/nach Lieferung wichtiger |
+| Konsistenz | ★★★★★ | Alle Produktionsraten verhalten sich gleich |
+
+### Fazit
+
+Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe hinzu: Spieler müssen den Lieferzyklus berücksichtigen.
