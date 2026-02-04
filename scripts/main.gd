@@ -518,8 +518,9 @@ func _on_system_hover_started(system: StarSystem) -> void:
 	if combat_report_screen.visible:
 		return
 
-	# If hovering over the selected owned system, keep the detailed info
-	if system == selected_system and system.owner_id == current_player:
+	# For owned systems, always show detailed info with production mode
+	if system.owner_id == current_player:
+		_show_owned_system_info(system)
 		return
 
 	var info_text: String
@@ -535,12 +536,6 @@ func _on_system_hover_started(system: StarSystem) -> void:
 		info_text = "%s - %s (last seen)" % [system.system_name, owner_name]
 		if memory.get("has_batteries", false):
 			info_text += " [batteries]"
-	elif system.owner_id == current_player:
-		info_text = "%s - F:%d B:%d (+%d/turn)" % [
-			system.system_name, system.fighter_count, system.bomber_count, system.production_rate
-		]
-		if system.battery_count > 0:
-			info_text += " [%d bat]" % system.battery_count
 	elif system.owner_id < 0:
 		info_text = "%s - Neutral (+%d/turn)" % [
 			system.system_name, system.production_rate
