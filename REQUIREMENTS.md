@@ -91,6 +91,7 @@
 | DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
 | ~~DB-11~~ | ~~Building one battery requires `BATTERY_BUILD_TURNS` turns~~       | ~~Done~~ |
 | DB-11a | Battery build time scales with target level (like production upgrade) | ✅ Done |
+| DB-12 | On conquest, batteries are reduced to 50% (rounded down), maintenance enabled, production set to Fighters | ✅ Done |
 
 ---
 

@@ -954,6 +954,11 @@ func _process_turn_end() -> void:
 		# Apply conquest penalty (FUT-08)
 		if result["conquest_occurred"] and result["winner"] >= 0:
 			system.apply_conquest_penalty()
+			# Batteries take 50% damage on conquest, maintenance auto-enabled
+			if system.battery_count > 0:
+				system.battery_count = system.battery_count / 2  # Integer division rounds down
+				system.maintaining_batteries = true
+			system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 
 		# Apply production damage from bombers (FUT-12)
 		if result["production_damage"] > 0:

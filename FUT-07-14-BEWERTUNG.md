@@ -619,3 +619,50 @@ Bomber-Produktion (Batch-Modell):
 ### Fazit
 
 Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe hinzu: Spieler müssen den Lieferzyklus berücksichtigen.
+
+---
+
+## Nachtrag: Batterien bei Eroberung (DB-12)
+
+> Datum: 2026-02-04
+
+### Requirement
+
+**DB-12:** On conquest, batteries are reduced to 50% (rounded down), maintenance enabled, production set to Fighters.
+
+### Verhalten
+
+| Aspekt | Verhalten |
+|--------|-----------|
+| Batterie-Schaden | 50% Verlust (abgerundet) |
+| Maintenance | Automatisch aktiviert |
+| Produktionsmodus | Auf Fighters gesetzt |
+
+### Beispiele
+
+| Batterien vorher | Batterien nachher |
+|------------------|-------------------|
+| 1 | 0 |
+| 2 | 1 |
+| 3 | 1 |
+| 4 | 2 |
+| 5 | 2 |
+
+### Begründung
+
+Kompromiss zwischen zwei Extremen:
+- **Volle Übernahme:** Zu starker Anreiz, befestigte Systeme zu erobern
+- **Volle Zerstörung:** Eroberung wird bestraft, Defensive zu stark
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Balance | ★★★★★ | Eroberung lohnt sich, aber mit Kosten |
+| Realismus | ★★★★☆ | Kampfschäden an Anlagen sind plausibel |
+| Spielfluss | ★★★★★ | Eroberer muss nicht sofort Entscheidungen treffen (Auto-Maintenance) |
+| Strategie | ★★★★★ | Defensive hat Wert, aber ist nicht unüberwindbar |
+
+### Fazit
+
+Elegante Lösung: Batterien behalten teilweise ihren Wert, ohne dass Eroberung zu attraktiv oder zu bestrafend wird.
