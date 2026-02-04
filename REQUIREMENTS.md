@@ -58,14 +58,14 @@
 
 | ID   | Requirement                                                              | Status |
 |------|--------------------------------------------------------------------------|--------|
-| ST-01 | Fighters shall have standard speed (150 px/turn)                        | ✅ Done |
-| ST-02 | Fighters shall have standard attack power (1.0×)                        | ✅ Done |
-| ST-03 | Fighters shall have standard defense power (1.0×)                       | ✅ Done |
-| ST-04 | Fighters shall be produced at full rate (1 per production point per turn) | ✅ Done |
-| ST-05 | Bombers shall have half speed (75 px/turn)                              | ✅ Done |
-| ST-06 | Bombers shall have increased attack power (1.5×)                        | ✅ Done |
-| ST-07 | Bombers shall have reduced defense power (0.67×)                        | ✅ Done |
-| ST-08 | Bombers shall be produced at half rate (0.5 per production point per turn) | ✅ Done |
+| ST-01 | Fighters shall have standard speed (`FIGHTER_SPEED`)                    | ✅ Done |
+| ST-02 | Fighters shall have standard attack power (`FIGHTER_ATTACK`)            | ✅ Done |
+| ST-03 | Fighters shall have standard defense power (`FIGHTER_DEFENSE`)          | ✅ Done |
+| ST-04 | Fighters shall be produced at `FIGHTER_PRODUCTION_RATE` per production point per turn | ✅ Done |
+| ST-05 | Bombers shall have reduced speed (`BOMBER_SPEED`)                       | ✅ Done |
+| ST-06 | Bombers shall have increased attack power (`BOMBER_ATTACK`)             | ✅ Done |
+| ST-07 | Bombers shall have reduced defense power (`BOMBER_DEFENSE`)             | ✅ Done |
+| ST-08 | Bombers shall be produced at `BOMBER_PRODUCTION_RATE` per production point per turn | ✅ Done |
 | ST-09 | Bombers participating in attacks shall cause production damage to the target system | ✅ Done |
 | ST-10 | Production damage from bombers shall scale with attacker/defender ratio (max 3) | ✅ Done |
 
@@ -75,18 +75,18 @@
 
 | ID   | Requirement                                                              | Status |
 |------|--------------------------------------------------------------------------|--------|
-| DB-01 | Star systems may have up to 3 defense batteries                         | ✅ Done |
+| DB-01 | Star systems may have up to `MAX_BATTERIES` defense batteries           | ✅ Done |
 | DB-02 | Batteries shall attack before ship-to-ship combat begins                | ✅ Done |
-| DB-03 | Batteries shall be fully effective against fighters (1.0×)              | ✅ Done |
-| DB-04 | Batteries shall be less effective against bombers (0.5×)                | ✅ Done |
+| DB-03 | Batteries shall be fully effective against fighters (`BATTERY_VS_FIGHTER`) | ✅ Done |
+| DB-04 | Batteries shall be less effective against bombers (`BATTERY_VS_BOMBER`) | ✅ Done |
 | DB-05 | Batteries shall prioritize targeting fighters over bombers              | ✅ Done |
 | DB-06 | Battery presence shall be visible to all players                        | ✅ Done |
 | DB-07 | Battery count shall only be visible to the system owner                 | ✅ Done |
 | DB-08 | Batteries require continuous maintenance to remain operational          | ✅ Done |
 | ~~DB-09~~ | ~~Maintaining batteries blocks all other production~~               | ~~Done~~ |
-| DB-09a | Maintaining batteries reduces all production to 50%                    | ✅ Done |
-| DB-10 | Batteries decay by 1 point per turn when not building or maintaining   | ✅ Done |
-| DB-11 | Building one battery requires 2 turns                                   | ✅ Done |
+| DB-09a | Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` | ✅ Done |
+| DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
+| DB-11 | Building one battery requires `BATTERY_BUILD_TURNS` turns               | ✅ Done |
 
 ---
 
@@ -100,16 +100,16 @@
 | PR-03 | Fighter production mode shall produce fighters at full rate             | ✅ Done |
 | PR-04 | Bomber production mode shall produce bombers at half rate               | ✅ Done |
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
-| PR-06 | Production rate shall have a maximum of 8                               | ✅ Done |
-| PR-07 | Production rate shall have a minimum of 1                               | ✅ Done |
+| PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
+| PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
 | ~~PR-08~~ | ~~Build Battery mode shall add one battery per turn (max 3)~~       | ~~Done~~ |
-| PR-08a | Build Battery mode shall add one battery every 2 turns (max 3)         | ✅ Done |
+| PR-08a | Build Battery mode shall add one battery every `BATTERY_BUILD_TURNS` turns (max `MAX_BATTERIES`) | ✅ Done |
 | ~~PR-09~~ | ~~After building a battery, production mode shall switch to Maintain Batteries~~ | ~~Done~~ |
 | PR-09a | After building a battery, maintenance toggle shall be enabled automatically | ✅ Done |
 | PR-13 | Battery maintenance is an independent toggle, orthogonal to production mode | ✅ Done |
-| PR-10 | Conquering an enemy system shall reduce its production rate by 1        | ✅ Done |
+| PR-10 | Conquering an enemy system shall reduce its production rate by `CONQUEST_PRODUCTION_LOSS` | ✅ Done |
 | PR-11 | Conquest penalty shall not apply to neutral systems                     | ✅ Done |
-| PR-12 | Production rate reductions shall respect the minimum of 1               | ✅ Done |
+| PR-12 | Production rate reductions shall respect `MIN_PRODUCTION_RATE`          | ✅ Done |
 
 ---
 
@@ -117,7 +117,7 @@
 
 | ID   | Requirement                                                                  | Status |
 |------|------------------------------------------------------------------------------|--------|
-| C-01 | Defenders shall receive a combat bonus (1.5x effectiveness)                  | ✅ Done |
+| C-01 | Defenders shall receive a combat bonus (`DEFENDER_BONUS` effectiveness)      | ✅ Done |
 | C-02 | Combat outcome probability shall be based on attacking vs defending fighters | ✅ Done |
 | C-03 | The winner of combat shall control the star system                           | ✅ Done |
 | C-04 | Surviving fighters shall remain at the system after combat                   | ✅ Done |
@@ -242,6 +242,7 @@
 | BATTERY_DAMAGE | 2.0 | Damage dealt per battery per combat round |
 | BATTERY_BUILD_TURNS | 2 | Turns required to build one battery |
 | BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
+| MAINTENANCE_PRODUCTION_MULTIPLIER | 0.5 | Production rate multiplier when maintaining batteries |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |

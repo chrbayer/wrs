@@ -26,6 +26,7 @@ const BATTERY_VS_BOMBER: float = 0.5  # Reduced effectiveness vs bombers
 const BATTERY_DAMAGE_PER_ROUND: float = 2.0  # Damage dealt per battery per round
 const BATTERY_BUILD_TURNS: int = 2  # Turns required to build one battery
 const BATTERY_DECAY_PER_TURN: int = 1  # Battery points lost per turn without maintenance
+const MAINTENANCE_PRODUCTION_MULTIPLIER: float = 0.5  # Production rate when maintaining batteries
 
 # Production rate limits
 const MIN_PRODUCTION_RATE: int = 1

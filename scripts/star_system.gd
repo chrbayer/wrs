@@ -244,8 +244,8 @@ func process_production() -> void:
 	if owner_id < 0:  # Only owned systems produce
 		return
 
-	# Production rate multiplier: 50% when maintaining batteries
-	var rate_multiplier: float = 0.5 if maintaining_batteries else 1.0
+	# Production rate multiplier: reduced when maintaining batteries
+	var rate_multiplier: float = ShipTypes.MAINTENANCE_PRODUCTION_MULTIPLIER if maintaining_batteries else 1.0
 
 	match production_mode:
 		ProductionMode.FIGHTERS:
