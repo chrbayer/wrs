@@ -30,7 +30,8 @@
 | S-05a | Owned star systems shall produce ships based on production rate and selected production mode | ✅ Done |
 | S-06 | Each star system shall display its fighter count to its owner                    | ✅ Done |
 | S-07 | Star systems shall display "?" for fighter counts to non-owners (fog of war)     | ✅ Done |
-| S-08 | Star systems shall only be visible if within range of an owned system            | ✅ Done |
+| ~~S-08~~ | ~~Star systems shall only be visible if within range of an owned system~~    | ~~Done~~ |
+| S-08a | Previously seen systems remain visible (grayed out) with last known info when out of range | ✅ Done |
 | S-09 | Star system size shall indicate its production rate (larger = higher production) | ✅ Done |
 | S-10 | Each star system shall display its name below the star                           | ✅ Done |
 
@@ -212,6 +213,7 @@
 | FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
 | FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
 | FUT-15 | Battery build time scales with current level (like production upgrade). Maximum increased to 5     | ✅ Done |
+| FUT-16 | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes    | ✅ Done |
 
 ---
 

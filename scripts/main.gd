@@ -93,6 +93,9 @@ var pending_combat_reports: Dictionary = {}
 var current_report_index: int = 0
 var combat_report_system: StarSystem = null
 
+# Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, has_batteries}})
+var system_memory: Dictionary = {}
+
 
 func _ready() -> void:
 	_setup_ui_connections()
@@ -192,6 +195,7 @@ func _start_game() -> void:
 	systems.clear()
 	fleets_in_transit.clear()
 	players.clear()
+	system_memory.clear()
 
 	# Initialize players
 	for i in range(player_count):
@@ -257,6 +261,10 @@ func _generate_universe() -> void:
 
 
 func _update_fog_of_war() -> void:
+	# Initialize memory for current player if needed
+	if not system_memory.has(current_player):
+		system_memory[current_player] = {}
+
 	# First, determine which systems are visible to current player
 	var owned_systems: Array[StarSystem] = []
 	for system in systems:
@@ -284,8 +292,19 @@ func _update_fog_of_war() -> void:
 				system.show_fighter_count()
 			else:
 				system.show_hidden_info()
+			# Update memory for this system
+			system_memory[current_player][system.system_id] = {
+				"owner_id": system.owner_id,
+				"fighter_count": system.fighter_count if system.owner_id == current_player else "?",
+				"has_batteries": system.battery_count > 0
+			}
 		else:
-			system.hide_system()
+			# Check if we have memory of this system
+			var player_memory = system_memory[current_player]
+			if player_memory.has(system.system_id):
+				system.show_remembered_info(player_memory[system.system_id])
+			else:
+				system.hide_system()
 
 
 func _show_player_transition() -> void:
@@ -500,7 +519,19 @@ func _on_system_hover_started(system: StarSystem) -> void:
 		return
 
 	var info_text: String
-	if system.owner_id == current_player:
+	if system.is_remembered:
+		# Show remembered (outdated) info
+		var memory = system_memory[current_player].get(system.system_id, {})
+		var owner_name = "Unknown"
+		if memory.has("owner_id"):
+			if memory["owner_id"] < 0:
+				owner_name = "Neutral"
+			else:
+				owner_name = players[memory["owner_id"]].player_name
+		info_text = "%s - %s (last seen)" % [system.system_name, owner_name]
+		if memory.get("has_batteries", false):
+			info_text += " [batteries]"
+	elif system.owner_id == current_player:
 		info_text = "%s - F:%d B:%d (+%d/turn)" % [
 			system.system_name, system.fighter_count, system.bomber_count, system.production_rate
 		]

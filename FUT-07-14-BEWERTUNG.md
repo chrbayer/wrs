@@ -15,6 +15,7 @@
 | FUT-13  | Produktion minimum 1                                                                |
 | FUT-14  | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff                             |
 | FUT-15  | Batterie-Bauzeit skaliert mit Level, Maximum auf 5 erhöht                           |
+| FUT-16  | Fog of War Memory: Einmal gesehene Systeme bleiben ausgegraut sichtbar              |
 
 ---
 
@@ -515,3 +516,49 @@ Die Änderung bringt volle Konsistenz zwischen Produktions- und Batterie-Ausbau:
 - Maximales Investment für maximale Stärke
 
 Das Design ist jetzt vollständig symmetrisch und elegant.
+
+---
+
+## Nachtrag: FUT-16 - Fog of War Memory
+
+> Datum: 2026-02-04
+
+### Requirement
+
+**FUT-16:** Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes.
+
+### Verhalten
+
+| Systemstatus | Darstellung |
+|--------------|-------------|
+| Aktuell sichtbar (eigenes System) | Normal, alle Details |
+| Aktuell sichtbar (fremdes System) | Normal, "?" für Schiffe |
+| Früher gesehen, jetzt außer Reichweite | Ausgegraut, letzte bekannte Infos |
+| Nie gesehen | Komplett versteckt |
+
+### Gespeicherte Informationen
+
+Pro Spieler wird für jedes gesehene System gespeichert:
+- Besitzer (zum Zeitpunkt der letzten Sichtung)
+- Schiffanzahl (nur "?" für fremde Systeme)
+- Batterie-Präsenz (ja/nein)
+
+### Visuelle Darstellung
+
+- **Farbe:** Abgedunkelt (50%) und entsättigt (70%)
+- **Label:** Schiffanzahl in Klammern, z.B. "(12)"
+- **Name:** Grau gefärbt
+- **Hover-Info:** Zeigt "last seen" an
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Kartenübersicht | ★★★★★ | Spieler verliert nicht die Orientierung |
+| Informationswert | ★★★★☆ | Veraltete Info kann irreführend sein |
+| Taktische Tiefe | ★★★★★ | Gegner kann sich hinter veralteten Infos verstecken |
+| Benutzerfreundlichkeit | ★★★★★ | Intuitiv verständlich |
+
+### Fazit
+
+Quality-of-Life Feature, das die Spielerfahrung verbessert ohne Balance zu beeinflussen.

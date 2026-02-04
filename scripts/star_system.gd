@@ -30,6 +30,7 @@ var battery_build_progress: float = 0.0  # Progress towards next battery (2 turn
 
 var is_selected: bool = false
 var is_hovered: bool = false
+var is_remembered: bool = false  # Fog of war: seen before but not currently visible
 
 # Selection animation
 var selection_pulse_time: float = 0.0
@@ -95,9 +96,16 @@ func _create_sprite_visual() -> void:
 
 
 func _get_owner_color() -> Color:
+	var color: Color
 	if owner_id < 0:
-		return Player.get_neutral_color()
-	return Player.get_player_color(owner_id)
+		color = Player.get_neutral_color()
+	else:
+		color = Player.get_player_color(owner_id)
+	# Desaturate and darken for remembered (fog of war) systems
+	if is_remembered:
+		color = color.darkened(0.5)
+		color.s *= 0.3  # Reduce saturation
+	return color
 
 
 func update_visuals() -> void:
@@ -177,21 +185,39 @@ func _update_labels() -> void:
 ## Hide the entire star system (fog of war - not in visibility range)
 func hide_system() -> void:
 	visible = false
+	is_remembered = false
 
 
 ## Show the star system
 func show_system() -> void:
 	visible = true
+	is_remembered = false
 
 
 ## Show hidden info for fog of war (visible but not owned)
 func show_hidden_info() -> void:
+	is_remembered = false
 	if label:
 		var text = "?"
 		# Show battery presence (but not count) to non-owners
 		if battery_count > 0:
 			text += " [?]"
 		label.text = text
+
+
+## Show remembered info (fog of war - previously seen but not currently visible)
+func show_remembered_info(memory: Dictionary) -> void:
+	visible = true
+	is_remembered = true
+	if label:
+		var text = "(%s)" % memory.get("fighter_count", "?")
+		if memory.get("has_batteries", false):
+			text += " [?]"
+		label.text = text
+		label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	if name_label:
+		name_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+	_update_circle_visuals()
 
 
 ## Show actual fighter/bomber count
