@@ -690,9 +690,13 @@ Fighter-Produktion (Batch-Modell, RATE = 0.5):
 | PRODUCTION_RATE | 0.5 | 0.5 |
 | Normaler Zyklus | 2 Runden | 2 Runden |
 | Mit Maintenance | 6 Runden | 6 Runden |
-| Menge pro Batch | production_rate | production_rate |
+| Menge pro Batch | 2 × production_rate | 1 × production_rate |
+| Gesamtrate/Runde | production_rate | production_rate / 2 |
 
-**Vollständige Symmetrie:** Fighter und Bomber haben nun identischen Produktionsrhythmus.
+**Fighter-Batch:** `production_rate / FIGHTER_PRODUCTION_RATE` = `2 × rate` (volle Rate)
+**Bomber-Batch:** `production_rate` (halbe Rate gemäß FUT-07)
+
+**Rhythmus-Symmetrie:** Gleicher Lieferzyklus (2/6 Runden), aber Bomber mit halber Gesamtproduktion.
 
 ### Strategische Implikationen
 

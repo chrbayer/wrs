@@ -279,12 +279,14 @@ func process_production() -> void:
 			# Fighters use batch delivery (2 turns normally, 6 turns with maintenance)
 			fighter_production_progress += ShipTypes.FIGHTER_PRODUCTION_RATE * rate_multiplier
 			if fighter_production_progress >= 1.0:
-				fighter_count += production_rate
+				# Batch size = production_rate / PRODUCTION_RATE (e.g., rate 3 / 0.5 = 6 fighters)
+				fighter_count += int(production_rate / ShipTypes.FIGHTER_PRODUCTION_RATE)
 				fighter_production_progress = 0.0
 		ProductionMode.BOMBERS:
-			# Bombers take 2 turns to produce, then deliver full production rate
+			# Bombers take 2 turns to produce at half rate (FUT-07)
 			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
 			if bomber_production_progress >= 1.0:
+				# Batch size = production_rate (half overall rate due to 2-turn cycle)
 				bomber_count += production_rate
 				bomber_production_progress = 0.0
 		ProductionMode.UPGRADE:

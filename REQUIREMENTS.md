@@ -64,12 +64,12 @@
 | ST-02 | Fighters shall have standard attack power (`FIGHTER_ATTACK`)            | ✅ Done |
 | ST-03 | Fighters shall have standard defense power (`FIGHTER_DEFENSE`)          | ✅ Done |
 | ~~ST-04~~ | ~~Fighters shall be produced at `FIGHTER_PRODUCTION_RATE` per production point per turn~~ | ~~Done~~ |
-| ST-04a | Fighters are delivered every 1/`FIGHTER_PRODUCTION_RATE` turns at full production rate | ✅ Done |
+| ST-04a | Fighters are delivered every 1/`FIGHTER_PRODUCTION_RATE` turns (batch size: production_rate/`FIGHTER_PRODUCTION_RATE`) | ✅ Done |
 | ST-05 | Bombers shall have reduced speed (`BOMBER_SPEED`)                       | ✅ Done |
 | ST-06 | Bombers shall have increased attack power (`BOMBER_ATTACK`)             | ✅ Done |
 | ST-07 | Bombers shall have reduced defense power (`BOMBER_DEFENSE`)             | ✅ Done |
 | ~~ST-08~~ | ~~Bombers shall be produced at `BOMBER_PRODUCTION_RATE` per production point per turn~~ | ~~Done~~ |
-| ST-08a | Bombers are delivered every 1/`BOMBER_PRODUCTION_RATE` turns at full production rate | ✅ Done |
+| ST-08a | Bombers are delivered every 1/`BOMBER_PRODUCTION_RATE` turns (batch size: production_rate, half overall rate) | ✅ Done |
 | ST-09 | Bombers participating in attacks shall cause production damage to the target system | ✅ Done |
 | ST-10 | Production damage from bombers shall scale with attacker/defender ratio (max 3) | ✅ Done |
 
@@ -104,9 +104,9 @@
 | ~~PR-02~~ | ~~Production modes shall be: Fighters, Bombers, Upgrade, Build Battery, Maintain Batteries~~ | ~~Done~~ |
 | PR-02a | Production modes shall be: Fighters, Bombers, Upgrade, Build Battery | ✅ Done |
 | ~~PR-03~~ | ~~Fighter production mode shall produce fighters at full rate~~     | ~~Done~~ |
-| PR-03a | Fighter production delivers full production rate every 1/`FIGHTER_PRODUCTION_RATE` turns | ✅ Done |
+| PR-03a | Fighter production uses batch delivery per ST-04a | ✅ Done |
 | ~~PR-04~~ | ~~Bomber production mode shall produce bombers at `BOMBER_PRODUCTION_RATE`~~ | ~~Done~~ |
-| PR-04a | Bomber production delivers full production rate every 1/`BOMBER_PRODUCTION_RATE` turns | ✅ Done |
+| PR-04a | Bomber production uses batch delivery per ST-08a | ✅ Done |
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
 | PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
 | PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
