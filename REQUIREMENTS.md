@@ -197,6 +197,7 @@
 | UI-25 | Hover info shall show both fighter-only and mixed fleet travel times     | ✅ Done |
 | UI-26 | Fleet info shall show total fighters and bombers in transit              | ✅ Done |
 | UI-27 | System info shall show current production mode and progress              | ✅ Done |
+| UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
 
 ---
 

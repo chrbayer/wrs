@@ -96,6 +96,10 @@ var combat_report_system: StarSystem = null
 # Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, has_batteries}})
 var system_memory: Dictionary = {}
 
+# Cached visibility overlay texture
+var visibility_texture: ImageTexture = null
+const VISIBILITY_COLOR = Color(0.3, 0.6, 1.0, 0.08)
+
 
 func _ready() -> void:
 	_setup_ui_connections()
@@ -103,6 +107,10 @@ func _ready() -> void:
 
 
 func _draw() -> void:
+	# Draw cached visibility overlay texture
+	if visibility_texture and not transition_screen.visible and not setup_screen.visible and not game_over_screen.visible:
+		draw_texture(visibility_texture, Vector2.ZERO)
+
 	if show_fleet_arrow and send_source_system and send_target_system:
 		var start_pos = send_source_system.global_position
 		var end_pos = send_target_system.global_position
@@ -306,6 +314,32 @@ func _update_fog_of_war() -> void:
 			else:
 				system.hide_system()
 
+	# Update visibility overlay texture
+	_update_visibility_texture(owned_systems)
+
+
+func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
+	var viewport_size = get_viewport().get_visible_rect().size
+	var img = Image.create(int(viewport_size.x), int(viewport_size.y), false, Image.FORMAT_RGBA8)
+
+	var radius = UniverseGenerator.MAX_SYSTEM_DISTANCE
+	var radius_sq = radius * radius
+
+	# For each pixel, check if it's within range of any owned system
+	for x in range(img.get_width()):
+		for y in range(img.get_height()):
+			var pos = Vector2(x, y)
+			var in_range = false
+			for system in owned_systems:
+				if pos.distance_squared_to(system.global_position) <= radius_sq:
+					in_range = true
+					break
+			if in_range:
+				img.set_pixel(x, y, VISIBILITY_COLOR)
+
+	visibility_texture = ImageTexture.create_from_image(img)
+	queue_redraw()
+
 
 func _show_player_transition() -> void:
 	transition_screen.visible = true
@@ -326,6 +360,7 @@ func _on_continue_pressed() -> void:
 	transition_screen.visible = false
 	_update_fog_of_war()
 	_update_ui()
+	queue_redraw()  # Redraw visibility range circles
 
 	# Show combat reports if this player was involved in battles
 	current_report_index = 0
