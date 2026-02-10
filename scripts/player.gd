@@ -3,10 +3,14 @@ extends RefCounted
 
 ## Represents a player in the game
 
+enum AiTactic { NONE, RANDOM, RUSH, FORTRESS, ECONOMY, BOMBER, BALANCED }
+
 var id: int
 var player_name: String
 var color: Color
 var is_eliminated: bool = false
+var is_ai: bool = false
+var ai_tactic: AiTactic = AiTactic.NONE
 
 # Player colors for up to 4 players
 const PLAYER_COLORS = [
@@ -19,9 +23,33 @@ const PLAYER_COLORS = [
 const NEUTRAL_COLOR = Color(0.5, 0.5, 0.5)  # Gray for neutral systems
 
 
-func _init(player_id: int, name: String = "") -> void:
+const TACTIC_NAMES = {
+	AiTactic.NONE: "",
+	AiTactic.RANDOM: "Random",
+	AiTactic.RUSH: "Rush",
+	AiTactic.FORTRESS: "Fortress",
+	AiTactic.ECONOMY: "Economy",
+	AiTactic.BOMBER: "Bomber",
+	AiTactic.BALANCED: "Balanced",
+}
+
+const CONCRETE_TACTICS = [AiTactic.RUSH, AiTactic.FORTRESS, AiTactic.ECONOMY, AiTactic.BOMBER, AiTactic.BALANCED]
+
+
+func _init(player_id: int, name: String = "", p_is_ai: bool = false, p_ai_tactic: AiTactic = AiTactic.NONE) -> void:
 	id = player_id
-	player_name = name if name != "" else "Player %d" % (player_id + 1)
+	is_ai = p_is_ai
+	# Resolve RANDOM to a concrete tactic
+	if p_ai_tactic == AiTactic.RANDOM:
+		ai_tactic = CONCRETE_TACTICS.pick_random()
+	else:
+		ai_tactic = p_ai_tactic
+	if name != "":
+		player_name = name
+	elif is_ai:
+		player_name = "AI %d (%s)" % [player_id + 1, TACTIC_NAMES[ai_tactic]]
+	else:
+		player_name = "Player %d" % (player_id + 1)
 	if player_id >= 0 and player_id < PLAYER_COLORS.size():
 		color = PLAYER_COLORS[player_id]
 	else:

@@ -156,8 +156,9 @@
 
 | ID   | Requirement                                                           | Status |
 |------|-----------------------------------------------------------------------|--------|
-| P-01 | The game shall support 2 to 4 human players                           | ✅ Done |
-| P-02 | There shall be no computer-controlled players                         | ✅ Done |
+| ~~P-01~~ | ~~The game shall support 2 to 4 human players~~                   | ~~Done~~ |
+| P-01a | The game shall support 2-4 players, any combination of human and AI | ✅ Done |
+| ~~P-02~~ | ~~There shall be no computer-controlled players~~                 | ~~Done~~ |
 | P-03 | The game shall be turn-based with each player taking turns sequentially | ✅ Done |
 | P-04 | A transition screen shall show whose turn it is                       | ✅ Done |
 | P-05 | Each player shall have a unique color                                 | ✅ Done |
@@ -211,6 +212,7 @@
 | UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
 | UI-29 | ESC key shall close the topmost open dialog (combat report, send fleet, or action panel) | ✅ Done |
 | UI-30 | Send fleet dialog shall display fighter morale when below 100% | ✅ Done |
+| UI-31 | Setup screen allows per-player Human/AI selection with tactic choice | ✅ Done |
 
 ---
 
@@ -221,7 +223,8 @@
 | FUT-01 | Save and load game state                                                                           | ❌ Not implemented |
 | FUT-02 | Show fleets in transit to their owner on the map                                                   | ❌ Not implemented |
 | FUT-03 | Sound effects for combat and UI actions                                                            | ❌ Not implemented |
-| FUT-04 | Optional AI opponents for single-player mode                                                       | ❌ Not implemented |
+| ~~FUT-04~~ | ~~Optional AI opponents for single-player mode~~                                               | ~~Not implemented~~ |
+| FUT-04a | AI opponents with selectable tactics (Rush, Fortress, Economy, Bomber, Balanced)                  | ✅ Done |
 | FUT-05 | Visual effects for fleet movement on the map                                                       | ❌ Not implemented |
 | FUT-06 | Game settings (combat balance, universe size, etc.)                                                | ❌ Not implemented |
 | FUT-07 | Second ship type (Bomber): half speed, 2/3 defense strength, 3/2 attack strength, half production rate | ✅ Done |
@@ -290,3 +293,4 @@
 - ~~Strikethrough requirements~~ are no longer valid (applies only to completed requirements).
 - If a completed requirement needs to be changed, the old requirement shall be struck through and a new requirement shall be created.
 - **Update 2026-02:** FUT-07 through FUT-17 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, fog of war memory, and fighter morale.
+- **Update 2026-02:** FUT-04a implemented, adding AI opponents with 5 selectable tactics. P-01a replaces P-01 to allow any human/AI mix.

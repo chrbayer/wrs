@@ -58,6 +58,7 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 # Setup screen
 @onready var setup_screen: Panel = $HUD/SetupScreen
 @onready var player_count_option: OptionButton = $HUD/SetupScreen/VBox/PlayerCountOption
+@onready var player_config_container: VBoxContainer = $HUD/SetupScreen/VBox/PlayerConfigContainer
 @onready var start_game_button: Button = $HUD/SetupScreen/VBox/StartGameButton
 
 # Combat report screen
@@ -99,6 +100,10 @@ var system_memory: Dictionary = {}
 # Cached visibility overlay texture
 var visibility_texture: ImageTexture = null
 const VISIBILITY_COLOR = Color(0.3, 0.6, 1.0, 0.08)
+
+# AI turn delay timer
+var ai_delay_timer: Timer = null
+const AI_TURN_DELAY: float = 0.3
 
 
 func _ready() -> void:
@@ -156,6 +161,7 @@ func _setup_ui_connections() -> void:
 	fighter_slider.value_changed.connect(_on_fighter_slider_changed)
 	bomber_slider.value_changed.connect(_on_bomber_slider_changed)
 	continue_button.pressed.connect(_on_continue_pressed)
+	player_count_option.item_selected.connect(_on_player_count_changed)
 	start_game_button.pressed.connect(_on_start_game_pressed)
 	restart_button.pressed.connect(_on_restart_pressed)
 	close_report_button.pressed.connect(_on_close_report_pressed)
@@ -167,6 +173,12 @@ func _setup_ui_connections() -> void:
 	build_battery_btn.pressed.connect(_on_build_battery_pressed)
 	maintain_battery_btn.pressed.connect(_on_maintain_battery_pressed)
 	action_close_btn.pressed.connect(_on_action_close_pressed)
+
+	# Create AI delay timer
+	ai_delay_timer = Timer.new()
+	ai_delay_timer.one_shot = true
+	ai_delay_timer.wait_time = AI_TURN_DELAY
+	add_child(ai_delay_timer)
 
 
 func _show_setup_screen() -> void:
@@ -185,18 +197,99 @@ func _show_setup_screen() -> void:
 	for i in range(2, 5):
 		player_count_option.add_item("%d Players" % i, i)
 
+	# Build initial player config rows
+	_rebuild_player_config(2)
+
+
+func _on_player_count_changed(_index: int) -> void:
+	var count = player_count_option.get_selected_id()
+	_rebuild_player_config(count)
+
+
+func _rebuild_player_config(count: int) -> void:
+	# Clear existing config rows (free immediately to avoid stale children)
+	for child in player_config_container.get_children():
+		player_config_container.remove_child(child)
+		child.queue_free()
+
+	for i in range(count):
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+
+		# Color indicator
+		var color_rect = ColorRect.new()
+		color_rect.custom_minimum_size = Vector2(24, 24)
+		color_rect.color = Player.PLAYER_COLORS[i]
+		row.add_child(color_rect)
+
+		# Player label
+		var label = Label.new()
+		label.text = "Player %d:" % (i + 1)
+		label.add_theme_font_size_override("font_size", 20)
+		label.custom_minimum_size = Vector2(100, 0)
+		row.add_child(label)
+
+		# Human/AI option
+		var type_option = OptionButton.new()
+		type_option.add_theme_font_size_override("font_size", 20)
+		type_option.add_item("Human", 0)
+		type_option.add_item("AI", 1)
+		type_option.name = "TypeOption_%d" % i
+		type_option.custom_minimum_size = Vector2(100, 0)
+		row.add_child(type_option)
+
+		# Tactic option (only visible when AI is selected)
+		var tactic_option = OptionButton.new()
+		tactic_option.add_theme_font_size_override("font_size", 20)
+		tactic_option.add_item("Random", Player.AiTactic.RANDOM)
+		tactic_option.add_item("Rush", Player.AiTactic.RUSH)
+		tactic_option.add_item("Fortress", Player.AiTactic.FORTRESS)
+		tactic_option.add_item("Economy", Player.AiTactic.ECONOMY)
+		tactic_option.add_item("Bomber", Player.AiTactic.BOMBER)
+		tactic_option.add_item("Balanced", Player.AiTactic.BALANCED)
+		tactic_option.name = "TacticOption_%d" % i
+		tactic_option.custom_minimum_size = Vector2(120, 0)
+		tactic_option.visible = false
+		row.add_child(tactic_option)
+
+		# Connect type change to show/hide tactic
+		type_option.item_selected.connect(_on_player_type_changed.bind(i))
+
+		player_config_container.add_child(row)
+
+
+func _on_player_type_changed(_index: int, player_idx: int) -> void:
+	var row = player_config_container.get_child(player_idx)
+	if not row:
+		return
+	var type_option = row.get_node("TypeOption_%d" % player_idx) as OptionButton
+	var tactic_option = row.get_node("TacticOption_%d" % player_idx) as OptionButton
+	if type_option and tactic_option:
+		tactic_option.visible = (type_option.get_selected_id() == 1)
+
 
 func _on_start_game_pressed() -> void:
 	player_count = player_count_option.get_selected_id()
 	system_count = 15 + (player_count * 5)  # Scale with players
+
+	# Read player configs from UI
+	var player_configs = []
+	for i in range(player_count):
+		var row = player_config_container.get_child(i)
+		var type_option = row.get_node("TypeOption_%d" % i) as OptionButton
+		var tactic_option = row.get_node("TacticOption_%d" % i) as OptionButton
+		var is_ai = type_option.get_selected_id() == 1
+		var tactic = tactic_option.get_selected_id() if is_ai else Player.AiTactic.NONE
+		player_configs.append({"is_ai": is_ai, "tactic": tactic})
+
 	setup_screen.visible = false
 	# Show game UI
 	$HUD/TopBar.visible = true
 	$HUD/BottomBar.visible = true
-	_start_game()
+	_start_game(player_configs)
 
 
-func _start_game() -> void:
+func _start_game(player_configs: Array = []) -> void:
 	# Clear previous game
 	for system in systems:
 		system.queue_free()
@@ -204,10 +297,15 @@ func _start_game() -> void:
 	fleets_in_transit.clear()
 	players.clear()
 	system_memory.clear()
+	pending_combat_reports.clear()
 
 	# Initialize players
 	for i in range(player_count):
-		players.append(Player.new(i))
+		if i < player_configs.size():
+			var cfg = player_configs[i]
+			players.append(Player.new(i, "", cfg["is_ai"], cfg["tactic"]))
+		else:
+			players.append(Player.new(i))
 
 	# Generate universe
 	_generate_universe()
@@ -355,11 +453,10 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 
 
 func _show_player_transition() -> void:
-	transition_screen.visible = true
-	transition_label.text = "Player %d's Turn\n\n%s\n\nClick Continue when ready" % [
-		current_player + 1,
-		players[current_player].player_name
-	]
+	# Skip eliminated players
+	if _is_player_eliminated(current_player):
+		_advance_to_next_player()
+		return
 
 	# Deselect any selected system
 	if selected_system:
@@ -367,6 +464,27 @@ func _show_player_transition() -> void:
 		selected_system = null
 	send_panel.visible = false
 	action_panel.visible = false
+
+	# AI players: execute turn automatically (no transition screen)
+	if players[current_player].is_ai:
+		# Spectator mode: update display and wait before AI acts
+		if _is_all_ai():
+			_update_fog_of_war()
+			transition_screen.visible = false
+			_update_ui()
+			queue_redraw()
+			await get_tree().create_timer(AI_TURN_DELAY).timeout
+			if game_ended:
+				return
+		_execute_ai_turn()
+		return
+
+	# Human player: show transition screen
+	transition_screen.visible = true
+	transition_label.text = "Player %d's Turn\n\n%s\n\nClick Continue when ready" % [
+		current_player + 1,
+		players[current_player].player_name
+	]
 
 
 func _on_continue_pressed() -> void:
@@ -507,7 +625,7 @@ func _format_intel_text(memory: Dictionary, system: StarSystem) -> String:
 		else:
 			text += " (%d F)" % known_fighters
 
-	if known_batteries >= 0:
+	if known_batteries > 0:
 		text += " [(%d) bat.]" % known_batteries
 	elif system.battery_count > 0:
 		text += " [batteries]"
@@ -875,7 +993,10 @@ func _on_end_turn_pressed() -> void:
 	send_panel.visible = false
 	action_panel.visible = false
 
-	# Move to next player
+	_advance_to_next_player()
+
+
+func _advance_to_next_player() -> void:
 	current_player += 1
 
 	if current_player >= player_count:
@@ -889,7 +1010,85 @@ func _on_end_turn_pressed() -> void:
 		return
 
 	# Show transition to next player (combat report shown after transition)
-	_show_player_transition()
+	# Use call_deferred to avoid deep recursion with consecutive AI players
+	call_deferred("_show_player_transition")
+
+
+func _is_player_eliminated(player_id: int) -> bool:
+	# Check if a player has no systems and no fleets
+	for system in systems:
+		if system.owner_id == player_id:
+			return false
+	for fleet in fleets_in_transit:
+		if fleet.owner_id == player_id:
+			return false
+	return true
+
+
+func _is_all_ai() -> bool:
+	for player in players:
+		if not player.is_ai:
+			return false
+	return true
+
+
+func _execute_ai_turn() -> void:
+	var player = players[current_player]
+
+	# Update fog of war for AI decisions (already done for display in spectator mode)
+	if not _is_all_ai():
+		_update_fog_of_war()
+
+	# Get AI decisions
+	var decisions = AiController.execute_turn(
+		current_player,
+		player.ai_tactic,
+		systems,
+		fleets_in_transit,
+		system_memory,
+		current_turn
+	)
+
+	# Apply production changes
+	for change in decisions["production_changes"]:
+		var sys = systems[change["system_id"]]
+		if sys.owner_id != current_player:
+			continue
+		if change.has("mode"):
+			sys.set_production_mode(change["mode"])
+		if change.has("maintain"):
+			sys.maintaining_batteries = change["maintain"]
+
+	# Apply fleet orders
+	for order in decisions["fleet_orders"]:
+		var source = systems[order["source_id"]]
+		var target = systems[order["target_id"]]
+		if source.owner_id != current_player:
+			continue
+
+		var fighters = min(order["fighters"], source.fighter_count)
+		var bombers = min(order["bombers"], source.bomber_count)
+
+		if fighters <= 0 and bombers <= 0:
+			continue
+
+		var distance = source.global_position.distance_to(target.global_position)
+		var fleet = Fleet.new(
+			current_player,
+			fighters,
+			source.system_id,
+			target.system_id,
+			current_turn,
+			distance,
+			bombers
+		)
+
+		source.remove_fighters(fighters)
+		source.remove_bombers(bombers)
+		fleets_in_transit.append(fleet)
+
+	# Advance to next player
+	_advance_to_next_player()
 
 
 func _show_combat_report() -> void:
@@ -1084,6 +1283,22 @@ func _process_turn_end() -> void:
 		var old_batteries = system.battery_count
 
 		var merged = Combat.merge_fleets_by_owner(fleets_here)
+
+		# Save original forces before combat modifies the dict
+		var reinforcement_fighters = 0
+		var reinforcement_bombers = 0
+		if merged.has(old_owner):
+			reinforcement_fighters = merged[old_owner]["fighters"]
+			reinforcement_bombers = merged[old_owner]["bombers"]
+
+		var original_attacker_forces = {}
+		for aid in merged.keys():
+			if aid != old_owner:
+				original_attacker_forces[aid] = {
+					"fighters": merged[aid]["fighters"],
+					"bombers": merged[aid]["bombers"],
+				}
+
 		var result = Combat.resolve_system_combat(system, merged)
 
 		# Apply results to system
@@ -1108,23 +1323,22 @@ func _process_turn_end() -> void:
 
 		# Build combat report data
 		if result["log"].size() > 0:
-			# Calculate attacker info
+			# Calculate attacker info from saved original forces
 			var attacker_id = -1
 			var attacker_fighters = 0
 			var attacker_bombers = 0
-			for aid in merged.keys():
-				if aid != old_owner:
-					attacker_id = aid
-					attacker_fighters = merged[aid]["fighters"]
-					attacker_bombers = merged[aid]["bombers"]
-					break
+			for aid in original_attacker_forces.keys():
+				attacker_id = aid
+				attacker_fighters = original_attacker_forces[aid]["fighters"]
+				attacker_bombers = original_attacker_forces[aid]["bombers"]
+				break
 
 			var report_data = {
 				"system_name": system.system_name,
 				"system_id": system_id,
 				"defender_name": _get_owner_name(old_owner),
-				"defender_fighters": old_fighters,
-				"defender_bombers": old_bombers,
+				"defender_fighters": old_fighters + reinforcement_fighters,
+				"defender_bombers": old_bombers + reinforcement_bombers,
 				"defender_fighter_losses": result["defender_fighter_losses"],
 				"defender_bomber_losses": result["defender_bomber_losses"],
 				"attacker_name": _get_owner_name(attacker_id),
@@ -1147,7 +1361,7 @@ func _process_turn_end() -> void:
 			var involved_players: Array[int] = []
 			if old_owner >= 0:
 				involved_players.append(old_owner)
-			for involved_id in merged.keys():
+			for involved_id in original_attacker_forces.keys():
 				if involved_id not in involved_players:
 					involved_players.append(involved_id)
 
@@ -1204,6 +1418,12 @@ func _check_victory() -> bool:
 
 func _show_game_over(winner_id: int) -> void:
 	game_ended = true
+	# Show map from winner's perspective
+	current_player = winner_id
+	_update_fog_of_war()
+	_update_ui()
+	queue_redraw()
+	transition_screen.visible = false
 	game_over_screen.visible = true
 	winner_label.text = "%s Wins!" % players[winner_id].player_name
 	winner_label.add_theme_color_override("font_color", players[winner_id].color)

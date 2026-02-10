@@ -873,3 +873,59 @@ Option C: Reine Bomber (langsam, konstant)
 ### Fazit
 
 FUT-17 fügt eine elegante strategische Dimension hinzu: **Entfernung kostet**. Fighter verlieren auf langen Reisen an Kampfkraft, was Bomber für Fernangriffe aufwertet und die Kartenposition strategisch relevanter macht. Die Regel ist intuitiv (müde Piloten), einfach zu verstehen (% Anzeige im UI) und schafft interessante Trade-offs bei der Flottenkomposition.
+
+---
+
+## Nachtrag: FUT-04a - KI-Gegner mit wählbaren Taktiken
+
+> Datum: 2026-02-10
+
+### Requirement
+
+**FUT-04a:** AI opponents with selectable tactics (Rush, Fortress, Economy, Bomber, Balanced).
+
+### 5 Taktiken
+
+| Taktik | Produktion | Flotten | Stärke | Schwäche |
+|--------|-----------|---------|--------|----------|
+| **Rush** | Nur Fighter, kein Upgrade | 60% zum nächsten Ziel | Schnelle Expansion | Niedrige Produktion |
+| **Fortress** | Batterien an Grenze, Upgrade im Hinterland | Nur bei 2:1+ Übermacht | Starke Verteidigung | Langsame Expansion |
+| **Economy** | Upgrade auf Max, dann Fighter | Vorsichtig früh, überwältigend spät | Endgame-Dominanz | Verletzlich früh |
+| **Bomber** | Upgrade bis Rate 4, dann 1:2 Bomber:Fighter | Gemischt auf hochproduktive Feinde | Wirtschaftsschaden | Langsamer Aufbau |
+| **Balanced** | Phasenabhängig (Rush→Eco→Bomber) | Adaptiv nach Spielphase | Flexibel | Kein klarer Vorteil |
+
+### Strategische Analyse
+
+```
+Matchup-Matrix (Erwartete Stärken):
+
+            vs Rush  vs Fortress  vs Economy  vs Bomber  vs Balanced
+Rush          =         --          ++          +           +
+Fortress      ++         =           -          -           =
+Economy       --         +           =          +           =
+Bomber        -          +           -          =           -
+Balanced      -          =           =          +           =
+```
+
+### Design-Entscheidungen
+
+| Aspekt | Entscheidung | Begründung |
+|--------|-------------|------------|
+| Fair Play | Nur Fog-of-War-Daten | Keine Allwissenheit, gleiche Regeln wie Spieler |
+| Kein Cheating | system_memory als Datenbasis | KI sieht nur was sie erkundet hat |
+| Statische Taktik | Keine Taktikwechsel mid-game | Vorhersagbar und erlernbar für Spieler |
+| Balanced-Adaptivität | Phasen-basiert (Turn + Prod) | Einzige "dynamische" Taktik |
+
+### Bewertung
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Spielerfahrung | ★★★★★ | Einzelspieler-Modus endlich möglich |
+| Taktik-Vielfalt | ★★★★★ | 5 distinkte, erlernbare Spielstile |
+| Fairness | ★★★★★ | Gleiche Fog-of-War-Regeln wie Spieler |
+| Herausforderung | ★★★★☆ | Kompetent aber nicht unschlagbar |
+| Zuschauer-Modus | ★★★★☆ | Reine KI-Spiele als Demonstration |
+
+### Fazit
+
+FUT-04a transformiert das Spiel von einem reinen Hot-Seat-Multiplayer zu einem vollwertigen Einzelspieler-Erlebnis. Die 5 Taktiken decken das gesamte strategische Spektrum ab und bieten unterschiedliche Herausforderungen.

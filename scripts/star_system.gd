@@ -234,7 +234,7 @@ func _format_intel(memory: Dictionary, is_memory: bool) -> String:
 		text = "?"
 
 	# Battery display
-	if known_batteries >= 0:
+	if known_batteries > 0:
 		text += " [(%d)]" % known_batteries
 	elif has_batteries_flag:
 		text += " [?]"
