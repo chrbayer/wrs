@@ -222,11 +222,42 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		result["remaining_bombers"] += arriving_fleets[system_owner]["bombers"]
 		arriving_fleets.erase(system_owner)
 
-	# Sort attackers by fleet size (largest first)
+	# Battery pre-combat phase: batteries engage each enemy fleet (largest attack value first)
+	if system.battery_count > 0 and arriving_fleets.size() > 0:
+		# Sort enemy fleets by attack value (largest first) for battery targeting
+		var battery_targets: Array = []
+		for attacker_id in arriving_fleets:
+			var force = arriving_fleets[attacker_id]
+			battery_targets.append({
+				"id": attacker_id,
+				"attack_value": calculate_attack_power(force["fighters"], force["bombers"])
+			})
+		battery_targets.sort_custom(func(a, b): return a["attack_value"] > b["attack_value"])
+
+		# Batteries fire at each enemy fleet
+		for target in battery_targets:
+			var force = arriving_fleets[target["id"]]
+			var battery_result = resolve_battery_combat(system.battery_count, force["fighters"], force["bombers"])
+			force["fighters"] = max(0, force["fighters"] - battery_result["fighter_kills"])
+			force["bombers"] = max(0, force["bombers"] - battery_result["bomber_kills"])
+			var kills = battery_result["fighter_kills"] + battery_result["bomber_kills"]
+			result["battery_kills"] += kills
+			if kills > 0:
+				result["log"].append("Batteries destroyed %d ships from Player %d's fleet" % [kills, target["id"] + 1])
+
+		# Remove fleets reduced to 0 ships
+		var surviving_fleets: Dictionary = {}
+		for attacker_id in arriving_fleets:
+			var force = arriving_fleets[attacker_id]
+			if force["fighters"] + force["bombers"] > 0:
+				surviving_fleets[attacker_id] = force
+		arriving_fleets = surviving_fleets
+
+	# Sort attackers by summed attack value (largest first)
 	var attackers_sorted: Array = []
 	for attacker_id in arriving_fleets:
 		var force = arriving_fleets[attacker_id]
-		var total = force["fighters"] + force["bombers"]
+		var total = calculate_attack_power(force["fighters"], force["bombers"])
 		attackers_sorted.append({
 			"id": attacker_id,
 			"fighters": force["fighters"],
@@ -256,10 +287,11 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			])
 		else:
 			# Combat!
+			# Batteries already fired in pre-combat phase, pass 0
 			var combat_result = resolve_combat(
 				att_fighters, att_bombers, attacker_id,
 				result["remaining_fighters"], result["remaining_bombers"], result["winner"],
-				system.battery_count if result["winner"] == system_owner else 0
+				0
 			)
 
 			result["log"].append("Combat: %d/%d attackers vs %d/%d defenders" % [

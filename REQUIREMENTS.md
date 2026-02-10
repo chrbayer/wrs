@@ -132,11 +132,13 @@
 | C-03 | The winner of combat shall control the star system                           | ✅ Done |
 | C-04 | Surviving fighters shall remain at the system after combat                   | ✅ Done |
 | C-05 | Combat reports shall be shown to involved players, one at a time, with the relevant system highlighted | ✅ Done |
-| C-06 | When multiple fleets arrive simultaneously, they attack in order of size (largest first) | ✅ Done |
+| ~~C-06~~ | ~~When multiple fleets arrive simultaneously, they attack in order of size (largest first)~~ | ~~Done~~ |
+| C-06a | When multiple fleets arrive simultaneously, they attack in order of summed attack value (`fighters × FIGHTER_ATTACK + bombers × BOMBER_ATTACK`, largest first) | ✅ Done |
 | C-07 | Reinforcements shall be processed before any combat occurs                   | ✅ Done |
 | C-08 | If both sides are eliminated in combat, the system shall become neutral      | ✅ Done |
 | C-09 | Combat shall apply attack/defense multipliers based on ship type            | ✅ Done |
-| C-10 | Defense batteries shall engage attackers before ship-to-ship combat         | ✅ Done |
+| ~~C-10~~ | ~~Defense batteries shall engage attackers before ship-to-ship combat~~         | ~~Done~~ |
+| C-10a | Defense batteries shall engage each enemy fleet (largest summed attack value first) in a pre-combat phase before attack order is determined. Each fleet receives full battery damage. Batteries do not fire again during individual ship-to-ship combat. | ✅ Done |
 | C-11 | Combat shall target ships with lower defense first (bombers before fighters) | ✅ Done |
 | C-12 | Combat reports shall show bomber participation and losses                    | ✅ Done |
 | C-13 | Combat reports shall show battery kills                                      | ✅ Done |
