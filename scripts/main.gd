@@ -93,7 +93,7 @@ var pending_combat_reports: Dictionary = {}
 var current_report_index: int = 0
 var combat_report_system: StarSystem = null
 
-# Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, has_batteries}})
+# Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, bomber_count, battery_count, has_batteries}})
 var system_memory: Dictionary = {}
 
 # Cached visibility overlay texture
@@ -259,6 +259,7 @@ func _generate_universe() -> void:
 
 		# Connect signals
 		system.system_clicked.connect(_on_system_clicked)
+		system.system_double_clicked.connect(_on_system_double_clicked)
 		system.system_hover_started.connect(_on_system_hover_started)
 		system.system_hover_ended.connect(_on_system_hover_ended)
 
@@ -298,14 +299,26 @@ func _update_fog_of_war() -> void:
 			system.update_visuals()
 			if system.owner_id == current_player:
 				system.show_fighter_count()
+				system_memory[current_player][system.system_id] = {
+					"owner_id": system.owner_id,
+					"fighter_count": system.fighter_count,
+					"bomber_count": system.bomber_count,
+					"battery_count": system.battery_count,
+					"has_batteries": system.battery_count > 0
+				}
 			else:
-				system.show_hidden_info()
-			# Update memory for this system
-			system_memory[current_player][system.system_id] = {
-				"owner_id": system.owner_id,
-				"fighter_count": system.fighter_count if system.owner_id == current_player else "?",
-				"has_batteries": system.battery_count > 0
-			}
+				# Preserve known ship/battery counts from combat intel
+				var existing = system_memory[current_player].get(system.system_id, {})
+				var owner_changed = existing.get("owner_id", -2) != system.owner_id
+				system_memory[current_player][system.system_id] = {
+					"owner_id": system.owner_id,
+					"fighter_count": "?" if owner_changed else existing.get("fighter_count", "?"),
+					"bomber_count": 0 if owner_changed else existing.get("bomber_count", 0),
+					"battery_count": -1 if owner_changed else existing.get("battery_count", -1),
+					"has_batteries": system.battery_count > 0
+				}
+				var mem = system_memory[current_player][system.system_id]
+				system.show_hidden_info(mem)
 		else:
 			# Check if we have memory of this system
 			var player_memory = system_memory[current_player]
@@ -420,13 +433,14 @@ func _on_system_clicked(system: StarSystem) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
 
-	# If we have a source selected and click a different system, that's the target
+	# If we have an owned source selected and click a different system, send fleet
 	if selected_system and selected_system != system:
 		if selected_system.owner_id == current_player and selected_system.get_total_ships() > 0:
 			_start_send_fleet(selected_system, system)
-		return
+			return
+		# Non-owned system selected: fall through to select new system
 
-	# Toggle selection
+	# Toggle selection on same system
 	if selected_system == system:
 		system.set_selected(false)
 		selected_system = null
@@ -434,19 +448,71 @@ func _on_system_clicked(system: StarSystem) -> void:
 		action_panel.visible = false
 		show_fleet_arrow = false
 		queue_redraw()
-	else:
-		if selected_system:
-			selected_system.set_selected(false)
-		selected_system = system
-		system.set_selected(true)
+		system_info_label.text = ""
+		return
 
-		# Show system info
-		if system.owner_id == current_player:
-			_show_owned_system_info(system)
-			_show_action_panel(system)
+	# Select new system (single click: info only, no action panel)
+	if selected_system:
+		selected_system.set_selected(false)
+	selected_system = system
+	system.set_selected(true)
+	send_panel.visible = false
+	action_panel.visible = false
+	show_fleet_arrow = false
+	queue_redraw()
+
+	_show_system_info(system)
+
+
+func _on_system_double_clicked(system: StarSystem) -> void:
+	if game_ended or transition_screen.visible or combat_report_screen.visible:
+		return
+
+	if system.owner_id != current_player:
+		return
+
+	# Ensure system is selected (first click of double-click may have toggled)
+	if selected_system and selected_system != system:
+		selected_system.set_selected(false)
+	selected_system = system
+	system.set_selected(true)
+	_show_owned_system_info(system)
+	_show_action_panel(system)
+
+
+func _show_system_info(system: StarSystem) -> void:
+	if system.owner_id == current_player:
+		_show_owned_system_info(system)
+	else:
+		var select_info: String
+		if system.owner_id < 0:
+			select_info = "%s - Neutral (+%d/turn)" % [system.system_name, system.production_rate]
 		else:
-			system_info_label.text = "%s - Enemy/Neutral Territory" % system.system_name
-			action_panel.visible = false
+			select_info = "%s - %s (+%d/turn)" % [system.system_name, players[system.owner_id].player_name, system.production_rate]
+		var memory = system_memory[current_player].get(system.system_id, {})
+		select_info += _format_intel_text(memory, system)
+		system_info_label.text = select_info
+
+
+## Format combat intel for info text (hover and selection)
+func _format_intel_text(memory: Dictionary, system: StarSystem) -> String:
+	var text = ""
+	var known_fighters = memory.get("fighter_count", "?")
+	var known_bombers = memory.get("bomber_count", 0)
+	var known_batteries = memory.get("battery_count", -1)
+
+	if known_fighters != "?":
+		if known_bombers > 0:
+			text += " (%d F / %d B)" % [known_fighters, known_bombers]
+		else:
+			text += " (%d F)" % known_fighters
+
+	if known_batteries >= 0:
+		text += " [(%d) bat.]" % known_batteries
+	elif system.battery_count > 0:
+		text += " [batteries]"
+
+	return text
 
 
 func _show_owned_system_info(system: StarSystem) -> void:
@@ -545,6 +611,17 @@ func _on_maintain_battery_pressed() -> void:
 		_show_action_panel(selected_system)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		if combat_report_screen.visible:
+			_on_close_report_pressed()
+		elif send_panel.visible:
+			_on_send_cancelled()
+		elif action_panel.visible:
+			_on_action_close_pressed()
+		get_viewport().set_input_as_handled()
+
+
 func _on_action_close_pressed() -> void:
 	action_panel.visible = false
 
@@ -559,9 +636,10 @@ func _on_system_hover_started(system: StarSystem) -> void:
 		return
 
 	var info_text: String
+	var memory = system_memory[current_player].get(system.system_id, {})
+
 	if system.is_remembered:
 		# Show remembered (outdated) info
-		var memory = system_memory[current_player].get(system.system_id, {})
 		var owner_name = "Unknown"
 		if memory.has("owner_id"):
 			if memory["owner_id"] < 0:
@@ -569,20 +647,17 @@ func _on_system_hover_started(system: StarSystem) -> void:
 			else:
 				owner_name = players[memory["owner_id"]].player_name
 		info_text = "%s - %s (last seen)" % [system.system_name, owner_name]
-		if memory.get("has_batteries", false):
-			info_text += " [batteries]"
 	elif system.owner_id < 0:
 		info_text = "%s - Neutral (+%d/turn)" % [
 			system.system_name, system.production_rate
 		]
-		if system.battery_count > 0:
-			info_text += " [batteries]"
 	else:
 		info_text = "%s - %s (+%d/turn)" % [
 			system.system_name, players[system.owner_id].player_name, system.production_rate
 		]
-		if system.battery_count > 0:
-			info_text += " [batteries]"
+
+	# Show known combat intel
+	info_text += _format_intel_text(memory, system)
 
 	# Show travel time if another system is selected
 	if selected_system and selected_system != system:
@@ -637,6 +712,14 @@ func _start_send_fleet(source: StarSystem, target: StarSystem) -> void:
 
 
 func _position_send_panel() -> void:
+	# Resize panel to fit content
+	var vbox = send_panel.get_node("VBox")
+	var padding = Vector2(40, 40)  # 20px on each side
+	var needed_size = vbox.get_combined_minimum_size() + padding
+	needed_size.x = max(needed_size.x, send_panel.custom_minimum_size.x)
+	needed_size.y = max(needed_size.y, send_panel.custom_minimum_size.y)
+	send_panel.size = needed_size
+
 	var viewport_size = get_viewport().get_visible_rect().size
 	var panel_size = send_panel.size
 	var margin = 20.0
@@ -763,7 +846,7 @@ func _on_send_confirmed() -> void:
 	queue_redraw()
 	_update_ui()
 
-	# Deselect system if all ships were sent
+	# Deselect system if all ships were sent, otherwise update info
 	if selected_system and selected_system.get_total_ships() == 0:
 		selected_system.set_selected(false)
 		selected_system = null
@@ -771,7 +854,6 @@ func _on_send_confirmed() -> void:
 		system_info_label.text = ""
 	elif selected_system:
 		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
 
 
 func _on_send_cancelled() -> void:
@@ -834,9 +916,11 @@ func _show_combat_report() -> void:
 		report_data["attacker_bombers"]
 	]
 
-	if report_data["battery_kills"] > 0:
+	if report_data["batteries_before"] > 0 or report_data["battery_kills"] > 0:
 		report_text += "BATTERIES\n"
-		report_text += "Destroyed %d attackers\n\n" % report_data["battery_kills"]
+		if report_data["battery_kills"] > 0:
+			report_text += "Destroyed %d attackers\n" % report_data["battery_kills"]
+		report_text += "%d → %d batteries\n\n" % [report_data["batteries_before"], report_data["batteries_after"]]
 
 	report_text += "BATTLE\n"
 	report_text += "Attacker losses: %d F / %d B\n" % [
@@ -881,6 +965,14 @@ func _show_combat_report() -> void:
 func _position_combat_report_panel() -> void:
 	if not combat_report_system:
 		return
+
+	# Resize panel to fit content
+	var vbox = combat_report_screen.get_node("VBox")
+	var padding = Vector2(50, 40)  # 25px left/right, 20px top/bottom
+	var needed_size = vbox.get_combined_minimum_size() + padding
+	needed_size.x = max(needed_size.x, combat_report_screen.custom_minimum_size.x)
+	needed_size.y = max(needed_size.y, combat_report_screen.custom_minimum_size.y)
+	combat_report_screen.size = needed_size
 
 	var viewport_size = get_viewport().get_visible_rect().size
 	var panel_size = combat_report_screen.size
@@ -977,6 +1069,7 @@ func _process_turn_end() -> void:
 		var old_owner = system.owner_id
 		var old_fighters = system.fighter_count
 		var old_bombers = system.bomber_count
+		var old_batteries = system.battery_count
 
 		var merged = Combat.merge_fleets_by_owner(fleets_here)
 		var result = Combat.resolve_system_combat(system, merged)
@@ -1031,6 +1124,8 @@ func _process_turn_end() -> void:
 				"remaining_fighters": result["remaining_fighters"],
 				"remaining_bombers": result["remaining_bombers"],
 				"battery_kills": result["battery_kills"],
+				"batteries_before": old_batteries,
+				"batteries_after": system.battery_count,
 				"production_damage": result["production_damage"],
 				"conquest_occurred": result["conquest_occurred"]
 			}
@@ -1047,6 +1142,17 @@ func _process_turn_end() -> void:
 				if not pending_combat_reports.has(player_id):
 					pending_combat_reports[player_id] = []
 				pending_combat_reports[player_id].append(report_data)
+
+				# Update combat intel in memory (players learn post-combat state)
+				if not system_memory.has(player_id):
+					system_memory[player_id] = {}
+				system_memory[player_id][system_id] = {
+					"owner_id": system.owner_id,
+					"fighter_count": system.fighter_count,
+					"bomber_count": system.bomber_count,
+					"battery_count": system.battery_count,
+					"has_batteries": system.battery_count > 0
+				}
 
 
 func _get_owner_name(owner_id: int) -> String:

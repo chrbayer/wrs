@@ -80,7 +80,7 @@ text = "No fleets in transit"
 
 [node name="SendPanel" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(340, 320)
+custom_minimum_size = Vector2(380, 200)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/SendPanel"]
@@ -256,7 +256,7 @@ text = "Start Game"
 
 [node name="CombatReportScreen" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(500, 520)
+custom_minimum_size = Vector2(450, 300)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/CombatReportScreen"]

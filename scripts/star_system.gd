@@ -4,6 +4,7 @@ class_name StarSystem
 ## Represents a star system that can be owned by players
 
 signal system_clicked(system: StarSystem)
+signal system_double_clicked(system: StarSystem)
 signal system_hover_started(system: StarSystem)
 signal system_hover_ended(system: StarSystem)
 
@@ -196,13 +197,10 @@ func show_system() -> void:
 
 
 ## Show hidden info for fog of war (visible but not owned)
-func show_hidden_info() -> void:
+func show_hidden_info(memory: Dictionary = {}) -> void:
 	is_remembered = false
 	if label:
-		var text = "?"
-		# Show battery presence (but not count) to non-owners
-		if battery_count > 0:
-			text += " [?]"
+		var text = _format_intel(memory, false)
 		label.text = text
 
 
@@ -211,14 +209,37 @@ func show_remembered_info(memory: Dictionary) -> void:
 	visible = true
 	is_remembered = true
 	if label:
-		var text = "(%s)" % memory.get("fighter_count", "?")
-		if memory.get("has_batteries", false):
-			text += " [?]"
-		label.text = text
+		label.text = _format_intel(memory, true)
 		label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	if name_label:
 		name_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
 	_update_circle_visuals()
+
+
+## Format ship/battery intel from memory for display
+func _format_intel(memory: Dictionary, is_memory: bool) -> String:
+	var known_fighters = memory.get("fighter_count", "?")
+	var known_bombers = memory.get("bomber_count", 0)
+	var known_batteries = memory.get("battery_count", -1)
+	var has_batteries_flag = memory.get("has_batteries", battery_count > 0)
+
+	var text = ""
+	if known_fighters != "?":
+		# Known counts from combat intel — show in parentheses
+		if known_bombers > 0:
+			text = "(%d/%d)" % [known_fighters, known_bombers]
+		else:
+			text = "(%d)" % known_fighters
+	else:
+		text = "?"
+
+	# Battery display
+	if known_batteries >= 0:
+		text += " [(%d)]" % known_batteries
+	elif has_batteries_flag:
+		text += " [?]"
+
+	return text
 
 
 ## Show actual fighter/bomber count
@@ -384,7 +405,10 @@ func get_distance_to(other_system: StarSystem) -> float:
 func _on_area_2d_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			system_clicked.emit(self)
+			if event.double_click:
+				system_double_clicked.emit(self)
+			else:
+				system_clicked.emit(self)
 
 
 func _on_area_2d_mouse_entered() -> void:

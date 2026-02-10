@@ -141,7 +141,8 @@
 | C-10a | Defense batteries shall engage each enemy fleet (largest summed attack value first) in a pre-combat phase before attack order is determined. Each fleet receives full battery damage. Batteries do not fire again during individual ship-to-ship combat. | ✅ Done |
 | C-11 | Combat shall target ships with lower defense first (bombers before fighters) | ✅ Done |
 | C-12 | Combat reports shall show bomber participation and losses                    | ✅ Done |
-| C-13 | Combat reports shall show battery kills                                      | ✅ Done |
+| ~~C-13~~ | ~~Combat reports shall show battery kills~~                                      | ~~Done~~ |
+| C-13a | Combat reports shall show battery kills and battery status before/after combat | ✅ Done |
 | C-14 | Combat reports shall show production damage from bomber attacks              | ✅ Done |
 | C-15 | Combat reports shall indicate if conquest occurred and the associated penalty | ✅ Done |
 
@@ -193,15 +194,18 @@
 | UI-17 | During combat report display, only the close button shall be interactive | ✅ Done |
 | UI-18 | Send fleet dialog shall have separate sliders for fighters and bombers   | ✅ Done |
 | UI-19 | Bomber slider shall only be visible when bombers are available           | ✅ Done |
-| UI-20 | An action panel shall allow setting production mode for owned systems    | ✅ Done |
+| ~~UI-20~~ | ~~An action panel shall allow setting production mode for owned systems~~    | ~~Done~~ |
+| UI-20a | An action panel shall allow setting production mode for owned systems, opened by double-clicking the system (single click selects only) | ✅ Done |
 | UI-21 | Action panel buttons shall be disabled when not applicable (e.g., max batteries reached) | ✅ Done |
 | UI-22 | Star labels shall show fighter/bomber counts (e.g., "10/5")              | ✅ Done |
 | UI-23 | Star labels shall show battery indicator (e.g., "[2]")                   | ✅ Done |
-| UI-24 | Non-owners shall see "[?]" for battery presence (not count)              | ✅ Done |
+| ~~UI-24~~ | ~~Non-owners shall see "[?]" for battery presence (not count)~~              | ~~Done~~ |
+| UI-24a | Non-owners shall see "[?]" for battery presence; after combat, known battery count is shown as "[(N)]" | ✅ Done |
 | UI-25 | Hover info shall show both fighter-only and mixed fleet travel times     | ✅ Done |
 | UI-26 | Fleet info shall show total fighters and bombers in transit              | ✅ Done |
 | UI-27 | System info shall show current production mode and progress              | ✅ Done |
 | UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
+| UI-29 | ESC key shall close the topmost open dialog (combat report, send fleet, or action panel) | ✅ Done |
 
 ---
 
@@ -226,7 +230,8 @@
 | FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
 | FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
 | FUT-15 | Battery build time scales with current level (like production upgrade). Maximum increased to 5     | ✅ Done |
-| FUT-16 | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes    | ✅ Done |
+| ~~FUT-16~~ | ~~Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes~~    | ~~Done~~ |
+| FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
 
 ---
 

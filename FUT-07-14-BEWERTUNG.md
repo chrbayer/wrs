@@ -153,8 +153,8 @@ Option C: Nur Bomber (langsam, spezialisiert)
 | Wirtschaftssystem | Komplett | Produktion, Schaden, Wiederaufbau, Limits |
 | Verteidigungsoptionen | Komplett | Mobile (Schiffe) + Statisch (Batterien) |
 | Flottenkomposition | Komplett | Rein + Gemischt mit klaren Trade-offs |
-| Sichtbarkeit/Fog of War | Komplett | Batterien-Präsenz sichtbar, Stärke verborgen |
-| Limits/Caps | Komplett | Max Produktion 8, Min 1, Max Batterien 3 |
+| Sichtbarkeit/Fog of War | Komplett | Batterien-Präsenz sichtbar, Stärke verborgen, Kampfintelligenz gemerkt |
+| Limits/Caps | Komplett | Max Produktion 8, Min 1, Max Batterien 5 |
 
 ---
 
@@ -162,9 +162,9 @@ Option C: Nur Bomber (langsam, spezialisiert)
 
 | Thema | Status | Empfehlung |
 |-------|--------|------------|
-| Batterie-Stärke (konkrete Werte) | Offen | Bei Implementierung festlegen |
-| Bomber-Produktionsschaden (Formel) | Offen | Bei Implementierung festlegen |
-| UI für gemischte Flotten | Offen | Zwei Slider oder Tabs |
+| ~~Batterie-Stärke (konkrete Werte)~~ | ~~Offen~~ | Erledigt: 2.0 Schaden/Batterie, 1.0× vs Fighter, 0.5× vs Bomber |
+| ~~Bomber-Produktionsschaden (Formel)~~ | ~~Offen~~ | Erledigt: Bomber/Verteidiger-Verhältnis, max 3 Produktionsschaden |
+| ~~UI für gemischte Flotten~~ | ~~Offen~~ | Erledigt: Zwei separate Slider (Fighter + Bomber) |
 
 ---
 
@@ -540,15 +540,25 @@ Das Design ist jetzt vollständig symmetrisch und elegant.
 
 Pro Spieler wird für jedes gesehene System gespeichert:
 - Besitzer (zum Zeitpunkt der letzten Sichtung)
-- Schiffanzahl (nur "?" für fremde Systeme)
-- Batterie-Präsenz (ja/nein)
+- Schiffanzahl (nur "?" für fremde Systeme, außer nach Kampf)
+- Bomber-Anzahl (nach Kampf bekannt)
+- Batterie-Anzahl (nach Kampf bekannt, sonst nur Präsenz ja/nein)
+
+### Kampfintelligenz (FUT-16a)
+
+Nach einem Kampf lernen alle beteiligten Spieler den genauen Zustand:
+- Verbleibende Fighter/Bomber-Zahlen
+- Verbleibende Batterie-Anzahl
+- Diese Werte werden in Klammern angezeigt: `(15/3) [(2)]`
+- Bei Besitzerwechsel werden veraltete Werte zurückgesetzt
 
 ### Visuelle Darstellung
 
 - **Farbe:** Abgedunkelt (50%) und entsättigt (70%)
-- **Label:** Schiffanzahl in Klammern, z.B. "(12)"
+- **Label:** Schiffanzahl in Klammern, z.B. "(12)" oder "(15/3)" mit Bombern
+- **Batterien:** Bekannt: "[(N)]", unbekannt: "[?]"
 - **Name:** Grau gefärbt
-- **Hover-Info:** Zeigt "last seen" an
+- **Hover-Info:** Zeigt "last seen" an, mit bekannten Werten falls vorhanden
 
 ### Strategische Implikationen
 
