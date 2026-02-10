@@ -224,7 +224,7 @@ func _format_intel(memory: Dictionary, is_memory: bool) -> String:
 	var has_batteries_flag = memory.get("has_batteries", battery_count > 0)
 
 	var text = ""
-	if known_fighters != "?":
+	if known_fighters is int:
 		# Known counts from combat intel — show in parentheses
 		if known_bombers > 0:
 			text = "(%d/%d)" % [known_fighters, known_bombers]

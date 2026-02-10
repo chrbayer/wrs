@@ -63,6 +63,18 @@ func has_bombers() -> bool:
 	return bomber_count > 0
 
 
+## Calculate fighter morale based on travel time (long travel reduces attack power)
+func get_fighter_morale() -> float:
+	var travel_time = arrival_turn - departure_turn
+	return calculate_fighter_morale(travel_time)
+
+
+## Static method for morale preview (e.g., in send dialog)
+static func calculate_fighter_morale(travel_time: int) -> float:
+	var penalty_turns = max(0, travel_time - ShipTypes.FIGHTER_MORALE_THRESHOLD)
+	return max(ShipTypes.FIGHTER_MORALE_MIN, 1.0 - penalty_turns * ShipTypes.FIGHTER_MORALE_PENALTY)
+
+
 func get_info_string(current_turn: int) -> String:
 	var turns = get_turns_remaining(current_turn)
 	if bomber_count > 0:

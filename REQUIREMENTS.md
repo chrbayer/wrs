@@ -72,6 +72,8 @@
 | ST-08a | Bombers are delivered every 1/`BOMBER_PRODUCTION_RATE` turns (batch size: production_rate, half overall rate) | ✅ Done |
 | ST-09 | Bombers participating in attacks shall cause production damage to the target system | ✅ Done |
 | ST-10 | Production damage from bombers shall scale with attacker/defender ratio (max 3) | ✅ Done |
+| ST-11 | Fighter morale decreases on long travel (>`FIGHTER_MORALE_THRESHOLD` turns), reducing attack power by `FIGHTER_MORALE_PENALTY` per turn (min `FIGHTER_MORALE_MIN`) | ✅ Done |
+| ST-12 | Bomber morale is unaffected by travel distance | ✅ Done |
 
 ---
 
@@ -145,6 +147,8 @@
 | C-13a | Combat reports shall show battery kills and battery status before/after combat | ✅ Done |
 | C-14 | Combat reports shall show production damage from bomber attacks              | ✅ Done |
 | C-15 | Combat reports shall indicate if conquest occurred and the associated penalty | ✅ Done |
+| C-15a | Combat reports shall show fighter morale when below 100% | ✅ Done |
+| C-16 | Combat shall apply fighter morale penalty to attacker's attack power based on fleet travel time | ✅ Done |
 
 ---
 
@@ -206,6 +210,7 @@
 | UI-27 | System info shall show current production mode and progress              | ✅ Done |
 | UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
 | UI-29 | ESC key shall close the topmost open dialog (combat report, send fleet, or action panel) | ✅ Done |
+| UI-30 | Send fleet dialog shall display fighter morale when below 100% | ✅ Done |
 
 ---
 
@@ -232,6 +237,7 @@
 | FUT-15 | Battery build time scales with current level (like production upgrade). Maximum increased to 5     | ✅ Done |
 | ~~FUT-16~~ | ~~Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes~~    | ~~Done~~ |
 | FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
+| FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
 
 ---
 
@@ -269,6 +275,9 @@
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |
+| FIGHTER_MORALE_THRESHOLD | 2 turns | Travel time without morale penalty |
+| FIGHTER_MORALE_PENALTY | 0.2 (20%) | Attack power reduction per turn beyond threshold |
+| FIGHTER_MORALE_MIN | 0.5 (50%) | Minimum fighter morale (attack power floor) |
 
 ---
 
@@ -280,4 +289,4 @@
 - All core requirements from the original specification are complete.
 - ~~Strikethrough requirements~~ are no longer valid (applies only to completed requirements).
 - If a completed requirement needs to be changed, the old requirement shall be struck through and a new requirement shall be created.
-- **Update 2026-02:** FUT-07 through FUT-16 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, and fog of war memory.
+- **Update 2026-02:** FUT-07 through FUT-17 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, fog of war memory, and fighter morale.

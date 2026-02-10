@@ -32,6 +32,11 @@ const MAINTENANCE_PRODUCTION_MULTIPLIER: float = 1.0 / 3.0  # Production rate wh
 const MIN_PRODUCTION_RATE: int = 1
 const MAX_PRODUCTION_RATE: int = 8
 
+# Fighter morale (long travel penalty)
+const FIGHTER_MORALE_THRESHOLD: int = 2  # Travel turns without penalty
+const FIGHTER_MORALE_PENALTY: float = 0.2  # Attack reduction per turn beyond threshold
+const FIGHTER_MORALE_MIN: float = 0.5  # Minimum morale (attack power floor)
+
 # Conquest penalty
 const CONQUEST_PRODUCTION_LOSS: int = 1
 

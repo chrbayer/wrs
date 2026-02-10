@@ -42,8 +42,8 @@ class CombatResult:
 
 
 ## Calculate effective attack power for a force
-static func calculate_attack_power(fighters: int, bombers: int) -> float:
-	return fighters * ShipTypes.FIGHTER_ATTACK + bombers * ShipTypes.BOMBER_ATTACK
+static func calculate_attack_power(fighters: int, bombers: int, fighter_morale: float = 1.0) -> float:
+	return fighters * ShipTypes.FIGHTER_ATTACK * fighter_morale + bombers * ShipTypes.BOMBER_ATTACK
 
 
 ## Calculate effective defense power for a force
@@ -84,7 +84,7 @@ static func resolve_battery_combat(battery_count: int, attacker_fighters: int, a
 ## Returns CombatResult with detailed outcome
 static func resolve_combat(att_fighters: int, att_bombers: int, attacker_id: int,
 						   def_fighters: int, def_bombers: int, defender_id: int,
-						   battery_count: int = 0) -> CombatResult:
+						   battery_count: int = 0, attacker_fighter_morale: float = 1.0) -> CombatResult:
 	var attackers_f = att_fighters
 	var attackers_b = att_bombers
 	var defenders_f = def_fighters
@@ -110,8 +110,8 @@ static func resolve_combat(att_fighters: int, att_bombers: int, attacker_id: int
 	while (attackers_f + attackers_b) > 0 and (defenders_f + defenders_b) > 0 and round_count < MAX_COMBAT_ROUNDS:
 		round_count += 1
 
-		# Calculate attack power for this round
-		var attacker_power = calculate_attack_power(attackers_f, attackers_b)
+		# Calculate attack power for this round (attacker morale affects fighter attack only)
+		var attacker_power = calculate_attack_power(attackers_f, attackers_b, attacker_fighter_morale)
 		var defender_power = calculate_defense_power(defenders_f, defenders_b) * DEFENDER_BONUS
 
 		# Attackers fire - calculate hits
@@ -180,16 +180,27 @@ static func resolve_combat(att_fighters: int, att_bombers: int, attacker_id: int
 
 
 ## Merge multiple fleets arriving at the same time
-## Returns Dictionary: owner_id -> {"fighters": int, "bombers": int}
+## Returns Dictionary: owner_id -> {"fighters": int, "bombers": int, "fighter_morale": float}
 static func merge_fleets_by_owner(fleets: Array) -> Dictionary:
 	var merged: Dictionary = {}
 
 	for fleet in fleets:
 		var owner = fleet.owner_id
 		if not merged.has(owner):
-			merged[owner] = {"fighters": 0, "bombers": 0}
+			merged[owner] = {"fighters": 0, "bombers": 0, "fighter_morale_weighted": 0.0}
 		merged[owner]["fighters"] += fleet.fighter_count
+		# Weighted morale: fighter_count × morale per fleet
+		merged[owner]["fighter_morale_weighted"] += fleet.fighter_count * fleet.get_fighter_morale()
 		merged[owner]["bombers"] += fleet.bomber_count
+
+	# Calculate weighted average morale per owner
+	for owner in merged:
+		var total_fighters = merged[owner]["fighters"]
+		if total_fighters > 0:
+			merged[owner]["fighter_morale"] = merged[owner]["fighter_morale_weighted"] / total_fighters
+		else:
+			merged[owner]["fighter_morale"] = 1.0
+		merged[owner].erase("fighter_morale_weighted")
 
 	return merged
 
@@ -213,7 +224,8 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		"attacker_fighter_losses": 0,
 		"attacker_bomber_losses": 0,
 		"defender_fighter_losses": 0,
-		"defender_bomber_losses": 0
+		"defender_bomber_losses": 0,
+		"attacker_fighter_morale": 1.0
 	}
 
 	# If system owner has arriving reinforcements, add them first
@@ -224,13 +236,13 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 
 	# Battery pre-combat phase: batteries engage each enemy fleet (largest attack value first)
 	if system.battery_count > 0 and arriving_fleets.size() > 0:
-		# Sort enemy fleets by attack value (largest first) for battery targeting
+		# Sort enemy fleets by attack value with morale (largest first) for battery targeting
 		var battery_targets: Array = []
 		for attacker_id in arriving_fleets:
 			var force = arriving_fleets[attacker_id]
 			battery_targets.append({
 				"id": attacker_id,
-				"attack_value": calculate_attack_power(force["fighters"], force["bombers"])
+				"attack_value": calculate_attack_power(force["fighters"], force["bombers"], force["fighter_morale"])
 			})
 		battery_targets.sort_custom(func(a, b): return a["attack_value"] > b["attack_value"])
 
@@ -253,15 +265,17 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 				surviving_fleets[attacker_id] = force
 		arriving_fleets = surviving_fleets
 
-	# Sort attackers by summed attack value (largest first)
+	# Sort attackers by summed attack value with morale (largest first)
 	var attackers_sorted: Array = []
 	for attacker_id in arriving_fleets:
 		var force = arriving_fleets[attacker_id]
-		var total = calculate_attack_power(force["fighters"], force["bombers"])
+		var morale = force["fighter_morale"]
+		var total = calculate_attack_power(force["fighters"], force["bombers"], morale)
 		attackers_sorted.append({
 			"id": attacker_id,
 			"fighters": force["fighters"],
 			"bombers": force["bombers"],
+			"fighter_morale": morale,
 			"total": total
 		})
 	attackers_sorted.sort_custom(func(a, b): return a["total"] > b["total"])
@@ -274,7 +288,12 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		var attacker_id = attacker["id"]
 		var att_fighters = attacker["fighters"]
 		var att_bombers = attacker["bombers"]
+		var att_morale = attacker["fighter_morale"]
 		total_attacker_bombers += att_bombers
+
+		# Track attacker morale for report (use first/largest attacker's morale)
+		if result["attacker_fighter_morale"] == 1.0 and att_morale < 1.0:
+			result["attacker_fighter_morale"] = att_morale
 
 		if result["remaining_fighters"] == 0 and result["remaining_bombers"] == 0 and result["winner"] == -1:
 			# Empty neutral system - attacker takes it
@@ -288,10 +307,11 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		else:
 			# Combat!
 			# Batteries already fired in pre-combat phase, pass 0
+			# Attacker fighter morale affects attack power
 			var combat_result = resolve_combat(
 				att_fighters, att_bombers, attacker_id,
 				result["remaining_fighters"], result["remaining_bombers"], result["winner"],
-				0
+				0, att_morale
 			)
 
 			result["log"].append("Combat: %d/%d attackers vs %d/%d defenders" % [

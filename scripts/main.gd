@@ -501,7 +501,7 @@ func _format_intel_text(memory: Dictionary, system: StarSystem) -> String:
 	var known_bombers = memory.get("bomber_count", 0)
 	var known_batteries = memory.get("battery_count", -1)
 
-	if known_fighters != "?":
+	if known_fighters is int:
 		if known_bombers > 0:
 			text += " (%d F / %d B)" % [known_fighters, known_bombers]
 		else:
@@ -799,8 +799,11 @@ func _update_send_count_label() -> void:
 	var bombers = int(bomber_slider.value) if bomber_slider.visible else 0
 	var distance = send_source_system.get_distance_to(send_target_system)
 	var travel_time = Fleet.calculate_travel_time(distance, fighters, bombers)
+	var morale = Fleet.calculate_fighter_morale(travel_time)
 
 	var text = "Send %d fighters" % fighters
+	if morale < 1.0 and fighters > 0:
+		text += " (%d%% morale)" % int(morale * 100)
 	if bombers > 0:
 		text += ", %d bombers" % bombers
 	text += " (arrives in %d turns)" % max(1, travel_time)
@@ -910,11 +913,20 @@ func _show_combat_report() -> void:
 		report_data["defender_bombers"]
 	]
 	report_text += "ATTACKER\n"
-	report_text += "%s  •  %d F / %d B\n\n" % [
-		report_data["attacker_name"],
-		report_data["attacker_fighters"],
-		report_data["attacker_bombers"]
-	]
+	var attacker_morale = report_data.get("attacker_fighter_morale", 1.0)
+	if attacker_morale < 1.0 and report_data["attacker_fighters"] > 0:
+		report_text += "%s  •  %d F (%d%% morale) / %d B\n\n" % [
+			report_data["attacker_name"],
+			report_data["attacker_fighters"],
+			int(attacker_morale * 100),
+			report_data["attacker_bombers"]
+		]
+	else:
+		report_text += "%s  •  %d F / %d B\n\n" % [
+			report_data["attacker_name"],
+			report_data["attacker_fighters"],
+			report_data["attacker_bombers"]
+		]
 
 	if report_data["batteries_before"] > 0 or report_data["battery_kills"] > 0:
 		report_text += "BATTERIES\n"
@@ -1120,6 +1132,7 @@ func _process_turn_end() -> void:
 				"attacker_bombers": attacker_bombers,
 				"attacker_fighter_losses": result["attacker_fighter_losses"],
 				"attacker_bomber_losses": result["attacker_bomber_losses"],
+				"attacker_fighter_morale": result["attacker_fighter_morale"],
 				"winner_name": _get_owner_name(result["winner"]),
 				"remaining_fighters": result["remaining_fighters"],
 				"remaining_bombers": result["remaining_bombers"],

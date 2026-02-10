@@ -16,6 +16,7 @@
 | FUT-14  | Gemischte Flotten, Geschwindigkeit = langsamstes Schiff                             |
 | FUT-15  | Batterie-Bauzeit skaliert mit Level, Maximum auf 5 erhöht                           |
 | FUT-16  | Fog of War Memory: Einmal gesehene Systeme bleiben ausgegraut sichtbar              |
+| FUT-17  | Fighter-Moral-Malus: Kampfkraft sinkt bei langen Reisen (>2 Turns)                 |
 
 ---
 
@@ -771,3 +772,104 @@ Kompromiss zwischen zwei Extremen:
 ### Fazit
 
 Elegante Lösung: Batterien behalten teilweise ihren Wert, ohne dass Eroberung zu attraktiv oder zu bestrafend wird.
+
+---
+
+## Nachtrag: FUT-17 - Fighter-Moral-Malus
+
+> Datum: 2026-02-10
+
+### Requirement
+
+**FUT-17:** Fighter morale malus on long travel: fighters lose attack power on journeys beyond 2 turns, with bombers unaffected.
+
+### Parameter
+
+| Parameter | Wert | Beschreibung |
+|-----------|------|--------------|
+| `FIGHTER_MORALE_THRESHOLD` | 2 Turns | Reisezeit ohne Strafe |
+| `FIGHTER_MORALE_PENALTY` | 0.2 (20%) | Angriffsreduktion pro Turn über Threshold |
+| `FIGHTER_MORALE_MIN` | 0.5 (50%) | Untergrenze der Moral |
+
+### Auswirkung nach Reisedauer
+
+| Reisedauer | Fighter-Moral | Effektiver Angriff | Bomber-Angriff |
+|------------|---------------|--------------------:|---------------:|
+| 1 Turn | 100% | 1.0× | 1.5× |
+| 2 Turns | 100% | 1.0× | 1.5× |
+| 3 Turns | 80% | 0.8× | 1.5× |
+| 4 Turns | 60% | 0.6× | 1.5× |
+| 5 Turns | 50% (Min) | 0.5× | 1.5× |
+| 6+ Turns | 50% (Min) | 0.5× | 1.5× |
+
+### Strategische Analyse
+
+```
+Nahangriff (1-2 Turns):
+├── Kein Moral-Malus
+├── Fighter in voller Stärke
+├── Reine Fighter-Flotten optimal
+└── Standard-Eroberungstaktik
+
+Mittelstrecke (3-4 Turns):
+├── Fighter mit 80-60% Moral
+├── Gemischte Flotten bevorzugt
+├── Bomber gleichen Moral-Verlust aus
+└── Mehr Schiffe nötig für gleichen Effekt
+
+Fernangriff (5+ Turns):
+├── Fighter nur noch 50% effektiv
+├── Bomber dominieren den Angriffswert
+├── Reine Bomber-Flotten erwägenswert
+└── Fighter eher als "Kanonenfutter" / Verteidigung
+```
+
+### Interaktion mit bestehenden Mechaniken
+
+| Mechanik | Interaktion mit Moral |
+|----------|----------------------|
+| Batterien | Batterien-Sortierung nach effektivem Angriffswert (mit Moral) |
+| Gemischte Flotten | Bomber-Anteil wird bei langen Strecken wichtiger |
+| Geschwindigkeitsdifferenz | Fighter allein: schnell + volle Moral. Gemischt: langsam + Moral-Malus |
+| Flotten-Merge | Gewichtete Durchschnitts-Moral bei zusammengeführten Flotten |
+| Verteidigerbonus | Verteidiger-Fighter haben immer 100% Moral |
+| Fog of War | Moral im Sendedialog und Kampfbericht sichtbar |
+
+### Taktische Implikationen
+
+```
+Entscheidung bei langem Angriff:
+
+Option A: Reine Fighter (schnell, geschwächt)
+├── Reisezeit: 3 Turns (150 px/turn)
+├── Moral: 80%
+├── Effektiver Angriff: 0.8 pro Fighter
+└── Vorteil: Schnelle Ankunft
+
+Option B: Gemischte Flotte (langsam, ausgeglichen)
+├── Reisezeit: 6 Turns (75 px/turn)
+├── Fighter-Moral: 50%
+├── Bomber unverändert: 1.5× Angriff
+└── Vorteil: Bombers kompensieren Fighter-Schwäche
+
+Option C: Reine Bomber (langsam, konstant)
+├── Reisezeit: 6 Turns (75 px/turn)
+├── Kein Moral-Malus
+├── Angriff: 1.5× pro Bomber
+└── Vorteil: Wirtschaftsschaden, volle Stärke
+```
+
+### Balance-Bewertung
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Strategische Tiefe | ★★★★★ | Entfernung wird zu strategischem Faktor |
+| Bomber-Aufwertung | ★★★★★ | Bomber für Fernangriffe attraktiver |
+| Fighter-Balance | ★★★★☆ | Fighter weiterhin stark auf kurze Distanz |
+| Verteidigungsvorteil | ★★★★★ | Verteidiger hat immer volle Moral |
+| Komplexität | ★★★★☆ | Einfache Regel, klare Auswirkung |
+| Kartenrelevanz | ★★★★★ | Systemposition und Nachbarschaft wichtiger |
+
+### Fazit
+
+FUT-17 fügt eine elegante strategische Dimension hinzu: **Entfernung kostet**. Fighter verlieren auf langen Reisen an Kampfkraft, was Bomber für Fernangriffe aufwertet und die Kartenposition strategisch relevanter macht. Die Regel ist intuitiv (müde Piloten), einfach zu verstehen (% Anzeige im UI) und schafft interessante Trade-offs bei der Flottenkomposition.
