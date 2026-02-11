@@ -12,6 +12,7 @@ var current_turn: int = 1
 var current_player: int = 0
 var game_started: bool = false
 var game_ended: bool = false
+var ai_paused: bool = false
 
 # Game state
 var players: Array[Player] = []
@@ -472,8 +473,12 @@ func _show_player_transition() -> void:
 			_update_fog_of_war()
 			transition_screen.visible = false
 			_update_ui()
+			if ai_paused:
+				turn_label.text = "Turn: %d  PAUSED" % current_turn
 			queue_redraw()
 			await get_tree().create_timer(AI_TURN_DELAY).timeout
+			while ai_paused:
+				await get_tree().create_timer(0.1).timeout
 			if game_ended:
 				return
 		_execute_ai_turn()
@@ -730,6 +735,16 @@ func _on_maintain_battery_pressed() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_SPACE:
+		if _is_all_ai() and game_started and not game_ended:
+			ai_paused = !ai_paused
+			if ai_paused:
+				turn_label.text = "Turn: %d  PAUSED" % current_turn
+			else:
+				turn_label.text = "Turn: %d" % current_turn
+			get_viewport().set_input_as_handled()
+			return
+
 	if event.is_action_pressed("ui_cancel"):
 		if combat_report_screen.visible:
 			_on_close_report_pressed()
