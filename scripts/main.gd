@@ -350,7 +350,9 @@ func _generate_universe() -> void:
 			ProjectSettings.get_setting("display/window/size/viewport_width"),
 			ProjectSettings.get_setting("display/window/size/viewport_height")
 		)
-	var bounds = Rect2(100, 100, viewport_size.x - 200, viewport_size.y - 300)
+	var edge = UniverseGenerator.MAP_EDGE_MARGIN
+	var bottom_hud = 100  # Extra margin for bottom HUD bar
+	var bounds = Rect2(edge, edge, viewport_size.x - edge * 2, viewport_size.y - edge * 2 - bottom_hud)
 
 	var gen_result = UniverseGenerator.generate_system_positions(
 		system_count, bounds, player_count
@@ -579,6 +581,8 @@ func _get_player_total_ships(player_id: int) -> int:
 func _on_system_clicked(system: StarSystem) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
+	if send_panel.visible:
+		return
 
 	# If we have an owned source selected and click a different system, send fleet
 	if selected_system and selected_system != system:
@@ -613,6 +617,8 @@ func _on_system_clicked(system: StarSystem) -> void:
 
 func _on_system_double_clicked(system: StarSystem) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
+		return
+	if send_panel.visible:
 		return
 
 	if system.owner_id != current_player:
@@ -882,12 +888,16 @@ func _position_send_panel() -> void:
 
 	# Perpendicular directions (left and right of the arrow)
 	var perp = Vector2(-to_target.y, to_target.x)
+	var offset_dist = source_radius + star_margin
 
-	# Position candidates: perpendicular left, perpendicular right, behind source
+	# Position candidates: 6 directions around source (perp, behind, diagonals)
 	var offsets = [
-		perp * (source_radius + star_margin + panel_size.x / 2),  # Left of arrow
-		-perp * (source_radius + star_margin + panel_size.x / 2),  # Right of arrow
-		-to_target * (source_radius + star_margin + panel_size.y / 2),  # Behind source
+		perp * (offset_dist + panel_size.x / 2),                             # Left of arrow
+		-perp * (offset_dist + panel_size.x / 2),                            # Right of arrow
+		-to_target * (offset_dist + panel_size.y / 2),                        # Behind source
+		(-to_target + perp).normalized() * (offset_dist + panel_size.x / 2),  # Behind-left
+		(-to_target - perp).normalized() * (offset_dist + panel_size.x / 2),  # Behind-right
+		to_target * (offset_dist + panel_size.y / 2),                         # Ahead of source (last resort)
 	]
 
 	for offset in offsets:
@@ -903,24 +913,43 @@ func _position_send_panel() -> void:
 	# Find position that doesn't overlap with target star or arrow
 	var best_pos = positions[0]
 	var best_score = -INF
+	var arrow_len = source_pos.distance_to(target_pos)
 
 	for pos in positions:
-		var panel_rect = Rect2(pos, panel_size)
 		var panel_center = pos + panel_size / 2.0
 
-		# Check distance to target star
-		var dist_target = panel_center.distance_to(target_pos)
+		# Minimum distance from arrow line to panel rectangle (check corners + edge midpoints)
+		var check_points = [
+			pos,                                             # Top-left
+			pos + Vector2(panel_size.x, 0),                  # Top-right
+			pos + Vector2(0, panel_size.y),                  # Bottom-left
+			pos + panel_size,                                # Bottom-right
+			panel_center,                                    # Center
+			pos + Vector2(panel_size.x / 2, 0),              # Top-mid
+			pos + Vector2(panel_size.x / 2, panel_size.y),   # Bottom-mid
+			pos + Vector2(0, panel_size.y / 2),              # Left-mid
+			pos + Vector2(panel_size.x, panel_size.y / 2),   # Right-mid
+		]
 
-		# Check distance to arrow line
-		var line_dir = to_target
-		var to_panel = panel_center - source_pos
-		var projection = to_panel.dot(line_dir)
-		var closest_on_line = source_pos + line_dir * clamp(projection, 0, source_pos.distance_to(target_pos))
-		var dist_line = panel_center.distance_to(closest_on_line)
+		var min_dist_line = INF
+		for pt in check_points:
+			var to_pt = pt - source_pos
+			var proj = to_pt.dot(to_target)
+			var closest = source_pos + to_target * clamp(proj, 0, arrow_len)
+			min_dist_line = min(min_dist_line, pt.distance_to(closest))
 
-		# Score: prefer positions far from target and arrow, but close to source
-		var dist_source = panel_center.distance_to(source_pos)
-		var score = min(dist_target, dist_line) - dist_source * 0.3
+		# Distance from panel rect to target star (closest corner)
+		var min_dist_target = INF
+		for pt in check_points:
+			min_dist_target = min(min_dist_target, pt.distance_to(target_pos))
+
+		# Distance from panel rect to source star
+		var min_dist_source = INF
+		for pt in check_points:
+			min_dist_source = min(min_dist_source, pt.distance_to(source_pos))
+
+		# Score: prefer far from arrow and both stars
+		var score = min_dist_line * 2.0 + min(min_dist_target, 150.0) - min_dist_source * 0.2
 
 		if score > best_score:
 			best_score = score
@@ -1426,7 +1455,7 @@ func _format_fb(fighters: int, bombers: int) -> String:
 	if bombers > 0:
 		parts.append("%d B" % bombers)
 	if parts.is_empty():
-		return "0"
+		return "-"
 	return " / ".join(parts)
 
 

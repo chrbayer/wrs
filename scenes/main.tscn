@@ -141,7 +141,7 @@ text = "Send"
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
-text = "Send All"
+text = "Send Max"
 
 [node name="CancelButton" type="Button" parent="HUD/SendPanel/VBox"]
 layout_mode = 2
@@ -187,7 +187,7 @@ text = "Upgrade Production (3/8)"
 [node name="BuildBatteryBtn" type="Button" parent="HUD/ActionPanel/VBox"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
-text = "Build Battery (0/3)"
+text = "Build Battery (0/5)"
 
 [node name="CloseBtn" type="Button" parent="HUD/ActionPanel/VBox"]
 layout_mode = 2

@@ -707,3 +707,69 @@ Balanced      -          =           =          +           =
 ### Fazit
 
 FUT-04a transformiert das Spiel von einem reinen Hot-Seat-Multiplayer zu einem vollwertigen Einzelspieler-Erlebnis. Die 5 Taktiken decken das gesamte strategische Spektrum ab und bieten unterschiedliche Herausforderungen.
+
+---
+
+## Nachtrag: C-20 - Flottengröße und Wellen-Splitting
+
+> Datum: 2026-02-11
+
+### Requirement
+
+**C-20:** Merged fleets exceeding MAX_FLEET_SIZE (50) are split into waves. Each wave faces batteries independently.
+
+### Parameter
+
+| Parameter | Wert | Beschreibung |
+|-----------|------|--------------|
+| `MAX_FLEET_SIZE` | 50 | Maximale Schiffe pro Kampfwelle |
+
+### Mechanik
+
+```
+Flotten-Ankunft am Zielsystem:
+
+1. Merge: Alle Flotten desselben Besitzers zusammenführen
+2. Split: Überschuss in Wellen à MAX_FLEET_SIZE aufteilen
+   ├── Fighter/Bomber-Verhältnis wird beibehalten
+   └── Moral wird beibehalten
+3. Batterie-Phase: Jede Welle wird separat beschossen
+4. Kampf-Phase: Wellen kämpfen einzeln (stärkste zuerst)
+   ├── Gewonnene Welle → nächste Welle desselben Besitzers verstärkt
+   └── Verlorene Welle → nächste Welle kämpft gegen Verteidiger-Rest
+```
+
+### Beispiel
+
+```
+Spieler A schickt 3 Flotten (20+20+30 = 70 Fighter) → System mit 3 Batterien
+
+Ohne Wave-Splitting:
+├── Merge: 70 Fighter
+├── Batterien: 9 Kills (3 × 3.0)
+├── 61 Fighter vs Verteidiger
+└── Batterien feuern nur 1× auf gesamte Flotte
+
+Mit Wave-Splitting (MAX=50):
+├── Merge: 70 Fighter
+├── Split: Welle 1 (50F) + Welle 2 (20F)
+├── Batterien vs Welle 1: 9 Kills → 41F
+├── Batterien vs Welle 2: 9 Kills → 11F
+├── Gesamt: 52F nach Batterien (statt 61F)
+├── Welle 1 kämpft, Welle 2 verstärkt falls Welle 1 gewinnt
+└── Batterien feuern 2× → doppelt so effektiv
+```
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Anti-Deathball | ★★★★★ | Große Flotten werden durch mehrfaches Batterie-Feuer bestraft |
+| Batterie-Aufwertung | ★★★★★ | Batterien feuern pro Welle → Effektivität skaliert mit Angreifergröße |
+| Kleine Flotten | ★★★★☆ | Koordinierte Angriffe bis 50 Schiffe bleiben voll effektiv |
+| Taktische Tiefe | ★★★★★ | Entscheidung: viele kleine vs. eine große Flotte |
+| Komplexität | ★★★★★ | Transparent für Spieler, automatisch im Hintergrund |
+
+### Fazit
+
+Das Wellen-Splitting löst elegant das Deathball-Problem: Batterien werden gegen große Flotten deutlich effektiver, da sie jede Welle separat beschießen. Gleichzeitig bleiben koordinierte Angriffe mit bis zu 50 Schiffen unverändert möglich. Die Mechanik ist für Spieler transparent — sie sehen separate Kampfberichte pro Welle.

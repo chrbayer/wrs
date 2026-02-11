@@ -5,6 +5,7 @@ extends RefCounted
 
 const MIN_SYSTEM_DISTANCE: float = 120.0
 const MAX_SYSTEM_DISTANCE: float = 250.0  # Max distance for visibility/connectivity
+const MAP_EDGE_MARGIN: float = 100.0  # Minimum distance from viewport edges
 const PLAYER_START_MIN_DISTANCE: float = 400.0
 const MAX_PLACEMENT_ATTEMPTS: int = 100
 

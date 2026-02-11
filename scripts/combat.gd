@@ -205,6 +205,43 @@ static func merge_fleets_by_owner(fleets: Array) -> Dictionary:
 	return merged
 
 
+## Split a force into waves of MAX_FLEET_SIZE, preserving fighter/bomber ratio
+static func split_into_waves(owner_id: int, fighters: int, bombers: int, fighter_morale: float) -> Array:
+	var total = fighters + bombers
+	var max_size = ShipTypes.MAX_FLEET_SIZE
+	if total <= max_size:
+		return [{"id": owner_id, "fighters": fighters, "bombers": bombers, "fighter_morale": fighter_morale}]
+
+	var waves: Array = []
+	var remaining_f = fighters
+	var remaining_b = bombers
+
+	while remaining_f + remaining_b > 0:
+		var remaining_total = remaining_f + remaining_b
+		var wave_size = mini(remaining_total, max_size)
+
+		# Preserve fighter/bomber ratio from remaining ships
+		var wave_f: int = int(round(float(remaining_f) / float(remaining_total) * wave_size))
+		var wave_b: int = wave_size - wave_f
+		# Clamp to available
+		wave_f = mini(wave_f, remaining_f)
+		wave_b = mini(wave_b, remaining_b)
+		# Fill remainder from whichever has surplus
+		var shortfall = wave_size - wave_f - wave_b
+		if shortfall > 0:
+			var extra_f = mini(shortfall, remaining_f - wave_f)
+			wave_f += extra_f
+			shortfall -= extra_f
+		if shortfall > 0:
+			wave_b += mini(shortfall, remaining_b - wave_b)
+
+		waves.append({"id": owner_id, "fighters": wave_f, "bombers": wave_b, "fighter_morale": fighter_morale})
+		remaining_f -= wave_f
+		remaining_b -= wave_b
+
+	return waves
+
+
 ## Resolve combat when multiple fleets arrive at a system
 ## Returns detailed result dictionary
 static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionary) -> Dictionary:
@@ -235,62 +272,55 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		result["remaining_bombers"] += arriving_fleets[system_owner]["bombers"]
 		arriving_fleets.erase(system_owner)
 
-	# Track pre-battery forces and per-attacker battery kills for stage reports
-	var pre_battery_forces: Dictionary = {}  # attacker_id -> {"fighters": int, "bombers": int}
-	var battery_kills_per_attacker: Dictionary = {}  # attacker_id -> {"fighter_kills": int, "bomber_kills": int}
-
+	# Split each attacker's force into waves of MAX_FLEET_SIZE
+	var waves: Array = []
 	for attacker_id in arriving_fleets:
-		if attacker_id != system_owner:
-			var force = arriving_fleets[attacker_id]
-			pre_battery_forces[attacker_id] = {"fighters": force["fighters"], "bombers": force["bombers"]}
-			battery_kills_per_attacker[attacker_id] = {"fighter_kills": 0, "bomber_kills": 0}
+		var force = arriving_fleets[attacker_id]
+		var owner_waves = split_into_waves(attacker_id, force["fighters"], force["bombers"], force["fighter_morale"])
+		waves.append_array(owner_waves)
 
-	# Battery pre-combat phase: batteries engage each enemy fleet (largest attack value first)
-	if system.battery_count > 0 and arriving_fleets.size() > 0:
-		# Sort enemy fleets by attack value with morale (largest first) for battery targeting
-		var battery_targets: Array = []
-		for attacker_id in arriving_fleets:
-			var force = arriving_fleets[attacker_id]
-			battery_targets.append({
-				"id": attacker_id,
-				"attack_value": calculate_attack_power(force["fighters"], force["bombers"], force["fighter_morale"])
-			})
-		battery_targets.sort_custom(func(a, b): return a["attack_value"] > b["attack_value"])
+	# Store pre-battery snapshot in each wave
+	for wave in waves:
+		wave["pre_fighters"] = wave["fighters"]
+		wave["pre_bombers"] = wave["bombers"]
+		wave["bat_fighter_kills"] = 0
+		wave["bat_bomber_kills"] = 0
 
-		# Batteries fire at each enemy fleet
-		for target in battery_targets:
-			var force = arriving_fleets[target["id"]]
-			var battery_result = resolve_battery_combat(system.battery_count, force["fighters"], force["bombers"])
-			force["fighters"] = max(0, force["fighters"] - battery_result["fighter_kills"])
-			force["bombers"] = max(0, force["bombers"] - battery_result["bomber_kills"])
+	# Battery pre-combat phase: batteries engage each wave independently (largest attack value first)
+	if system.battery_count > 0 and waves.size() > 0:
+		waves.sort_custom(func(a, b):
+			return calculate_attack_power(a["fighters"], a["bombers"], a["fighter_morale"]) > calculate_attack_power(b["fighters"], b["bombers"], b["fighter_morale"])
+		)
+
+		for wave in waves:
+			var battery_result = resolve_battery_combat(system.battery_count, wave["fighters"], wave["bombers"])
+			wave["fighters"] = max(0, wave["fighters"] - battery_result["fighter_kills"])
+			wave["bombers"] = max(0, wave["bombers"] - battery_result["bomber_kills"])
+			wave["bat_fighter_kills"] = battery_result["fighter_kills"]
+			wave["bat_bomber_kills"] = battery_result["bomber_kills"]
 			var kills = battery_result["fighter_kills"] + battery_result["bomber_kills"]
 			result["battery_kills"] += kills
-			battery_kills_per_attacker[target["id"]] = battery_result
 			if kills > 0:
-				result["log"].append("Batteries destroyed %d ships from Player %d's fleet" % [kills, target["id"] + 1])
+				result["log"].append("Batteries destroyed %d ships from Player %d's wave" % [kills, wave["id"] + 1])
 
-		# Remove fleets reduced to 0 ships; create stages for eliminated fleets
-		var surviving_fleets: Dictionary = {}
-		for attacker_id in arriving_fleets:
-			var force = arriving_fleets[attacker_id]
-			if force["fighters"] + force["bombers"] > 0:
-				surviving_fleets[attacker_id] = force
+		# Remove waves reduced to 0 ships; create stages for eliminated waves
+		var surviving_waves: Array = []
+		for wave in waves:
+			if wave["fighters"] + wave["bombers"] > 0:
+				surviving_waves.append(wave)
 			else:
-				# Fleet wiped out by batteries — record a stage
-				var pre_bat = pre_battery_forces.get(attacker_id, {"fighters": 0, "bombers": 0})
-				var bat_kills = battery_kills_per_attacker.get(attacker_id, {"fighter_kills": 0, "bomber_kills": 0})
 				result["stages"].append({
-					"attacker_id": attacker_id,
-					"attacker_fighters": pre_bat["fighters"],
-					"attacker_bombers": pre_bat["bombers"],
-					"attacker_fighter_morale": force["fighter_morale"],
+					"attacker_id": wave["id"],
+					"attacker_fighters": wave["pre_fighters"],
+					"attacker_bombers": wave["pre_bombers"],
+					"attacker_fighter_morale": wave["fighter_morale"],
 					"defender_id": system_owner,
 					"defender_fighters": result["remaining_fighters"],
 					"defender_bombers": result["remaining_bombers"],
-					"battery_fighter_kills": bat_kills["fighter_kills"],
-					"battery_bomber_kills": bat_kills["bomber_kills"],
-					"attacker_fighter_losses": bat_kills["fighter_kills"],
-					"attacker_bomber_losses": bat_kills["bomber_kills"],
+					"battery_fighter_kills": wave["bat_fighter_kills"],
+					"battery_bomber_kills": wave["bat_bomber_kills"],
+					"attacker_fighter_losses": wave["bat_fighter_kills"],
+					"attacker_bomber_losses": wave["bat_bomber_kills"],
 					"defender_fighter_losses": 0,
 					"defender_bomber_losses": 0,
 					"batteries_before": system.battery_count,
@@ -299,41 +329,36 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 					"remaining_fighters": result["remaining_fighters"],
 					"remaining_bombers": result["remaining_bombers"],
 				})
-		arriving_fleets = surviving_fleets
+		waves = surviving_waves
 
-	# Sort attackers by summed attack value with morale (largest first)
-	var attackers_sorted: Array = []
-	for attacker_id in arriving_fleets:
-		var force = arriving_fleets[attacker_id]
-		var morale = force["fighter_morale"]
-		var total = calculate_attack_power(force["fighters"], force["bombers"], morale)
-		attackers_sorted.append({
-			"id": attacker_id,
-			"fighters": force["fighters"],
-			"bombers": force["bombers"],
-			"fighter_morale": morale,
-			"total": total
-		})
-	attackers_sorted.sort_custom(func(a, b): return a["total"] > b["total"])
+	# Sort surviving waves by attack value (largest first)
+	waves.sort_custom(func(a, b):
+		return calculate_attack_power(a["fighters"], a["bombers"], a["fighter_morale"]) > calculate_attack_power(b["fighters"], b["bombers"], b["fighter_morale"])
+	)
 
 	var original_owner = system_owner
 	var total_attacker_bombers = 0  # Track bombers for production damage
 
-	# Process each attacking force (largest first)
-	for attacker in attackers_sorted:
-		var attacker_id = attacker["id"]
-		var att_fighters = attacker["fighters"]
-		var att_bombers = attacker["bombers"]
-		var att_morale = attacker["fighter_morale"]
+	# Process each wave (largest first)
+	for wave in waves:
+		var attacker_id = wave["id"]
+		var att_fighters = wave["fighters"]
+		var att_bombers = wave["bombers"]
+		var att_morale = wave["fighter_morale"]
 		total_attacker_bombers += att_bombers
 
 		# Track attacker morale for report (use first/largest attacker's morale)
 		if result["attacker_fighter_morale"] == 1.0 and att_morale < 1.0:
 			result["attacker_fighter_morale"] = att_morale
 
-		# Pre-battery forces for this attacker
-		var pre_bat = pre_battery_forces.get(attacker_id, {"fighters": att_fighters, "bombers": att_bombers})
-		var bat_kills = battery_kills_per_attacker.get(attacker_id, {"fighter_kills": 0, "bomber_kills": 0})
+		# If this wave's owner already holds the system, reinforce instead of fight
+		if attacker_id == result["winner"]:
+			result["remaining_fighters"] += att_fighters
+			result["remaining_bombers"] += att_bombers
+			result["log"].append("Player %d's wave reinforces with %d fighters, %d bombers" % [
+				attacker_id + 1, att_fighters, att_bombers
+			])
+			continue
 
 		# Snapshot defender state before this stage
 		var def_fighters_before = result["remaining_fighters"]
@@ -341,11 +366,13 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		var defender_id_before = result["winner"]
 
 		if result["remaining_fighters"] == 0 and result["remaining_bombers"] == 0 and result["winner"] == -1:
-			# Empty neutral system - attacker takes it
+			# Empty system - wave takes it
 			result["winner"] = attacker_id
 			result["remaining_fighters"] = att_fighters
 			result["remaining_bombers"] = att_bombers
-			result["conquest_occurred"] = true
+			# Only count as conquest if previously owned by a player (PR-11: no penalty for neutrals)
+			if original_owner >= 0:
+				result["conquest_occurred"] = true
 			result["log"].append("Player %d claims empty system with %d fighters, %d bombers" % [
 				attacker_id + 1, att_fighters, att_bombers
 			])
@@ -353,16 +380,16 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			# Stage: claim empty system (no combat losses)
 			result["stages"].append({
 				"attacker_id": attacker_id,
-				"attacker_fighters": pre_bat["fighters"],
-				"attacker_bombers": pre_bat["bombers"],
+				"attacker_fighters": wave["pre_fighters"],
+				"attacker_bombers": wave["pre_bombers"],
 				"attacker_fighter_morale": att_morale,
 				"defender_id": defender_id_before,
 				"defender_fighters": 0,
 				"defender_bombers": 0,
-				"battery_fighter_kills": bat_kills["fighter_kills"],
-				"battery_bomber_kills": bat_kills["bomber_kills"],
-				"attacker_fighter_losses": bat_kills["fighter_kills"],
-				"attacker_bomber_losses": bat_kills["bomber_kills"],
+				"battery_fighter_kills": wave["bat_fighter_kills"],
+				"battery_bomber_kills": wave["bat_bomber_kills"],
+				"attacker_fighter_losses": wave["bat_fighter_kills"],
+				"attacker_bomber_losses": wave["bat_bomber_kills"],
 				"defender_fighter_losses": 0,
 				"defender_bomber_losses": 0,
 				"batteries_before": system.battery_count,
@@ -374,7 +401,6 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		else:
 			# Combat!
 			# Batteries already fired in pre-combat phase, pass 0
-			# Attacker fighter morale affects attack power
 			var combat_result = resolve_combat(
 				att_fighters, att_bombers, attacker_id,
 				result["remaining_fighters"], result["remaining_bombers"], result["winner"],
@@ -413,16 +439,16 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			# Stage: full combat engagement
 			result["stages"].append({
 				"attacker_id": attacker_id,
-				"attacker_fighters": pre_bat["fighters"],
-				"attacker_bombers": pre_bat["bombers"],
+				"attacker_fighters": wave["pre_fighters"],
+				"attacker_bombers": wave["pre_bombers"],
 				"attacker_fighter_morale": att_morale,
 				"defender_id": defender_id_before,
 				"defender_fighters": def_fighters_before,
 				"defender_bombers": def_bombers_before,
-				"battery_fighter_kills": bat_kills["fighter_kills"],
-				"battery_bomber_kills": bat_kills["bomber_kills"],
-				"attacker_fighter_losses": combat_result.attacker_fighter_losses + bat_kills["fighter_kills"],
-				"attacker_bomber_losses": combat_result.attacker_bomber_losses + bat_kills["bomber_kills"],
+				"battery_fighter_kills": wave["bat_fighter_kills"],
+				"battery_bomber_kills": wave["bat_bomber_kills"],
+				"attacker_fighter_losses": combat_result.attacker_fighter_losses + wave["bat_fighter_kills"],
+				"attacker_bomber_losses": combat_result.attacker_bomber_losses + wave["bat_bomber_kills"],
 				"defender_fighter_losses": combat_result.defender_fighter_losses,
 				"defender_bomber_losses": combat_result.defender_bomber_losses,
 				"batteries_before": system.battery_count,

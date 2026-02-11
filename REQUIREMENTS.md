@@ -25,7 +25,8 @@
 | S-01 | Each star system shall have a randomly assigned production rate                  | ✅ Done |
 | ~~S-02~~ | ~~Each neutral star system shall start with a random number of defending fighters~~  | ~~Done~~ |
 | S-02a | Neutral systems start with random fighters scaled by production rate (rate×2 to rate×5) | ✅ Done |
-| S-03 | Player starting systems shall have a guaranteed minimum distance between them    | ✅ Done |
+| ~~S-03~~ | ~~Player starting systems shall have a guaranteed minimum distance between them~~ | ~~Done~~ |
+| S-03a | Player starting systems shall be placed to maximize distance between them (greedy selection) | ✅ Done |
 | S-04 | All star systems except player starting systems shall be neutral at game start   | ✅ Done |
 | ~~S-05~~ | ~~Conquered star systems shall produce fighters each turn based on production rate~~ | ~~Done~~ |
 | S-05a | Owned star systems shall produce ships based on production rate and selected production mode | ✅ Done |
@@ -158,6 +159,7 @@
 | C-17 | When multiple attackers engage the same system, each engagement shall produce a separate combat report (per-stage reports) | ✅ Done |
 | C-18 | Attacker losses in combat reports shall be the total ship count (battery kills + combat losses combined) | ✅ Done |
 | C-19 | Combat reports shall omit zero fighter/bomber counts (no "0 F" or "0 B") | ✅ Done |
+| C-20 | Merged fleets exceeding `MAX_FLEET_SIZE` shall be split into waves. Each wave faces batteries independently and fights as a separate combat stage. Waves from the same owner reinforce if a prior wave already holds the system. | ✅ Done |
 
 ---
 
@@ -196,7 +198,8 @@
 | UI-05 | The current player's total ship count shall be visible             | ✅ Done |
 | UI-06 | An "End Turn" button shall advance the game                        | ✅ Done |
 | UI-07 | A "Play Again" option shall be available after game over           | ✅ Done |
-| UI-08 | A "Send All" button shall allow sending all fighters at once       | ✅ Done |
+| ~~UI-08~~ | ~~A "Send All" button shall allow sending all fighters at once~~ | ~~Done~~ |
+| UI-08a | A "Send Max" button shall allow sending all available ships at once  | ✅ Done |
 | UI-09 | The current player's owned star count shall be visible             | ✅ Done |
 | UI-10 | The current player's total production rate shall be visible        | ✅ Done |
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
@@ -263,7 +266,7 @@
 |-----------|-------|-------------|
 | MIN_SYSTEM_DISTANCE | 120 px | Minimum distance between star systems |
 | MAX_SYSTEM_DISTANCE | 250 px | Maximum distance for visibility and connectivity |
-| PLAYER_START_MIN_DISTANCE | 400 px | Minimum distance between player starting systems |
+| ~~PLAYER_START_MIN_DISTANCE~~ | ~~400 px~~ | ~~Not enforced as minimum; distance is maximized via greedy selection~~ |
 | MAP_EDGE_MARGIN | 100 px | Minimum distance from map edges |
 | SYSTEM_COUNT | 15 + (players × 5) | Number of star systems based on player count |
 | PRODUCTION_RATE | 1–5 | Random production rate per turn for neutral systems |
@@ -294,6 +297,7 @@
 | FIGHTER_MORALE_THRESHOLD | 2 turns | Travel time without morale penalty |
 | FIGHTER_MORALE_PENALTY | 0.2 (20%) | Attack power reduction per turn beyond threshold |
 | FIGHTER_MORALE_MIN | 0.5 (50%) | Minimum fighter morale (attack power floor) |
+| MAX_FLEET_SIZE | 50 | Maximum ships per combat wave (merged fleets exceeding this are split) |
 
 ---
 
@@ -309,3 +313,4 @@
 - **Update 2026-02:** FUT-04a implemented, adding AI opponents with 5 selectable tactics. P-01a replaces P-01 to allow any human/AI mix.
 - **Update 2026-02:** AI phases are now purely state-based (no turn numbers). Early: only neutrals visible (all tactics expand identically). Mid: neutrals + enemies (tactic-specific, but all expand to neutrals). Late: only enemies (full attack mode).
 - **Update 2026-02:** Combat reports reworked: per-stage reports (C-17), attacker losses include battery kills (C-18), battery kills shown by F/B type (C-13b), zero counts omitted (C-19). Victory screen deferred until all reports shown (V-04).
+- **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (50) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.

@@ -37,6 +37,9 @@ const FIGHTER_MORALE_MIN: float = 0.5  # Minimum morale (attack power floor)
 # Conquest penalty
 const CONQUEST_PRODUCTION_LOSS: int = 1
 
+# Fleet size limit — fleets exceeding this are split into waves for combat
+const MAX_FLEET_SIZE: int = 50
+
 
 ## Get the travel speed for a fleet based on composition
 static func get_fleet_speed(fighter_count: int, bomber_count: int) -> float:

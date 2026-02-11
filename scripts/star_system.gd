@@ -21,7 +21,7 @@ enum ProductionMode {
 @export var fighter_count: int = 10
 @export var bomber_count: int = 0
 @export var production_rate: int = 2  # Fighters produced per turn
-@export var battery_count: int = 0  # Defense batteries (max 3)
+@export var battery_count: int = 0  # Defense batteries (max 5)
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var bomber_production_progress: float = 0.0  # Batch delivery every 2 turns
