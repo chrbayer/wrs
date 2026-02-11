@@ -64,12 +64,14 @@
 | ST-02 | Fighters shall have standard attack power (`FIGHTER_ATTACK`)            | ✅ Done |
 | ST-03 | Fighters shall have standard defense power (`FIGHTER_DEFENSE`)          | ✅ Done |
 | ~~ST-04~~ | ~~Fighters shall be produced at `FIGHTER_PRODUCTION_RATE` per production point per turn~~ | ~~Done~~ |
-| ST-04a | Fighters are delivered every 1/`FIGHTER_PRODUCTION_RATE` turns (batch size: production_rate/`FIGHTER_PRODUCTION_RATE`) | ✅ Done |
+| ~~ST-04a~~ | ~~Fighters are delivered every 1/`FIGHTER_PRODUCTION_RATE` turns (batch size: production_rate/`FIGHTER_PRODUCTION_RATE`)~~ | ~~Done~~ |
+| ST-04b | Fighters are produced at `production_rate` per turn (immediate delivery) | ✅ Done |
 | ST-05 | Bombers shall have reduced speed (`BOMBER_SPEED`)                       | ✅ Done |
 | ST-06 | Bombers shall have increased attack power (`BOMBER_ATTACK`)             | ✅ Done |
 | ST-07 | Bombers shall have reduced defense power (`BOMBER_DEFENSE`)             | ✅ Done |
 | ~~ST-08~~ | ~~Bombers shall be produced at `BOMBER_PRODUCTION_RATE` per production point per turn~~ | ~~Done~~ |
-| ST-08a | Bombers are delivered every 1/`BOMBER_PRODUCTION_RATE` turns (batch size: production_rate, half overall rate) | ✅ Done |
+| ~~ST-08a~~ | ~~Bombers are delivered every 1/`BOMBER_PRODUCTION_RATE` turns (batch size: production_rate, half overall rate)~~ | ~~Done~~ |
+| ST-08b | Bombers are delivered in full batches (`production_rate`) every 2 turns | ✅ Done |
 | ST-09 | Bombers participating in attacks shall cause production damage to the target system | ✅ Done |
 | ST-10 | Production damage from bombers shall scale with attacker/defender ratio (max 3) | ✅ Done |
 | ST-11 | Fighter morale decreases on long travel (>`FIGHTER_MORALE_THRESHOLD` turns), reducing attack power by `FIGHTER_MORALE_PENALTY` per turn (min `FIGHTER_MORALE_MIN`) | ✅ Done |
@@ -90,7 +92,8 @@
 | DB-07 | Battery count shall only be visible to the system owner                 | ✅ Done |
 | DB-08 | Batteries require continuous maintenance to remain operational          | ✅ Done |
 | ~~DB-09~~ | ~~Maintaining batteries blocks all other production~~               | ~~Done~~ |
-| DB-09a | Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` | ✅ Done |
+| ~~DB-09a~~ | ~~Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER`~~ | ~~Done~~ |
+| DB-09b | Maintaining batteries has no production cost (toggle only prevents decay) | ✅ Done |
 | DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
 | ~~DB-11~~ | ~~Building one battery requires `BATTERY_BUILD_TURNS` turns~~       | ~~Done~~ |
 | DB-11a | Battery build time scales with target level (like production upgrade) | ✅ Done |
@@ -106,9 +109,11 @@
 | ~~PR-02~~ | ~~Production modes shall be: Fighters, Bombers, Upgrade, Build Battery, Maintain Batteries~~ | ~~Done~~ |
 | PR-02a | Production modes shall be: Fighters, Bombers, Upgrade, Build Battery | ✅ Done |
 | ~~PR-03~~ | ~~Fighter production mode shall produce fighters at full rate~~     | ~~Done~~ |
-| PR-03a | Fighter production uses batch delivery per ST-04a | ✅ Done |
+| ~~PR-03a~~ | ~~Fighter production uses batch delivery per ST-04a~~ | ~~Done~~ |
+| PR-03b | Fighter production delivers `production_rate` fighters per turn | ✅ Done |
 | ~~PR-04~~ | ~~Bomber production mode shall produce bombers at `BOMBER_PRODUCTION_RATE`~~ | ~~Done~~ |
-| PR-04a | Bomber production uses batch delivery per ST-08a | ✅ Done |
+| ~~PR-04a~~ | ~~Bomber production uses batch delivery per ST-08a~~ | ~~Done~~ |
+| PR-04b | Bomber production delivers `production_rate` bombers every 2 turns (batch, half rate per FUT-07) | ✅ Done |
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
 | PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
 | PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
@@ -267,15 +272,15 @@
 | BOMBER_ATTACK | 1.5× | Bomber attack power multiplier |
 | FIGHTER_DEFENSE | 1.0× | Fighter defense power multiplier |
 | BOMBER_DEFENSE | 0.67× | Bomber defense power multiplier |
-| FIGHTER_PRODUCTION_RATE | 0.5 | Fighter batch delivery rate (0.5 = every 2 turns, with maintenance: every 6 turns) |
-| BOMBER_PRODUCTION_RATE | 0.5 | Bomber batch delivery rate (0.5 = every 2 turns, with maintenance: every 6 turns) |
+| ~~FIGHTER_PRODUCTION_RATE~~ | ~~0.5~~ | ~~Removed: fighters now deliver instantly each turn~~ |
+| BOMBER_PRODUCTION_MULTIPLIER | 0.5 | Bomber production rate multiplier (half of fighter rate) |
 | MAX_BATTERIES | 5 | Maximum defense batteries per system |
 | BATTERY_VS_FIGHTER | 1.0× | Battery effectiveness against fighters |
 | BATTERY_VS_BOMBER | 0.5× | Battery effectiveness against bombers |
-| BATTERY_DAMAGE_PER_ROUND | 2.0 | Damage dealt per battery per combat round |
+| BATTERY_DAMAGE_PER_ROUND | 3.0 | Damage dealt per battery per combat round |
 | ~~BATTERY_BUILD_TURNS~~ | ~~2~~ | ~~Turns required to build one battery~~ (now scales with level) |
 | BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
-| MAINTENANCE_PRODUCTION_MULTIPLIER | 1/3 | Production rate multiplier when maintaining batteries |
+| ~~MAINTENANCE_PRODUCTION_MULTIPLIER~~ | ~~1/2~~ | ~~Removed: maintenance no longer affects production~~ |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |

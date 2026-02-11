@@ -24,9 +24,8 @@ enum ProductionMode {
 @export var battery_count: int = 0  # Defense batteries (max 3)
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
-var maintaining_batteries: bool = false  # Independent toggle for battery maintenance
-var fighter_production_progress: float = 0.0  # Fighters use batch delivery (2 turns normally, 6 turns with maintenance)
-var bomber_production_progress: float = 0.0  # Bombers take 2 turns to produce
+var maintaining_batteries: bool = false  # Toggle to prevent battery decay (no production cost)
+var bomber_production_progress: float = 0.0  # Batch delivery every 2 turns
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
 
@@ -292,32 +291,21 @@ func process_production() -> void:
 	if owner_id < 0:  # Only owned systems produce
 		return
 
-	# Production rate multiplier: reduced when maintaining batteries
-	var rate_multiplier: float = ShipTypes.MAINTENANCE_PRODUCTION_MULTIPLIER if maintaining_batteries else 1.0
-
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			# Fighters use batch delivery (2 turns normally, 6 turns with maintenance)
-			fighter_production_progress += ShipTypes.FIGHTER_PRODUCTION_RATE * rate_multiplier
-			if fighter_production_progress >= 1.0:
-				# Batch size = production_rate / PRODUCTION_RATE (e.g., rate 3 / 0.5 = 6 fighters)
-				fighter_count += int(production_rate / ShipTypes.FIGHTER_PRODUCTION_RATE)
-				fighter_production_progress = 0.0
+			fighter_count += production_rate
 		ProductionMode.BOMBERS:
-			# Bombers take 2 turns to produce at half rate (FUT-07)
-			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_RATE * rate_multiplier
+			# Half production rate (FUT-07): full batch every 2 turns
+			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_MULTIPLIER
 			if bomber_production_progress >= 1.0:
-				# Batch size = production_rate (half overall rate due to 2-turn cycle)
 				bomber_count += production_rate
 				bomber_production_progress = 0.0
 		ProductionMode.UPGRADE:
 			if production_rate < ShipTypes.MAX_PRODUCTION_RATE:
-				# Higher production rates take longer to upgrade
-				upgrade_progress += (1.0 / production_rate) * rate_multiplier
+				upgrade_progress += 1.0 / production_rate
 				if upgrade_progress >= 1.0:
 					production_rate += 1
 					upgrade_progress = 0.0
-					# Auto-switch back to fighters after upgrade
 					production_mode = ProductionMode.FIGHTERS
 		ProductionMode.BATTERY_BUILD:
 			if battery_count < ShipTypes.MAX_BATTERIES:
@@ -359,8 +347,6 @@ func apply_conquest_penalty() -> void:
 func set_production_mode(mode: ProductionMode) -> void:
 	production_mode = mode
 	# Reset progress when switching modes
-	if mode != ProductionMode.FIGHTERS:
-		fighter_production_progress = 0.0
 	if mode != ProductionMode.BOMBERS:
 		bomber_production_progress = 0.0
 	if mode != ProductionMode.UPGRADE:
@@ -371,17 +357,15 @@ func set_production_mode(mode: ProductionMode) -> void:
 
 ## Get current production mode as string
 func get_production_mode_string() -> String:
-	var suffix = " (33%)" if maintaining_batteries else ""
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			var progress_pct = int(fighter_production_progress * 100)
-			return "Producing Fighters (%d%%)" % progress_pct + suffix
+			return "Producing Fighters (+%d/turn)" % production_rate
 		ProductionMode.BOMBERS:
-			var progress_pct = int(bomber_production_progress * 100)
-			return "Producing Bombers (%d%%)" % progress_pct + suffix
+			var progress_pct = int(bomber_production_progress / 1.0 * 100)
+			return "Producing Bombers (%d%%)" % progress_pct
 		ProductionMode.UPGRADE:
 			var progress_pct = int(upgrade_progress * 100)
-			return "Upgrading (%d%%)" % progress_pct + suffix
+			return "Upgrading (%d%%)" % progress_pct
 		ProductionMode.BATTERY_BUILD:
 			var progress_pct = int(battery_build_progress * 100)
 			return "Building Battery (%d%%)" % progress_pct

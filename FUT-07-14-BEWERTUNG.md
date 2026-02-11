@@ -27,7 +27,7 @@
 | Geschwindigkeit | 150 px/turn | 75 px/turn |
 | Angriffsstärke | 1x | 1.5x |
 | Verteidigungsstärke | 1x | 0.67x |
-| Produktionskosten | 1 Turn | 2 Turns |
+| Produktionsrate | rate/Turn | rate alle 2 Turns |
 | vs Batterien | Schwach | Stark |
 | Wirtschaftsschaden | Nein | Ja (FUT-12) |
 
@@ -295,151 +295,45 @@ Die Änderung löst ein potenzielles Balance-Problem:
 
 ---
 
-## Nachtrag: Maintenance als Toggle mit 50% Produktion
+## Nachtrag: Maintenance ohne Produktionskosten
 
-> Datum: 2026-02-04
+> Datum: 2026-02-11
 
 ### Änderung
 
 | Vorher | Nachher |
 |--------|---------|
 | BATTERY_MAINTAIN als dedizierter Produktionsmodus | Maintenance als unabhängiger Toggle |
-| Wartung blockiert alle Produktion (0%) | Wartung reduziert Produktion auf 50% |
-| Entweder/Oder-Entscheidung | Parallele Entscheidung |
+| Wartung reduzierte Produktion (erst 50%, dann 33%) | **Wartung hat keine Produktionskosten** |
+| Rush-Taktik dominierte durch ungebremste Produktion | Alle Taktiken produzieren gleich schnell |
 
-### Neues Produktionssystem
+### Produktionssystem
 
 ```
 Produktionsmodi (wählbar):          Maintenance-Toggle (unabhängig):
 ┌─────────────────────────┐         ┌─────────────────────────┐
 │ • Fighters produzieren  │         │ ☐ Maintain Batteries    │
-│ • Bombers produzieren   │    +    │   (50% prod.)           │
+│ • Bombers produzieren   │    +    │   (verhindert Decay)    │
 │ • Upgrade Production    │         │                         │
-│ • Build Battery         │         │ Wenn aktiv: alle Modi   │
-└─────────────────────────┘         │ laufen mit halber Rate  │
+│ • Build Battery         │         │ Kein Einfluss auf       │
+└─────────────────────────┘         │ Produktionsrate         │
                                     └─────────────────────────┘
 ```
 
-### Verhalten im Detail
-
-| Modus | Maintenance OFF | Maintenance ON (33%) |
-|-------|-----------------|----------------------|
-| Fighters | +rate/turn | +rate×0.33/turn |
-| Bombers | +rate alle 2 Runden | +rate alle ~6 Runden |
-| Upgrade | Normal | 3× langsamer |
-| Build Battery | Normal (kein Decay) | Normal (kein Decay) |
-
-**Wichtig:** Battery Build verhindert immer Decay, unabhängig vom Maintenance-Toggle.
-
-### Automatisches Verhalten
-
-```
-Nach erfolgreichem Batterie-Bau:
-├── Maintenance-Toggle wird automatisch aktiviert
-├── Produktionsmodus wechselt zu Fighters
-└── Spieler behält 50% Fighter-Produktion
-```
-
-### Strategische Implikationen
-
-| Aspekt | Bewertung | Begründung |
-|--------|-----------|------------|
-| Flexibilität | ★★★★★ | Nicht mehr "alles oder nichts" |
-| Turtle-Viabilität | ★★★★☆ | Verteidiger kann jetzt auch produzieren |
-| Komplexität | ★★★★☆ | Eine Variable mehr, aber intuitive UI |
-| Mikromanagement | ★★★☆☆ | Toggle muss bewusst gesetzt werden |
-| Trade-off Klarheit | ★★★★★ | 50% ist einfach zu verstehen |
-
-### Neue Taktiken
-
-```
-Flexible Verteidigung:
-├── Batterien bauen (Auto-Maintenance ON)
-├── Mit 50% Fighter produzieren
-├── Bei Bedrohung: ausreichende Verteidigung
-└── Ohne Bedrohung: kontinuierlicher Aufbau
-
-Timing-Optimierung:
-├── Maintenance OFF kurz vor Angriff
-├── Volle Produktion für Verstärkung
-├── Batterien verfallen nur 1/Runde
-└── 2-3 Runden Fenster nutzbar
-
-Eco-Batterie-Hybrid:
-├── 3 Batterien bauen
-├── Maintenance ON
-├── Upgrade mit 50% Rate
-└── Langfristig stärker als pure Turtle
-```
-
-### Vergleich der Ansätze
-
-| Aspekt | Blockiert (vorher) | 50% Toggle (nachher) |
-|--------|-------------------|----------------------|
-| Verteidiger-Stärke | Mittel | Hoch |
-| Angreifer-Fenster | Groß | Kleiner |
-| Spieler-Kontrolle | Wenig | Viel |
-| Strategische Optionen | Binär | Graduell |
-| Lernkurve | Einfach | Mittel |
-
-### Bewertung der Änderung
-
-| Aspekt | Bewertung | Begründung |
-|--------|-----------|------------|
-| Balance | ★★★★☆ | Verteidiger etwas stärker, aber fair |
-| Spielerfreiheit | ★★★★★ | Mehr Optionen, mehr Kontrolle |
-| Intuitivität | ★★★★☆ | CheckButton-UI ist klar |
-| Strategische Tiefe | ★★★★★ | Neue Optimierungsmöglichkeiten |
-| Kompatibilität | ★★★★★ | Alte Taktiken funktionieren noch |
-
-### Fazit
-
-**Bewertung: +0.1 zur Gesamtbewertung → 9.9/10**
-
-Die Änderung von "Maintenance blockiert Produktion" zu "Maintenance halbiert Produktion" ist eine **Quality-of-Life-Verbesserung**:
-
-**Vorteile:**
-- Verteidiger fühlen sich nicht mehr "bestraft" für Batterien
-- Mehr graduelle Entscheidungen statt binärer Wahl
-- Toggle-UI ist intuitiver als zusätzlicher Produktionsmodus
-- Ermöglicht neue Hybrid-Strategien
-
-**Nachteile:**
-- Leicht komplexer (eine zusätzliche Checkbox)
-- Defensive Spielweise etwas stärker
-
-**Gesamt:** Die Änderung macht Batterien attraktiver ohne sie übermächtig zu machen. Das 50%-Modell ist ein guter Kompromiss zwischen "kostenlos" und "blockiert alles".
-
----
-
-## Nachtrag: Balance-Anpassung auf 33%
-
-> Datum: 2026-02-04
-
-### Änderung
-
-| Parameter | Vorher | Nachher |
-|-----------|--------|---------|
-| `MAINTENANCE_PRODUCTION_MULTIPLIER` | 0.5 | 0.33 |
-
 ### Begründung
 
-Die 50%-Rate verschob das Balance leicht zugunsten des Verteidigers:
-- Verteidiger konnte Batterien warten UND nennenswerte Produktion haben
-- Angreifer-Fenster wurden zu klein
-- Turtle-Strategie wurde wieder zu stark
+Die Produktionsminderung durch Maintenance machte Rush zur dominanten Strategie:
+- Jede Taktik mit Batterien produzierte 33-50% weniger Schiffe
+- Rush-Spieler hatten automatisch die größte Flotte
+- Batterien konnten den Produktionsnachteil nicht kompensieren
 
-### Auswirkung
+### Neues Balance
 
-| Modus | Mit 50% Maintenance | Mit 33% Maintenance |
-|-------|---------------------|---------------------|
-| Fighters (Rate 3) | +1.5/turn | +1/turn |
-| Fighters (Rate 6) | +3/turn | +2/turn |
-| Upgrade (Rate 3) | 6 turns | 9 turns |
-
-### Fazit
-
-Die Reduzierung auf 33% stellt das ursprüngliche Balance-Ziel wieder her: Batterie-Wartung ist ein signifikanter Trade-off, aber kein vollständiger Produktionsstopp.
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Rush vs Fortress | ★★★★★ | Fortress produziert gleich viele Schiffe + hat Batterien |
+| Batterie-Kosten | ★★★★☆ | Einzige Kosten: Bauzeit (keine Produktion während BATTERY_BUILD) |
+| Strategische Vielfalt | ★★★★★ | Alle 5 AI-Taktiken haben Chancen |
 
 ---
 
@@ -576,153 +470,43 @@ Quality-of-Life Feature, das die Spielerfahrung verbessert ohne Balance zu beein
 
 ---
 
-## Nachtrag: Bomber Batch-Produktion
+## Nachtrag: Vereinfachte Produktion (Batch-System entfernt)
 
-> Datum: 2026-02-04
+> Datum: 2026-02-11
 
 ### Änderung
 
-| Aspekt | Vorher | Nachher |
-|--------|--------|---------|
-| Produktionsmodell | Fraktional (halbe Rate pro Runde) | Batch (volle Rate alle 2 Runden) |
-| Beispiel (Rate 3) | 1 Bomber Runde 1, 2 Bomber Runde 2 | 0 Bomber Runde 1, 3 Bomber Runde 2 |
-| Beispiel (Rate 5) | 2 Bomber Runde 1, 3 Bomber Runde 2 | 0 Bomber Runde 1, 5 Bomber Runde 2 |
+| Aspekt | Vorher (Batch) | Nachher (direkt) |
+|--------|----------------|------------------|
+| Fighter | Alle 2 Runden: 2×rate | Jede Runde: +rate |
+| Bomber | Alle 2 Runden: rate | Jede Runde: +rate×0.5 (akkumuliert) |
 
 ### Begründung
 
-Das fraktionale Modell hatte Probleme mit ungeraden Produktionsraten:
-- Rate 3: 1.5 Bomber/Runde → Rundungsfehler
-- Rate 5: 2.5 Bomber/Runde → Inkonsistente Lieferung
+Das Batch-System wurde ursprünglich eingeführt, um Rundungsprobleme mit dem Maintenance-Multiplikator zu lösen (z.B. `int(rate × 0.33) = 0` bei niedrigen Raten). Mit dem Wegfall der Produktionsminderung durch Maintenance ist das Batch-System überflüssig.
 
 ### Neues Verhalten
 
 ```
-Bomber-Produktion (Batch-Modell):
-├── Runde 1: Progress += 0.5 → 50% → 0 Bomber
-├── Runde 2: Progress += 0.5 → 100% → Rate Bomber geliefert
-├── Progress reset auf 0
-└── Zyklus wiederholt sich
+Fighter-Produktion:
+└── Jede Runde: +production_rate Fighter (sofort)
+
+Bomber-Produktion (halbe Rate, FUT-07):
+├── Batch-Lieferung alle 2 Runden
+├── Liefermenge: production_rate Bomber
+└── Thematisch: komplexe Schiffe brauchen Bauzeit
+    Beispiel Rate 3: 0, 3, 0, 3, ... (Ø 1.5/Runde)
+    Beispiel Rate 5: 0, 5, 0, 5, ... (Ø 2.5/Runde)
 ```
 
-### Auswirkung mit Maintenance (33%)
-
-| Runde | Progress (ohne) | Progress (mit 1/3) |
-|-------|-----------------|-------------------|
-| 1 | 50% | 16.7% |
-| 2 | 100% → Lieferung | 33.3% |
-| 3 | 50% | 50% |
-| 4 | 100% → Lieferung | 66.7% |
-| 5 | 50% | 83.3% |
-| 6 | 100% → Lieferung | 100% → Lieferung |
-
-**Effekt:** Mit Maintenance dauert ein Bomber-Batch 6 Runden statt 2.
-
-### Strategische Implikationen
+### Vorteile
 
 | Aspekt | Bewertung | Begründung |
 |--------|-----------|------------|
-| Vorhersagbarkeit | ★★★★★ | Klare Lieferzyklen, keine Rundungsfehler |
-| Burst-Dynamik | ★★★★☆ | Große Bomber-Wellen statt stetiger Strom |
-| Timing-Relevanz | ★★★★★ | Angriff vor/nach Lieferung wichtiger |
-| Konsistenz | ★★★★★ | Alle Produktionsraten verhalten sich gleich |
-
-### Fazit
-
-Die Batch-Produktion löst das Rundungsproblem elegant und fügt taktische Tiefe hinzu: Spieler müssen den Lieferzyklus berücksichtigen.
-
----
-
-## Nachtrag: Fighter Batch-Produktion
-
-> Datum: 2026-02-04
-
-### Änderung
-
-| Aspekt | Vorher | Nachher |
-|--------|--------|---------|
-| Produktionsmodell | Sofortige Lieferung (int(rate × multiplier)) | Batch (volle Rate alle 2 Runden) |
-| FIGHTER_PRODUCTION_RATE | 1.0 | 0.5 |
-| Normale Produktion | rate Fighter pro Runde | rate Fighter alle 2 Runden |
-| Mit Maintenance | int(rate × 0.33) pro Runde | rate Fighter alle 6 Runden |
-
-### Problem
-
-Das vorherige Modell hatte zwei Probleme:
-
-**1. Rundungsproblem bei Maintenance (33% Multiplikator):**
-
-| Production Rate | Vorher (int(rate × 0.33)) | Problem |
-|-----------------|---------------------------|---------|
-| 1 | 0 Fighter/Runde | Keine Produktion! |
-| 2 | 0 Fighter/Runde | Keine Produktion! |
-| 3 | 0 Fighter/Runde | Keine Produktion! |
-| 4 | 1 Fighter/Runde | Nur 25% statt 33% |
-| 6 | 1 Fighter/Runde | Nur 17% statt 33% |
-| 8 | 2 Fighter/Runde | Nur 25% statt 33% |
-
-**2. Fehlende Burst-Dynamik:** Bomber hatten Burst-Produktion (alle 2 Runden), Fighter nicht.
-
-### Neues Verhalten
-
-```
-Fighter-Produktion (Batch-Modell, RATE = 0.5):
-├── Normal (rate_multiplier = 1.0):
-│   ├── Runde 1: Progress += 0.5 → 50% → 0 Fighter
-│   ├── Runde 2: Progress += 0.5 → 100% → rate Fighter geliefert
-│   └── Progress reset auf 0%, Zyklus wiederholt (alle 2 Runden)
-│
-└── Mit Maintenance (rate_multiplier = 1/3):
-    ├── Runde 1: Progress += 1/6 → 16.7% → 0 Fighter
-    ├── Runde 2: Progress += 1/6 → 33.3% → 0 Fighter
-    ├── Runde 3: Progress += 1/6 → 50% → 0 Fighter
-    ├── Runde 4: Progress += 1/6 → 66.7% → 0 Fighter
-    ├── Runde 5: Progress += 1/6 → 83.3% → 0 Fighter
-    ├── Runde 6: Progress += 1/6 → 100% → rate Fighter geliefert
-    └── Progress reset auf 0%, Zyklus wiederholt (alle 6 Runden)
-```
-
-### Auswirkung Normal vs. Maintenance
-
-| Runde | Progress (normal) | Progress (Maintenance) |
-|-------|-------------------|------------------------|
-| 1 | 50% | 16.7% |
-| 2 | 100% → Lieferung | 33.3% |
-| 3 | 50% | 50% |
-| 4 | 100% → Lieferung | 66.7% |
-| 5 | 50% | 83.3% |
-| 6 | 100% → Lieferung | 100% → Lieferung |
-
-**Effekt:** Identischer Rhythmus wie Bomber (2 Runden normal, 6 Runden mit Maintenance).
-
-### Vergleich mit Bomber
-
-| Aspekt | Fighter | Bomber |
-|--------|---------|--------|
-| PRODUCTION_RATE | 0.5 | 0.5 |
-| Normaler Zyklus | 2 Runden | 2 Runden |
-| Mit Maintenance | 6 Runden | 6 Runden |
-| Menge pro Batch | 2 × production_rate | 1 × production_rate |
-| Gesamtrate/Runde | production_rate | production_rate / 2 |
-
-**Fighter-Batch:** `production_rate / FIGHTER_PRODUCTION_RATE` = `2 × rate` (volle Rate)
-**Bomber-Batch:** `production_rate` (halbe Rate gemäß FUT-07)
-
-**Rhythmus-Symmetrie:** Gleicher Lieferzyklus (2/6 Runden), aber Bomber mit halber Gesamtproduktion.
-
-### Strategische Implikationen
-
-| Aspekt | Bewertung | Begründung |
-|--------|-----------|------------|
-| Konsistenz | ★★★★★ | Identisches Modell für Fighter und Bomber |
-| Maintenance-Fairness | ★★★★★ | Alle Production Rates produzieren mit 33% |
-| Burst-Dynamik | ★★★★★ | Immer Burst, synchron mit Bomber |
-| Timing-Relevanz | ★★★★★ | Angriffszeitpunkt immer taktisch relevant |
-| Anfangsphase | ★★★☆☆ | Erste Fighter erst nach 2 Runden |
-| Taktische Tiefe | ★★★★★ | Lieferzyklus muss berücksichtigt werden |
-
-### Fazit
-
-Die Batch-Produktion für Fighter mit RATE 0.5 schafft vollständige Symmetrie mit der Bomber-Produktion. Der Lieferzyklus ist nun immer taktisch relevant - Angriffe kurz vor einer Lieferung können entscheidend sein. Der langsamere Start (erste Fighter nach 2 Runden) betrifft alle Spieler gleich und erhöht die strategische Tiefe.
+| Einfachheit | ★★★★★ | Fighter sofort, Bomber alle 2 Runden |
+| Vorhersagbarkeit | ★★★★★ | Fighter: immer rate/Runde, kein Warten |
+| Anfangsphase | ★★★★★ | Fighter ab Runde 1 (vorher erst ab Runde 2) |
+| Thematik | ★★★★★ | Bomber als komplexe Schiffe brauchen Bauzeit |
 
 ---
 

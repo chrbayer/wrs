@@ -320,19 +320,19 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 	var max_dist: float = UniverseGenerator.MAX_SYSTEM_DISTANCE * 1.5
 
 	for sys in state["owned_systems"]:
-		if sys.fighter_count <= 10:
+		if sys.fighter_count <= 4:
 			continue
-		for target in neutrals:
-			if _has_fleet_targeting(state, target["system_id"]):
-				continue
-			var dist: float = sys.global_position.distance_to(target["position"])
-			if dist > max_dist:
-				continue
-			if sys.fighter_count - 10 >= _estimate_strength(target) * 2.0:
-				var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.5, 0.0, 10)
+		# Neutrals: expand aggressively
+		if neutrals.size() > 0:
+			var target: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
+			if not target.is_empty():
+				var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.6, 0.0, 4)
 				if not order.is_empty():
 					fleet_orders.append(order)
-				break
+					continue
+		# Enemies: cautious (fortress style)
+		if sys.fighter_count <= 10:
+			continue
 		for target in enemies:
 			if _has_fleet_targeting(state, target["system_id"]):
 				continue
@@ -372,16 +372,15 @@ static func _execute_economy(state: Dictionary) -> Dictionary:
 
 	if not attack_mode:
 		for sys in state["owned_systems"]:
-			if sys.fighter_count <= 8:
+			if sys.fighter_count <= 4:
 				continue
+			# Neutrals: expand aggressively
 			if neutrals.size() > 0:
 				var near: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
 				if not near.is_empty():
-					var dist: float = sys.global_position.distance_to(near["position"])
-					if dist <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
-						var order: Dictionary = _build_fleet_order(sys, near["system_id"], 0.5, 0.0, 8)
-						if not order.is_empty():
-							fleet_orders.append(order)
+					var order: Dictionary = _build_fleet_order(sys, near["system_id"], 0.6, 0.0, 4)
+					if not order.is_empty():
+						fleet_orders.append(order)
 	else:
 		var targets: Array = []
 		if weakest >= 0:
@@ -422,13 +421,23 @@ static func _execute_bomber(state: Dictionary) -> Dictionary:
 
 	var enemies: Array = _get_known_enemies(state)
 	var neutrals: Array = _get_known_neutrals(state)
-	enemies.sort_custom(func(a, b): return a.get("production_rate", 1) > b.get("production_rate", 1))
-	var targets: Array = enemies + neutrals
 
 	for sys in state["owned_systems"]:
+		if sys.fighter_count <= 4 and sys.bomber_count <= 0:
+			continue
+		# Neutrals: expand aggressively with fighters
+		if neutrals.size() > 0:
+			var near: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
+			if not near.is_empty():
+				var order: Dictionary = _build_fleet_order(sys, near["system_id"], 0.6, 0.0, 4)
+				if not order.is_empty():
+					fleet_orders.append(order)
+					continue
+		# Enemies: bomber strikes on high-value targets
 		if sys.fighter_count <= 6 and sys.bomber_count <= 0:
 			continue
-		for target in targets:
+		enemies.sort_custom(func(a, b): return a.get("production_rate", 1) > b.get("production_rate", 1))
+		for target in enemies:
 			if _has_fleet_targeting(state, target["system_id"]):
 				continue
 			var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.6, 0.8, 6)
@@ -467,17 +476,25 @@ static func _execute_balanced_mid(state: Dictionary) -> Dictionary:
 			production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
 
 	var neutrals: Array = _get_known_neutrals(state)
+	var enemies: Array = _get_known_enemies(state)
 	for sys in state["owned_systems"]:
-		if sys.fighter_count <= 8:
+		if sys.fighter_count <= 4:
 			continue
+		# Neutrals: expand aggressively
 		if neutrals.size() > 0:
 			var near: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
 			if not near.is_empty():
-				var dist: float = sys.global_position.distance_to(near["position"])
-				if dist <= UniverseGenerator.MAX_SYSTEM_DISTANCE * 1.2:
-					var order: Dictionary = _build_fleet_order(sys, near["system_id"], 0.5, 0.0, 8)
-					if not order.is_empty():
-						fleet_orders.append(order)
+				var order: Dictionary = _build_fleet_order(sys, near["system_id"], 0.6, 0.0, 4)
+				if not order.is_empty():
+					fleet_orders.append(order)
+					continue
+		# Enemies: moderate aggression
+		if enemies.size() > 0 and sys.fighter_count > 8:
+			var target: Dictionary = _find_nearest_untargeted(sys.global_position, enemies, state)
+			if not target.is_empty():
+				var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.5, 0.0, 8)
+				if not order.is_empty():
+					fleet_orders.append(order)
 
 	return {"production_changes": production_changes, "fleet_orders": fleet_orders}
 
