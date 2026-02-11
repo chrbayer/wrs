@@ -136,8 +136,8 @@ Option C: Nur Bomber (langsam, spezialisiert)
 
 ## Tempo-Analyse
 
-| Strategie | Früh (Turn 1-10) | Mitte (Turn 11-25) | Spät (Turn 26+) |
-|-----------|------------------|--------------------|-----------------|
+| Strategie | Früh (nur Neutrale) | Mitte (Neutrale + Feinde) | Spät (nur Feinde) |
+|-----------|---------------------|--------------------------|-------------------|
 | Fighter-Rush | ★★★★★ | ★★★☆☆ | ★★☆☆☆ |
 | Bomber-Rush | ★★☆☆☆ | ★★★★☆ | ★★★★☆ |
 | Batterie-Turtle | ★★★☆☆ | ★★★★☆ | ★★★☆☆ |
@@ -892,7 +892,7 @@ FUT-17 fügt eine elegante strategische Dimension hinzu: **Entfernung kostet**. 
 | **Fortress** | Batterien an Grenze, Upgrade im Hinterland | Nur bei 2:1+ Übermacht | Starke Verteidigung | Langsame Expansion |
 | **Economy** | Upgrade auf Max, dann Fighter | Vorsichtig früh, überwältigend spät | Endgame-Dominanz | Verletzlich früh |
 | **Bomber** | Upgrade bis Rate 4, dann 1:2 Bomber:Fighter | Gemischt auf hochproduktive Feinde | Wirtschaftsschaden | Langsamer Aufbau |
-| **Balanced** | Phasenabhängig (Rush→Eco→Bomber) | Adaptiv nach Spielphase | Flexibel | Kein klarer Vorteil |
+| **Balanced** | Phasenabhängig (Expand→Eco→Bomber) | Adaptiv nach Spielzustand | Flexibel | Kein klarer Vorteil |
 
 ### Strategische Analyse
 
@@ -914,7 +914,8 @@ Balanced      -          =           =          +           =
 | Fair Play | Nur Fog-of-War-Daten | Keine Allwissenheit, gleiche Regeln wie Spieler |
 | Kein Cheating | system_memory als Datenbasis | KI sieht nur was sie erkundet hat |
 | Statische Taktik | Keine Taktikwechsel mid-game | Vorhersagbar und erlernbar für Spieler |
-| Balanced-Adaptivität | Phasen-basiert (Turn + Prod) | Einzige "dynamische" Taktik |
+| Gemeinsame Frühphase | Alle Taktiken expandieren identisch ohne Feindkontakt | Faire Startbedingungen |
+| Zustandsbasierte Phasen | Früh/Mitte/Spät durch Sichtbarkeit (Neutrale/Feinde), nicht Rundennummer | Adaptiv an Spielsituation |
 
 ### Bewertung
 

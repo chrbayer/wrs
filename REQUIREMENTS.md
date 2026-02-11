@@ -294,3 +294,4 @@
 - If a completed requirement needs to be changed, the old requirement shall be struck through and a new requirement shall be created.
 - **Update 2026-02:** FUT-07 through FUT-17 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, fog of war memory, and fighter morale.
 - **Update 2026-02:** FUT-04a implemented, adding AI opponents with 5 selectable tactics. P-01a replaces P-01 to allow any human/AI mix.
+- **Update 2026-02:** AI phases are now purely state-based (no turn numbers). Early: only neutrals visible (all tactics expand identically). Mid: neutrals + enemies (tactic-specific, but all expand to neutrals). Late: only enemies (full attack mode).

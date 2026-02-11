@@ -1045,8 +1045,7 @@ func _execute_ai_turn() -> void:
 		player.ai_tactic,
 		systems,
 		fleets_in_transit,
-		system_memory,
-		current_turn
+		system_memory
 	)
 
 	# Apply production changes

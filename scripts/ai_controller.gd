@@ -5,14 +5,17 @@ extends RefCounted
 ## Uses only fog-of-war information (system_memory) — no cheating.
 ##
 ## State dictionary keys:
-##   player_id, tactic, current_turn, owned_systems, known_systems, my_fleets, all_systems
+##   player_id, tactic, owned_systems, known_systems, my_fleets, all_systems
 
 
 ## Main entry point: returns {"production_changes": [...], "fleet_orders": [...]}
 static func execute_turn(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
-						 p_system_memory: Dictionary, p_current_turn: int) -> Dictionary:
-	var state = _build_state(player_id, tactic, p_systems, fleets, p_system_memory, p_current_turn)
+						 p_system_memory: Dictionary) -> Dictionary:
+	var state = _build_state(player_id, tactic, p_systems, fleets, p_system_memory)
+
+	if _should_early_expand(state):
+		return _execute_early_expansion(state)
 
 	if tactic == Player.AiTactic.RUSH:
 		return _execute_rush(state)
@@ -31,7 +34,7 @@ static func execute_turn(player_id: int, tactic: int,
 ## Build state dictionary from raw game data
 static func _build_state(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
-						 p_system_memory: Dictionary, p_current_turn: int) -> Dictionary:
+						 p_system_memory: Dictionary) -> Dictionary:
 	var owned: Array = []
 	for system in p_systems:
 		if system.owner_id == player_id:
@@ -62,7 +65,6 @@ static func _build_state(player_id: int, tactic: int,
 	return {
 		"player_id": player_id,
 		"tactic": tactic,
-		"current_turn": p_current_turn,
 		"owned_systems": owned,
 		"known_systems": known,
 		"my_fleets": my_fleets,
@@ -222,6 +224,37 @@ static func _find_nearest_untargeted(source_pos: Vector2, candidates: Array, sta
 	return best
 
 
+# ── Common early expansion phase ─────────────────────────────────
+
+static func _should_early_expand(state: Dictionary) -> bool:
+	var neutrals: Array = _get_known_neutrals(state)
+	var enemies: Array = _get_known_enemies(state)
+	return neutrals.size() > 0 and enemies.size() == 0
+
+
+static func _execute_early_expansion(state: Dictionary) -> Dictionary:
+	var production_changes: Array = []
+	var fleet_orders: Array = []
+
+	for sys in state["owned_systems"]:
+		if sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
+			production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
+		if sys.maintaining_batteries:
+			production_changes.append({"system_id": sys.system_id, "maintain": false})
+
+	var neutrals: Array = _get_known_neutrals(state)
+	for sys in state["owned_systems"]:
+		if sys.fighter_count <= 4:
+			continue
+		var target: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
+		if not target.is_empty():
+			var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.6, 0.0, 4)
+			if not order.is_empty():
+				fleet_orders.append(order)
+
+	return {"production_changes": production_changes, "fleet_orders": fleet_orders}
+
+
 # ── Tactic implementations ───────────────────────────────────────
 
 static func _execute_rush(state: Dictionary) -> Dictionary:
@@ -354,7 +387,8 @@ static func _execute_economy(state: Dictionary) -> Dictionary:
 		if weakest >= 0:
 			targets = enemies.filter(func(e): return e["owner_id"] == weakest)
 		if targets.is_empty():
-			targets = neutrals
+			targets = enemies
+		targets += neutrals
 		for sys in state["owned_systems"]:
 			if sys.fighter_count <= 6:
 				continue
@@ -407,36 +441,12 @@ static func _execute_bomber(state: Dictionary) -> Dictionary:
 
 static func _execute_balanced(state: Dictionary) -> Dictionary:
 	var neutrals: Array = _get_known_neutrals(state)
-	var avg_prod: float = _avg_production(state)
-	var turn: int = state["current_turn"]
 
-	if turn <= 8 and neutrals.size() > 0:
-		return _execute_balanced_early(state, neutrals)
-	elif avg_prod < 5.0 and turn <= 20:
+	if neutrals.size() > 0:
 		return _execute_balanced_mid(state)
 	else:
 		return _execute_balanced_late(state)
 
-
-static func _execute_balanced_early(state: Dictionary, neutrals: Array) -> Dictionary:
-	var production_changes: Array = []
-	var fleet_orders: Array = []
-
-	for sys in state["owned_systems"]:
-		if sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
-			production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-
-	for sys in state["owned_systems"]:
-		if sys.fighter_count <= 4:
-			continue
-		if neutrals.size() > 0:
-			var target: Dictionary = _find_nearest_untargeted(sys.global_position, neutrals, state)
-			if not target.is_empty():
-				var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.6, 0.0, 4)
-				if not order.is_empty():
-					fleet_orders.append(order)
-
-	return {"production_changes": production_changes, "fleet_orders": fleet_orders}
 
 
 static func _execute_balanced_mid(state: Dictionary) -> Dictionary:
