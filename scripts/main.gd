@@ -97,6 +97,10 @@ var combat_report_system: StarSystem = null
 # Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, bomber_count, battery_count, has_batteries}})
 var system_memory: Dictionary = {}
 
+# Remember last setup for restart
+var last_setup_player_count: int = 0
+var last_setup_configs: Array = []  # [{is_ai, tactic}, ...]
+
 # Cached visibility overlay texture
 var visibility_texture: ImageTexture = null
 const VISIBILITY_COLOR = Color(0.3, 0.6, 1.0, 0.08)
@@ -196,8 +200,11 @@ func _show_setup_screen() -> void:
 	for i in range(2, 5):
 		player_count_option.add_item("%d Players" % i, i)
 
-	# Build initial player config rows
-	_rebuild_player_config(2)
+	# Restore previous settings or use defaults
+	var count = last_setup_player_count if last_setup_player_count > 0 else 2
+	# Select the right player count in the dropdown (index = count - 2)
+	player_count_option.select(count - 2)
+	_rebuild_player_config(count)
 
 
 func _on_player_count_changed(_index: int) -> void:
@@ -251,6 +258,18 @@ func _rebuild_player_config(count: int) -> void:
 		tactic_option.visible = false
 		row.add_child(tactic_option)
 
+		# Restore previous settings if available
+		if i < last_setup_configs.size():
+			var cfg = last_setup_configs[i]
+			if cfg["is_ai"]:
+				type_option.select(1)  # AI
+				tactic_option.visible = true
+				# Find tactic index by id
+				for idx in range(tactic_option.item_count):
+					if tactic_option.get_item_id(idx) == cfg["tactic"]:
+						tactic_option.select(idx)
+						break
+
 		# Connect type change to show/hide tactic
 		type_option.item_selected.connect(_on_player_type_changed.bind(i))
 
@@ -280,6 +299,10 @@ func _on_start_game_pressed() -> void:
 		var is_ai = type_option.get_selected_id() == 1
 		var tactic = tactic_option.get_selected_id() if is_ai else Player.AiTactic.NONE
 		player_configs.append({"is_ai": is_ai, "tactic": tactic})
+
+	# Remember setup for restart
+	last_setup_player_count = player_count
+	last_setup_configs = player_configs.duplicate()
 
 	setup_screen.visible = false
 	# Show game UI

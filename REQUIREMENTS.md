@@ -218,12 +218,14 @@
 | UI-24a | Non-owners shall see "[?]" for battery presence; after combat, known battery count is shown as "[(N)]" | ✅ Done |
 | UI-25 | Hover info shall show both fighter-only and mixed fleet travel times     | ✅ Done |
 | UI-26 | Fleet info shall show total fighters and bombers in transit              | ✅ Done |
-| UI-27 | System info shall show current production mode and progress              | ✅ Done |
+| ~~UI-27~~ | ~~System info shall show current production mode and progress~~              | ~~Done~~ |
+| UI-27a | System info shall show current production mode with progress as completed/total turns (e.g., "2/5") | ✅ Done |
 | UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
 | UI-29 | ESC key shall close the topmost open dialog (combat report, send fleet, or action panel) | ✅ Done |
 | UI-30 | Send fleet dialog shall display fighter morale when below 100% | ✅ Done |
 | UI-31 | Setup screen allows per-player Human/AI selection with tactic choice | ✅ Done |
 | UI-32 | In all-AI spectator mode, Space key toggles pause/resume with "PAUSED" indicator | ✅ Done |
+| UI-33 | Setup screen shall restore previous game's settings (player count, human/AI, tactics) on restart | ✅ Done |
 
 ---
 

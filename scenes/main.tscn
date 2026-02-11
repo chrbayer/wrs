@@ -150,7 +150,7 @@ text = "Cancel"
 
 [node name="ActionPanel" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(280, 320)
+custom_minimum_size = Vector2(280, 260)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/ActionPanel"]

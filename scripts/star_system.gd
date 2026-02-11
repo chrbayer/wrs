@@ -353,14 +353,17 @@ func get_production_mode_string() -> String:
 		ProductionMode.FIGHTERS:
 			return "Producing Fighters (+%d/turn)" % production_rate
 		ProductionMode.BOMBERS:
-			var progress_pct = int(bomber_production_progress / 1.0 * 100)
-			return "Producing Bombers (%d%%)" % progress_pct
+			var total_turns = int(1.0 / ShipTypes.BOMBER_PRODUCTION_MULTIPLIER)
+			var done_turns = int(bomber_production_progress * total_turns)
+			return "Producing Bombers (%d/%d)" % [done_turns, total_turns]
 		ProductionMode.UPGRADE:
-			var progress_pct = int(upgrade_progress * 100)
-			return "Upgrading (%d%%)" % progress_pct
+			var total_turns = production_rate
+			var done_turns = int(upgrade_progress * total_turns)
+			return "Upgrading (%d/%d)" % [done_turns, total_turns]
 		ProductionMode.BATTERY_BUILD:
-			var progress_pct = int(battery_build_progress * 100)
-			return "Building Battery (%d%%)" % progress_pct
+			var total_turns = battery_count + 1
+			var done_turns = int(battery_build_progress * total_turns)
+			return "Building Battery (%d/%d)" % [done_turns, total_turns]
 	return "Unknown"
 
 
