@@ -90,14 +90,14 @@
 | DB-05 | Batteries shall prioritize targeting fighters over bombers              | ✅ Done |
 | DB-06 | Battery presence shall be visible to all players                        | ✅ Done |
 | DB-07 | Battery count shall only be visible to the system owner                 | ✅ Done |
-| DB-08 | Batteries require continuous maintenance to remain operational          | ✅ Done |
-| ~~DB-09~~ | ~~Maintaining batteries blocks all other production~~               | ~~Done~~ |
-| ~~DB-09a~~ | ~~Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER`~~ | ~~Done~~ |
-| DB-09b | Maintaining batteries has no production cost (toggle only prevents decay) | ✅ Done |
-| DB-10 | Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining | ✅ Done |
+| ~~DB-08~~ | ~~Batteries require continuous maintenance to remain operational~~          | ~~Removed~~ |
+| ~~DB-09~~ | ~~Maintaining batteries blocks all other production~~               | ~~Removed~~ |
+| ~~DB-09a~~ | ~~Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER`~~ | ~~Removed~~ |
+| ~~DB-09b~~ | ~~Maintaining batteries has no production cost (toggle only prevents decay)~~ | ~~Removed~~ |
+| ~~DB-10~~ | ~~Batteries decay by `BATTERY_DECAY_PER_TURN` per turn when not building or maintaining~~ | ~~Removed~~ |
 | ~~DB-11~~ | ~~Building one battery requires `BATTERY_BUILD_TURNS` turns~~       | ~~Done~~ |
 | DB-11a | Battery build time scales with target level (like production upgrade) | ✅ Done |
-| DB-12 | On conquest, batteries are reduced to 50% (rounded down) and maintenance is enabled | ✅ Done |
+| DB-12 | On conquest, batteries are reduced to 50% (rounded down) | ✅ Done |
 
 ---
 
@@ -120,9 +120,9 @@
 | ~~PR-08~~ | ~~Build Battery mode shall add one battery per turn (max 3)~~       | ~~Done~~ |
 | ~~PR-08a~~ | ~~Build Battery mode shall add one battery every `BATTERY_BUILD_TURNS` turns (max `MAX_BATTERIES`)~~ | ~~Done~~ |
 | PR-08b | Battery build time scales with target level (1 turn for 1st, 2 for 2nd, etc.), max `MAX_BATTERIES` | ✅ Done |
-| ~~PR-09~~ | ~~After building a battery, production mode shall switch to Maintain Batteries~~ | ~~Done~~ |
-| PR-09a | After building a battery, maintenance toggle shall be enabled automatically | ✅ Done |
-| PR-13 | Battery maintenance is an independent toggle, orthogonal to production mode | ✅ Done |
+| ~~PR-09~~ | ~~After building a battery, production mode shall switch to Maintain Batteries~~ | ~~Removed~~ |
+| ~~PR-09a~~ | ~~After building a battery, maintenance toggle shall be enabled automatically~~ | ~~Removed~~ |
+| ~~PR-13~~ | ~~Battery maintenance is an independent toggle, orthogonal to production mode~~ | ~~Removed~~ |
 | PR-10 | Conquering an enemy system shall reduce its production rate by `CONQUEST_PRODUCTION_LOSS` | ✅ Done |
 | PR-11 | Conquest penalty shall not apply to neutral systems                     | ✅ Done |
 | PR-12 | Production rate reductions shall respect `MIN_PRODUCTION_RATE`          | ✅ Done |
@@ -149,11 +149,15 @@
 | C-11 | Combat shall target ships with lower defense first (bombers before fighters) | ✅ Done |
 | C-12 | Combat reports shall show bomber participation and losses                    | ✅ Done |
 | ~~C-13~~ | ~~Combat reports shall show battery kills~~                                      | ~~Done~~ |
-| C-13a | Combat reports shall show battery kills and battery status before/after combat | ✅ Done |
+| ~~C-13a~~ | ~~Combat reports shall show battery kills and battery status before/after combat~~ | ~~Done~~ |
+| C-13b | Combat reports shall show battery kills by type (F/B) when kills > 0 | ✅ Done |
 | C-14 | Combat reports shall show production damage from bomber attacks              | ✅ Done |
 | C-15 | Combat reports shall indicate if conquest occurred and the associated penalty | ✅ Done |
 | C-15a | Combat reports shall show fighter morale when below 100% | ✅ Done |
 | C-16 | Combat shall apply fighter morale penalty to attacker's attack power based on fleet travel time | ✅ Done |
+| C-17 | When multiple attackers engage the same system, each engagement shall produce a separate combat report (per-stage reports) | ✅ Done |
+| C-18 | Attacker losses in combat reports shall be the total ship count (battery kills + combat losses combined) | ✅ Done |
+| C-19 | Combat reports shall omit zero fighter/bomber counts (no "0 F" or "0 B") | ✅ Done |
 
 ---
 
@@ -177,6 +181,7 @@
 | V-01 | A player wins by controlling all star systems                                | ✅ Done |
 | V-02 | A player is eliminated when they control no systems and have no fleets       | ✅ Done |
 | V-03 | The game shall display a victory screen when a player wins                   | ✅ Done |
+| V-04 | Human players shall see all pending combat reports before the victory screen is shown | ✅ Done |
 
 ---
 
@@ -238,8 +243,8 @@
 | FUT-09 | Instead of producing fighters, a system can slowly increase its production rate (max 8)            | ✅ Done |
 | ~~FUT-10~~ | ~~Instead of ships or production, build defense batteries: strong vs fighters, weaker vs bombers (max 3 per system). Presence visible to all, strength only to owner~~ | ~~Done~~ |
 | FUT-10a | Build defense batteries: strong vs fighters (`BATTERY_VS_FIGHTER`), weaker vs bombers (`BATTERY_VS_BOMBER`), max `MAX_BATTERIES`. Presence visible to all, count only to owner | ✅ Done |
-| ~~FUT-11~~ | ~~Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades~~ | ~~Done~~ |
-| FUT-11a | Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` (independent toggle) | ✅ Done |
+| ~~FUT-11~~ | ~~Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades~~ | ~~Removed~~ |
+| ~~FUT-11a~~ | ~~Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` (independent toggle)~~ | ~~Removed~~ |
 | FUT-12 | Bomber attacks cause greater production rate loss on conquest and can reduce production even on failed attacks. Damage scales with attacker/defender strength ratio | ✅ Done |
 | FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
 | FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
@@ -279,8 +284,8 @@
 | BATTERY_VS_BOMBER | 0.5× | Battery effectiveness against bombers |
 | BATTERY_DAMAGE_PER_ROUND | 3.0 | Damage dealt per battery per combat round |
 | ~~BATTERY_BUILD_TURNS~~ | ~~2~~ | ~~Turns required to build one battery~~ (now scales with level) |
-| BATTERY_DECAY_PER_TURN | 1 | Battery points lost per turn without maintenance |
-| ~~MAINTENANCE_PRODUCTION_MULTIPLIER~~ | ~~1/2~~ | ~~Removed: maintenance no longer affects production~~ |
+| ~~BATTERY_DECAY_PER_TURN~~ | ~~1~~ | ~~Removed: batteries no longer decay~~ |
+| ~~MAINTENANCE_PRODUCTION_MULTIPLIER~~ | ~~1/2~~ | ~~Removed: maintenance removed entirely~~ |
 | MIN_PRODUCTION_RATE | 1 | Minimum production rate |
 | MAX_PRODUCTION_RATE | 8 | Maximum production rate |
 | CONQUEST_PRODUCTION_LOSS | 1 | Production rate penalty on conquest |
@@ -301,3 +306,4 @@
 - **Update 2026-02:** FUT-07 through FUT-17 implemented, adding bombers, defense batteries, production modes, conquest mechanics, scaled battery building, fog of war memory, and fighter morale.
 - **Update 2026-02:** FUT-04a implemented, adding AI opponents with 5 selectable tactics. P-01a replaces P-01 to allow any human/AI mix.
 - **Update 2026-02:** AI phases are now purely state-based (no turn numbers). Early: only neutrals visible (all tactics expand identically). Mid: neutrals + enemies (tactic-specific, but all expand to neutrals). Late: only enemies (full attack mode).
+- **Update 2026-02:** Combat reports reworked: per-stage reports (C-17), attacker losses include battery kills (C-18), battery kills shown by F/B type (C-13b), zero counts omitted (C-19). Victory screen deferred until all reports shown (V-04).

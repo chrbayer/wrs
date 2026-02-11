@@ -238,23 +238,17 @@ Vorher:                          Nachher:
 ### Neue Taktiken
 
 ```
-Batterie-Bluff:
-├── Spieler baut 3 Batterien
+Batterie-Festung:
+├── Spieler baut 3+ Batterien
 ├── Wechselt zu Fighter-Produktion
-├── Gegner wartet auf Decay (3 Runden)
-└── Spieler nutzt die Zeit für Angriffsflotte
+├── Batterien sind permanent (kein Decay)
+└── Verteidigung + volle Produktion gleichzeitig
 
 Batterie-Belagerung:
 ├── Angreifer positioniert Flotte in Reichweite
-├── Verteidiger muss MAINTAIN wählen (keine neuen Schiffe)
-├── Angreifer produziert weiter
-└── Übermacht aufbauen, dann angreifen
-
-Timing-Angriff:
-├── Scout beobachtet Batterien (Präsenz sichtbar)
-├── Warte auf Modus-Wechsel (kein MAINTAIN)
-├── Angriff nach 2-3 Runden (Batterien geschwächt)
-└── Weniger Batterie-Schaden beim Angriff
+├── Verteidiger produziert weiter (kein Maintenance-Malus)
+├── Angreifer muss Übermacht aufbauen
+└── Batterien bleiben bis zur Eroberung aktiv
 ```
 
 ### Tempo-Update
@@ -295,7 +289,7 @@ Die Änderung löst ein potenzielles Balance-Problem:
 
 ---
 
-## Nachtrag: Maintenance ohne Produktionskosten
+## Nachtrag: Maintenance komplett entfernt
 
 > Datum: 2026-02-11
 
@@ -303,35 +297,35 @@ Die Änderung löst ein potenzielles Balance-Problem:
 
 | Vorher | Nachher |
 |--------|---------|
-| BATTERY_MAINTAIN als dedizierter Produktionsmodus | Maintenance als unabhängiger Toggle |
-| Wartung reduzierte Produktion (erst 50%, dann 33%) | **Wartung hat keine Produktionskosten** |
-| Rush-Taktik dominierte durch ungebremste Produktion | Alle Taktiken produzieren gleich schnell |
+| BATTERY_MAINTAIN als dedizierter Produktionsmodus | ~~Maintenance als unabhängiger Toggle~~ → **Komplett entfernt** |
+| Wartung reduzierte Produktion (erst 50%, dann 33%) | **Batterien sind permanent, kein Decay** |
+| Maintenance-Toggle im Produktionsmenü | **Kein UI-Element mehr nötig** |
 
 ### Produktionssystem
 
 ```
-Produktionsmodi (wählbar):          Maintenance-Toggle (unabhängig):
-┌─────────────────────────┐         ┌─────────────────────────┐
-│ • Fighters produzieren  │         │ ☐ Maintain Batteries    │
-│ • Bombers produzieren   │    +    │   (verhindert Decay)    │
-│ • Upgrade Production    │         │                         │
-│ • Build Battery         │         │ Kein Einfluss auf       │
-└─────────────────────────┘         │ Produktionsrate         │
-                                    └─────────────────────────┘
+Produktionsmodi (wählbar):
+┌─────────────────────────┐
+│ • Fighters produzieren  │
+│ • Bombers produzieren   │
+│ • Upgrade Production    │
+│ • Build Battery         │
+└─────────────────────────┘
+
+Batterien sind permanent — kein Decay, kein Maintenance-Toggle.
 ```
 
 ### Begründung
 
-Die Produktionsminderung durch Maintenance machte Rush zur dominanten Strategie:
-- Jede Taktik mit Batterien produzierte 33-50% weniger Schiffe
-- Rush-Spieler hatten automatisch die größte Flotte
-- Batterien konnten den Produktionsnachteil nicht kompensieren
+1. Maintenance ohne Produktionskosten war ein sinnloser Toggle — es gab keinen Grund, ihn zu deaktivieren.
+2. Battery Decay ohne Gegenmaßnahme (kein UI-Toggle mehr) wäre unfair.
+3. Vereinfachung: weniger UI-Elemente, weniger Spielmechanik-Komplexität.
 
 ### Neues Balance
 
 | Aspekt | Bewertung | Begründung |
 |--------|-----------|------------|
-| Rush vs Fortress | ★★★★★ | Fortress produziert gleich viele Schiffe + hat Batterien |
+| Rush vs Fortress | ★★★★★ | Fortress produziert gleich viele Schiffe + hat permanente Batterien |
 | Batterie-Kosten | ★★★★☆ | Einzige Kosten: Bauzeit (keine Produktion während BATTERY_BUILD) |
 | Strategische Vielfalt | ★★★★★ | Alle 5 AI-Taktiken haben Chancen |
 
@@ -391,7 +385,7 @@ Schnelle Verteidigung:
 Festung:
 ├── Alle 5 Batterien (15 Runden)
 ├── 10 Schaden/Runde gegen Angreifer
-├── Hohe Maintenance-Last (33% Produktion)
+├── Permanente Verteidigung (kein Maintenance nötig)
 └── Langfristige Strategie
 
 Stufenweiser Ausbau:
@@ -483,7 +477,7 @@ Quality-of-Life Feature, das die Spielerfahrung verbessert ohne Balance zu beein
 
 ### Begründung
 
-Das Batch-System wurde ursprünglich eingeführt, um Rundungsprobleme mit dem Maintenance-Multiplikator zu lösen (z.B. `int(rate × 0.33) = 0` bei niedrigen Raten). Mit dem Wegfall der Produktionsminderung durch Maintenance ist das Batch-System überflüssig.
+Das Batch-System wurde ursprünglich eingeführt, um Rundungsprobleme mit dem Maintenance-Multiplikator zu lösen (z.B. `int(rate × 0.33) = 0` bei niedrigen Raten). Mit dem kompletten Wegfall von Maintenance und Battery Decay ist das Batch-System überflüssig.
 
 ### Neues Verhalten
 
@@ -516,7 +510,7 @@ Bomber-Produktion (halbe Rate, FUT-07):
 
 ### Requirements
 
-**DB-12:** On conquest, batteries are reduced to 50% (rounded down) and maintenance is enabled.
+**DB-12:** On conquest, batteries are reduced to 50% (rounded down).
 
 **PR-14:** On conquest, production mode shall reset to Fighters.
 
@@ -525,7 +519,6 @@ Bomber-Produktion (halbe Rate, FUT-07):
 | Aspekt | Verhalten | Requirement |
 |--------|-----------|-------------|
 | Batterie-Schaden | 50% Verlust (abgerundet) | DB-12 |
-| Maintenance | Automatisch aktiviert | DB-12 |
 | Produktionsmodus | Auf Fighters gesetzt | PR-14 |
 
 ### Beispiele
@@ -550,7 +543,7 @@ Kompromiss zwischen zwei Extremen:
 |--------|-----------|------------|
 | Balance | ★★★★★ | Eroberung lohnt sich, aber mit Kosten |
 | Realismus | ★★★★☆ | Kampfschäden an Anlagen sind plausibel |
-| Spielfluss | ★★★★★ | Eroberer muss nicht sofort Entscheidungen treffen (Auto-Maintenance) |
+| Spielfluss | ★★★★★ | Eroberer muss nicht sofort Entscheidungen treffen |
 | Strategie | ★★★★★ | Defensive hat Wert, aber ist nicht unüberwindbar |
 
 ### Fazit

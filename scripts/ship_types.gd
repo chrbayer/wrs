@@ -23,7 +23,6 @@ const MAX_BATTERIES: int = 5
 const BATTERY_VS_FIGHTER: float = 1.0  # Full effectiveness vs fighters
 const BATTERY_VS_BOMBER: float = 0.5  # Reduced effectiveness vs bombers
 const BATTERY_DAMAGE_PER_ROUND: float = 3.0  # Damage dealt per battery per round
-const BATTERY_DECAY_PER_TURN: int = 1  # Battery points lost per turn without maintenance
 # Note: Battery build time now scales with level (1 turn for 1st, 2 for 2nd, etc.)
 
 # Production rate limits

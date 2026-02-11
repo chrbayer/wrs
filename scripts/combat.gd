@@ -225,7 +225,8 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		"attacker_bomber_losses": 0,
 		"defender_fighter_losses": 0,
 		"defender_bomber_losses": 0,
-		"attacker_fighter_morale": 1.0
+		"attacker_fighter_morale": 1.0,
+		"stages": []
 	}
 
 	# If system owner has arriving reinforcements, add them first
@@ -233,6 +234,16 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		result["remaining_fighters"] += arriving_fleets[system_owner]["fighters"]
 		result["remaining_bombers"] += arriving_fleets[system_owner]["bombers"]
 		arriving_fleets.erase(system_owner)
+
+	# Track pre-battery forces and per-attacker battery kills for stage reports
+	var pre_battery_forces: Dictionary = {}  # attacker_id -> {"fighters": int, "bombers": int}
+	var battery_kills_per_attacker: Dictionary = {}  # attacker_id -> {"fighter_kills": int, "bomber_kills": int}
+
+	for attacker_id in arriving_fleets:
+		if attacker_id != system_owner:
+			var force = arriving_fleets[attacker_id]
+			pre_battery_forces[attacker_id] = {"fighters": force["fighters"], "bombers": force["bombers"]}
+			battery_kills_per_attacker[attacker_id] = {"fighter_kills": 0, "bomber_kills": 0}
 
 	# Battery pre-combat phase: batteries engage each enemy fleet (largest attack value first)
 	if system.battery_count > 0 and arriving_fleets.size() > 0:
@@ -254,15 +265,40 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			force["bombers"] = max(0, force["bombers"] - battery_result["bomber_kills"])
 			var kills = battery_result["fighter_kills"] + battery_result["bomber_kills"]
 			result["battery_kills"] += kills
+			battery_kills_per_attacker[target["id"]] = battery_result
 			if kills > 0:
 				result["log"].append("Batteries destroyed %d ships from Player %d's fleet" % [kills, target["id"] + 1])
 
-		# Remove fleets reduced to 0 ships
+		# Remove fleets reduced to 0 ships; create stages for eliminated fleets
 		var surviving_fleets: Dictionary = {}
 		for attacker_id in arriving_fleets:
 			var force = arriving_fleets[attacker_id]
 			if force["fighters"] + force["bombers"] > 0:
 				surviving_fleets[attacker_id] = force
+			else:
+				# Fleet wiped out by batteries — record a stage
+				var pre_bat = pre_battery_forces.get(attacker_id, {"fighters": 0, "bombers": 0})
+				var bat_kills = battery_kills_per_attacker.get(attacker_id, {"fighter_kills": 0, "bomber_kills": 0})
+				result["stages"].append({
+					"attacker_id": attacker_id,
+					"attacker_fighters": pre_bat["fighters"],
+					"attacker_bombers": pre_bat["bombers"],
+					"attacker_fighter_morale": force["fighter_morale"],
+					"defender_id": system_owner,
+					"defender_fighters": result["remaining_fighters"],
+					"defender_bombers": result["remaining_bombers"],
+					"battery_fighter_kills": bat_kills["fighter_kills"],
+					"battery_bomber_kills": bat_kills["bomber_kills"],
+					"attacker_fighter_losses": bat_kills["fighter_kills"],
+					"attacker_bomber_losses": bat_kills["bomber_kills"],
+					"defender_fighter_losses": 0,
+					"defender_bomber_losses": 0,
+					"batteries_before": system.battery_count,
+					"batteries_after": system.battery_count,
+					"stage_winner": system_owner,
+					"remaining_fighters": result["remaining_fighters"],
+					"remaining_bombers": result["remaining_bombers"],
+				})
 		arriving_fleets = surviving_fleets
 
 	# Sort attackers by summed attack value with morale (largest first)
@@ -295,6 +331,15 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		if result["attacker_fighter_morale"] == 1.0 and att_morale < 1.0:
 			result["attacker_fighter_morale"] = att_morale
 
+		# Pre-battery forces for this attacker
+		var pre_bat = pre_battery_forces.get(attacker_id, {"fighters": att_fighters, "bombers": att_bombers})
+		var bat_kills = battery_kills_per_attacker.get(attacker_id, {"fighter_kills": 0, "bomber_kills": 0})
+
+		# Snapshot defender state before this stage
+		var def_fighters_before = result["remaining_fighters"]
+		var def_bombers_before = result["remaining_bombers"]
+		var defender_id_before = result["winner"]
+
 		if result["remaining_fighters"] == 0 and result["remaining_bombers"] == 0 and result["winner"] == -1:
 			# Empty neutral system - attacker takes it
 			result["winner"] = attacker_id
@@ -304,6 +349,28 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			result["log"].append("Player %d claims empty system with %d fighters, %d bombers" % [
 				attacker_id + 1, att_fighters, att_bombers
 			])
+
+			# Stage: claim empty system (no combat losses)
+			result["stages"].append({
+				"attacker_id": attacker_id,
+				"attacker_fighters": pre_bat["fighters"],
+				"attacker_bombers": pre_bat["bombers"],
+				"attacker_fighter_morale": att_morale,
+				"defender_id": defender_id_before,
+				"defender_fighters": 0,
+				"defender_bombers": 0,
+				"battery_fighter_kills": bat_kills["fighter_kills"],
+				"battery_bomber_kills": bat_kills["bomber_kills"],
+				"attacker_fighter_losses": bat_kills["fighter_kills"],
+				"attacker_bomber_losses": bat_kills["bomber_kills"],
+				"defender_fighter_losses": 0,
+				"defender_bomber_losses": 0,
+				"batteries_before": system.battery_count,
+				"batteries_after": system.battery_count,
+				"stage_winner": attacker_id,
+				"remaining_fighters": att_fighters,
+				"remaining_bombers": att_bombers,
+			})
 		else:
 			# Combat!
 			# Batteries already fired in pre-combat phase, pass 0
@@ -342,6 +409,28 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 			result["winner"] = combat_result.winner_id
 			result["remaining_fighters"] = combat_result.remaining_fighters
 			result["remaining_bombers"] = combat_result.remaining_bombers
+
+			# Stage: full combat engagement
+			result["stages"].append({
+				"attacker_id": attacker_id,
+				"attacker_fighters": pre_bat["fighters"],
+				"attacker_bombers": pre_bat["bombers"],
+				"attacker_fighter_morale": att_morale,
+				"defender_id": defender_id_before,
+				"defender_fighters": def_fighters_before,
+				"defender_bombers": def_bombers_before,
+				"battery_fighter_kills": bat_kills["fighter_kills"],
+				"battery_bomber_kills": bat_kills["bomber_kills"],
+				"attacker_fighter_losses": combat_result.attacker_fighter_losses + bat_kills["fighter_kills"],
+				"attacker_bomber_losses": combat_result.attacker_bomber_losses + bat_kills["bomber_kills"],
+				"defender_fighter_losses": combat_result.defender_fighter_losses,
+				"defender_bomber_losses": combat_result.defender_bomber_losses,
+				"batteries_before": system.battery_count,
+				"batteries_after": system.battery_count,
+				"stage_winner": combat_result.winner_id,
+				"remaining_fighters": combat_result.remaining_fighters,
+				"remaining_bombers": combat_result.remaining_bombers,
+			})
 
 	# Calculate production damage from bomber attack (FUT-12)
 	if total_attacker_bombers > 0 and original_owner >= 0:

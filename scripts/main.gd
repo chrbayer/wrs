@@ -48,7 +48,6 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var produce_bombers_btn: Button = $HUD/ActionPanel/VBox/ProduceBombersBtn
 @onready var upgrade_btn: Button = $HUD/ActionPanel/VBox/UpgradeBtn
 @onready var build_battery_btn: Button = $HUD/ActionPanel/VBox/BuildBatteryBtn
-@onready var maintain_battery_btn: CheckButton = $HUD/ActionPanel/VBox/MaintainBatteryBtn
 @onready var action_close_btn: Button = $HUD/ActionPanel/VBox/CloseBtn
 
 # Player transition screen (in separate CanvasLayer to avoid rendering issues)
@@ -172,7 +171,6 @@ func _setup_ui_connections() -> void:
 	produce_bombers_btn.pressed.connect(_on_produce_bombers_pressed)
 	upgrade_btn.pressed.connect(_on_upgrade_pressed)
 	build_battery_btn.pressed.connect(_on_build_battery_pressed)
-	maintain_battery_btn.pressed.connect(_on_maintain_battery_pressed)
 	action_close_btn.pressed.connect(_on_action_close_pressed)
 
 	# Create AI delay timer
@@ -502,6 +500,9 @@ func _on_continue_pressed() -> void:
 	current_report_index = 0
 	if pending_combat_reports.has(current_player) and pending_combat_reports[current_player].size() > 0:
 		_show_combat_report()
+	else:
+		# No reports — check victory now
+		_check_victory()
 
 
 func _update_ui() -> void:
@@ -657,10 +658,6 @@ func _show_action_panel(system: StarSystem) -> void:
 	build_battery_btn.disabled = (system.battery_count >= ShipTypes.MAX_BATTERIES or
 								 system.production_mode == StarSystem.ProductionMode.BATTERY_BUILD)
 
-	# Maintain battery toggle: disabled only if no batteries
-	maintain_battery_btn.disabled = (system.battery_count == 0)
-	maintain_battery_btn.button_pressed = system.maintaining_batteries
-
 	# Update button text to show current state
 	produce_fighters_btn.text = "Produce Fighters"
 	produce_bombers_btn.text = "Produce Bombers"
@@ -724,13 +721,6 @@ func _on_build_battery_pressed() -> void:
 		_show_owned_system_info(selected_system)
 		_show_action_panel(selected_system)
 
-
-func _on_maintain_battery_pressed() -> void:
-	if selected_system and selected_system.owner_id == current_player:
-		# Toggle maintaining_batteries
-		selected_system.maintaining_batteries = !selected_system.maintaining_batteries
-		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1019,9 +1009,10 @@ func _advance_to_next_player() -> void:
 		current_player = 0
 		current_turn += 1
 
-	# Check for game over
-	if _check_victory():
-		return
+	# Check for game over (only early-check for all-AI games; humans see reports first)
+	if _is_all_ai():
+		if _check_victory():
+			return
 
 	# Show transition to next player (combat report shown after transition)
 	# Use call_deferred to avoid deep recursion with consecutive AI players
@@ -1069,8 +1060,6 @@ func _execute_ai_turn() -> void:
 			continue
 		if change.has("mode"):
 			sys.set_production_mode(change["mode"])
-		if change.has("maintain"):
-			sys.maintaining_batteries = change["maintain"]
 
 	# Apply fleet orders
 	for order in decisions["fleet_orders"]:
@@ -1119,42 +1108,41 @@ func _show_combat_report() -> void:
 	# Build structured report text
 	var report_text = ""
 	report_text += "DEFENDER\n"
-	report_text += "%s  •  %d F / %d B\n\n" % [
+	report_text += "%s  •  %s\n\n" % [
 		report_data["defender_name"],
-		report_data["defender_fighters"],
-		report_data["defender_bombers"]
+		_format_fb(report_data["defender_fighters"], report_data["defender_bombers"])
 	]
 	report_text += "ATTACKER\n"
 	var attacker_morale = report_data.get("attacker_fighter_morale", 1.0)
-	if attacker_morale < 1.0 and report_data["attacker_fighters"] > 0:
-		report_text += "%s  •  %d F (%d%% morale) / %d B\n\n" % [
-			report_data["attacker_name"],
-			report_data["attacker_fighters"],
-			int(attacker_morale * 100),
-			report_data["attacker_bombers"]
-		]
+	var att_f = report_data["attacker_fighters"]
+	var att_b = report_data["attacker_bombers"]
+	if attacker_morale < 1.0 and att_f > 0:
+		var parts: Array[String] = []
+		parts.append("%d F (%d%% morale)" % [att_f, int(attacker_morale * 100)])
+		if att_b > 0:
+			parts.append("%d B" % att_b)
+		report_text += "%s  •  %s\n\n" % [report_data["attacker_name"], " / ".join(parts)]
 	else:
-		report_text += "%s  •  %d F / %d B\n\n" % [
+		report_text += "%s  •  %s\n\n" % [
 			report_data["attacker_name"],
-			report_data["attacker_fighters"],
-			report_data["attacker_bombers"]
+			_format_fb(att_f, att_b)
 		]
 
-	if report_data["batteries_before"] > 0 or report_data["battery_kills"] > 0:
+	var bat_f_kills = report_data.get("battery_fighter_kills", 0)
+	var bat_b_kills = report_data.get("battery_bomber_kills", 0)
+	if bat_f_kills > 0 or bat_b_kills > 0:
 		report_text += "BATTERIES\n"
-		if report_data["battery_kills"] > 0:
-			report_text += "Destroyed %d attackers\n" % report_data["battery_kills"]
-		report_text += "%d → %d batteries\n\n" % [report_data["batteries_before"], report_data["batteries_after"]]
+		report_text += "Destroyed %s\n\n" % _format_fb(bat_f_kills, bat_b_kills)
 
-	report_text += "BATTLE\n"
-	report_text += "Attacker losses: %d F / %d B\n" % [
+	report_text += "LOSSES\n"
+	report_text += "Attacker: %s\n" % _format_fb(
 		report_data["attacker_fighter_losses"],
 		report_data["attacker_bomber_losses"]
-	]
-	report_text += "Defender losses: %d F / %d B\n\n" % [
+	)
+	report_text += "Defender: %s\n\n" % _format_fb(
 		report_data["defender_fighter_losses"],
 		report_data["defender_bomber_losses"]
-	]
+	)
 
 	if report_data["production_damage"] > 0:
 		report_text += "BOMBER DAMAGE\n"
@@ -1165,10 +1153,9 @@ func _show_combat_report() -> void:
 		report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
 
 	report_text += "OUTCOME\n"
-	report_text += "%s wins with %d F / %d B" % [
+	report_text += "%s wins with %s" % [
 		report_data["winner_name"],
-		report_data["remaining_fighters"],
-		report_data["remaining_bombers"]
+		_format_fb(report_data["remaining_fighters"], report_data["remaining_bombers"])
 	]
 
 	report_label.text = report_text
@@ -1322,10 +1309,9 @@ func _process_turn_end() -> void:
 		# Apply conquest penalty (FUT-08)
 		if result["conquest_occurred"] and result["winner"] >= 0:
 			system.apply_conquest_penalty()
-			# Batteries take 50% damage on conquest, maintenance auto-enabled
+			# Batteries take 50% damage on conquest
 			if system.battery_count > 0:
 				system.battery_count = system.battery_count / 2  # Integer division rounds down
-				system.maintaining_batteries = true
 			system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 
 		# Apply production damage from bombers (FUT-12)
@@ -1334,71 +1320,91 @@ func _process_turn_end() -> void:
 
 		system.update_visuals()
 
-		# Build combat report data
-		if result["log"].size() > 0:
-			# Calculate attacker info from saved original forces
-			var attacker_id = -1
-			var attacker_fighters = 0
-			var attacker_bombers = 0
-			for aid in original_attacker_forces.keys():
-				attacker_id = aid
-				attacker_fighters = original_attacker_forces[aid]["fighters"]
-				attacker_bombers = original_attacker_forces[aid]["bombers"]
-				break
+		# Build per-stage combat reports
+		var stages = result["stages"]
+		for stage_idx in range(stages.size()):
+			var stage = stages[stage_idx]
+			var is_last_stage = (stage_idx == stages.size() - 1)
+
+			# Defender for first stage uses original system forces + reinforcements
+			var def_fighters = stage["defender_fighters"]
+			var def_bombers = stage["defender_bombers"]
+			if stage_idx == 0:
+				def_fighters = old_fighters + reinforcement_fighters
+				def_bombers = old_bombers + reinforcement_bombers
 
 			var report_data = {
 				"system_name": system.system_name,
 				"system_id": system_id,
-				"defender_name": _get_owner_name(old_owner),
-				"defender_fighters": old_fighters + reinforcement_fighters,
-				"defender_bombers": old_bombers + reinforcement_bombers,
-				"defender_fighter_losses": result["defender_fighter_losses"],
-				"defender_bomber_losses": result["defender_bomber_losses"],
-				"attacker_name": _get_owner_name(attacker_id),
-				"attacker_fighters": attacker_fighters,
-				"attacker_bombers": attacker_bombers,
-				"attacker_fighter_losses": result["attacker_fighter_losses"],
-				"attacker_bomber_losses": result["attacker_bomber_losses"],
-				"attacker_fighter_morale": result["attacker_fighter_morale"],
-				"winner_name": _get_owner_name(result["winner"]),
-				"remaining_fighters": result["remaining_fighters"],
-				"remaining_bombers": result["remaining_bombers"],
-				"battery_kills": result["battery_kills"],
-				"batteries_before": old_batteries,
-				"batteries_after": system.battery_count,
-				"production_damage": result["production_damage"],
-				"conquest_occurred": result["conquest_occurred"]
+				"defender_name": _get_owner_name(stage["defender_id"]),
+				"defender_fighters": def_fighters,
+				"defender_bombers": def_bombers,
+				"defender_fighter_losses": stage["defender_fighter_losses"],
+				"defender_bomber_losses": stage["defender_bomber_losses"],
+				"attacker_name": _get_owner_name(stage["attacker_id"]),
+				"attacker_fighters": stage["attacker_fighters"],
+				"attacker_bombers": stage["attacker_bombers"],
+				"attacker_fighter_losses": stage["attacker_fighter_losses"],
+				"attacker_bomber_losses": stage["attacker_bomber_losses"],
+				"attacker_fighter_morale": stage["attacker_fighter_morale"],
+				"battery_fighter_kills": stage["battery_fighter_kills"],
+				"battery_bomber_kills": stage["battery_bomber_kills"],
+				"winner_name": _get_owner_name(stage["stage_winner"]),
+				"remaining_fighters": stage["remaining_fighters"],
+				"remaining_bombers": stage["remaining_bombers"],
+				"batteries_before": stage["batteries_before"],
+				"batteries_after": system.battery_count if is_last_stage else stage["batteries_after"],
+				"production_damage": result["production_damage"] if is_last_stage else 0,
+				"conquest_occurred": result["conquest_occurred"] if is_last_stage else false
 			}
 
-			# Add report for all involved players (defender + attackers)
+			# Add report for attacker and defender of this stage
 			var involved_players: Array[int] = []
-			if old_owner >= 0:
-				involved_players.append(old_owner)
-			for involved_id in original_attacker_forces.keys():
-				if involved_id not in involved_players:
-					involved_players.append(involved_id)
+			if stage["defender_id"] >= 0:
+				involved_players.append(stage["defender_id"])
+			if stage["attacker_id"] not in involved_players:
+				involved_players.append(stage["attacker_id"])
 
 			for player_id in involved_players:
 				if not pending_combat_reports.has(player_id):
 					pending_combat_reports[player_id] = []
 				pending_combat_reports[player_id].append(report_data)
 
-				# Update combat intel in memory (players learn post-combat state)
-				if not system_memory.has(player_id):
-					system_memory[player_id] = {}
-				system_memory[player_id][system_id] = {
-					"owner_id": system.owner_id,
-					"fighter_count": system.fighter_count,
-					"bomber_count": system.bomber_count,
-					"battery_count": system.battery_count,
-					"has_batteries": system.battery_count > 0
-				}
+		# Update combat intel in memory for all involved players
+		var all_involved: Array[int] = []
+		if old_owner >= 0:
+			all_involved.append(old_owner)
+		for involved_id in original_attacker_forces.keys():
+			if involved_id not in all_involved:
+				all_involved.append(involved_id)
+
+		for player_id in all_involved:
+			if not system_memory.has(player_id):
+				system_memory[player_id] = {}
+			system_memory[player_id][system_id] = {
+				"owner_id": system.owner_id,
+				"fighter_count": system.fighter_count,
+				"bomber_count": system.bomber_count,
+				"battery_count": system.battery_count,
+				"has_batteries": system.battery_count > 0
+			}
 
 
 func _get_owner_name(owner_id: int) -> String:
 	if owner_id < 0:
 		return "Neutral"
 	return players[owner_id].player_name
+
+
+func _format_fb(fighters: int, bombers: int) -> String:
+	var parts: Array[String] = []
+	if fighters > 0:
+		parts.append("%d F" % fighters)
+	if bombers > 0:
+		parts.append("%d B" % bombers)
+	if parts.is_empty():
+		return "0"
+	return " / ".join(parts)
 
 
 func _check_victory() -> bool:

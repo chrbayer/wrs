@@ -239,8 +239,6 @@ static func _execute_early_expansion(state: Dictionary) -> Dictionary:
 	for sys in state["owned_systems"]:
 		if sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 			production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-		if sys.maintaining_batteries:
-			production_changes.append({"system_id": sys.system_id, "maintain": false})
 
 	var neutrals: Array = _get_known_neutrals(state)
 	for sys in state["owned_systems"]:
@@ -264,8 +262,6 @@ static func _execute_rush(state: Dictionary) -> Dictionary:
 	for sys in state["owned_systems"]:
 		if sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 			production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-		if sys.maintaining_batteries:
-			production_changes.append({"system_id": sys.system_id, "maintain": false})
 
 	var neutrals: Array = _get_known_neutrals(state)
 	var enemies: Array = _get_known_enemies(state)
@@ -305,15 +301,11 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.BATTERY_BUILD})
 			elif sys.battery_count >= ShipTypes.MAX_BATTERIES and sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-			if sys.battery_count > 0 and not sys.maintaining_batteries:
-				production_changes.append({"system_id": sys.system_id, "maintain": true})
 		else:
 			if sys.production_rate < ShipTypes.MAX_PRODUCTION_RATE and sys.production_mode != StarSystem.ProductionMode.UPGRADE:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.UPGRADE})
 			elif sys.production_rate >= ShipTypes.MAX_PRODUCTION_RATE and sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-			if sys.maintaining_batteries and sys.battery_count == 0:
-				production_changes.append({"system_id": sys.system_id, "maintain": false})
 
 	var neutrals: Array = _get_known_neutrals(state)
 	var enemies: Array = _get_known_enemies(state)
@@ -363,8 +355,6 @@ static func _execute_economy(state: Dictionary) -> Dictionary:
 		else:
 			if sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-		if sys.maintaining_batteries and sys.battery_count == 0:
-			production_changes.append({"system_id": sys.system_id, "maintain": false})
 
 	var neutrals: Array = _get_known_neutrals(state)
 	var enemies: Array = _get_known_enemies(state)
@@ -416,8 +406,6 @@ static func _execute_bomber(state: Dictionary) -> Dictionary:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.BOMBERS})
 			elif not need_bombers and sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
-		if sys.maintaining_batteries and sys.battery_count == 0:
-			production_changes.append({"system_id": sys.system_id, "maintain": false})
 
 	var enemies: Array = _get_known_enemies(state)
 	var neutrals: Array = _get_known_neutrals(state)
@@ -467,8 +455,6 @@ static func _execute_balanced_mid(state: Dictionary) -> Dictionary:
 		if is_front and sys.battery_count < 2:
 			if sys.production_mode != StarSystem.ProductionMode.BATTERY_BUILD:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.BATTERY_BUILD})
-			if sys.battery_count > 0 and not sys.maintaining_batteries:
-				production_changes.append({"system_id": sys.system_id, "maintain": true})
 		elif sys.production_rate < ShipTypes.MAX_PRODUCTION_RATE:
 			if sys.production_mode != StarSystem.ProductionMode.UPGRADE:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.UPGRADE})

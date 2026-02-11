@@ -24,7 +24,6 @@ enum ProductionMode {
 @export var battery_count: int = 0  # Defense batteries (max 3)
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
-var maintaining_batteries: bool = false  # Toggle to prevent battery decay (no production cost)
 var bomber_production_progress: float = 0.0  # Batch delivery every 2 turns
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
@@ -314,15 +313,8 @@ func process_production() -> void:
 				if battery_build_progress >= 1.0:
 					battery_count += 1
 					battery_build_progress = 0.0
-					# After building, enable maintenance automatically
-					maintaining_batteries = true
 					# Switch back to fighters production
 					production_mode = ProductionMode.FIGHTERS
-
-	# Battery decay: if not maintaining and not building, batteries lose 1 point per turn
-	if not maintaining_batteries and production_mode != ProductionMode.BATTERY_BUILD:
-		if battery_count > 0:
-			battery_count = max(0, battery_count - ShipTypes.BATTERY_DECAY_PER_TURN)
 
 	update_visuals()
 
@@ -371,15 +363,6 @@ func get_production_mode_string() -> String:
 			return "Building Battery (%d%%)" % progress_pct
 	return "Unknown"
 
-
-## Check if batteries need maintenance (they decay without it)
-func batteries_maintained() -> bool:
-	return maintaining_batteries or battery_count == 0
-
-
-## Set battery maintenance toggle
-func set_maintaining_batteries(value: bool) -> void:
-	maintaining_batteries = value
 
 
 func get_distance_to(other_system: StarSystem) -> float:
