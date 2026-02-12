@@ -118,6 +118,64 @@ static func generate_initial_fighters(production_rate: int) -> int:
 	return randi_range(min_fighters, max_fighters)
 
 
-## Generate starting fighters for player home system
-static func generate_player_start_fighters() -> int:
-	return 30
+## Generate starting fighters distributed by home world connectivity (compensation model).
+## Players with fewer neutral neighbors get more fighters to offset their weaker position.
+## Total pool is fixed (FIGHTERS_PER_PLAYER × player_count), distributed inversely to neighbor count.
+const FIGHTERS_PER_PLAYER: int = 30
+const MIN_START_FIGHTERS: int = 15
+const MAX_START_FIGHTERS: int = 45
+
+static func generate_player_start_fighters(positions: Array, player_starts: Array) -> Array[int]:
+	var player_count: int = player_starts.size()
+	var total_pool: int = FIGHTERS_PER_PLAYER * player_count
+
+	# Count neutral neighbors for each player's home world
+	var neighbor_counts: Array[int] = []
+	for p_idx in range(player_count):
+		var home_pos: Vector2 = positions[player_starts[p_idx]]
+		var neighbors: int = 0
+		for i in range(positions.size()):
+			if i in player_starts:
+				continue
+			if home_pos.distance_to(positions[i]) <= MAX_SYSTEM_DISTANCE:
+				neighbors += 1
+		neighbor_counts.append(maxi(1, neighbors))
+
+	# Inverse proportional distribution: fewer neighbors → larger share
+	var inverse_sum: float = 0.0
+	for count in neighbor_counts:
+		inverse_sum += 1.0 / count
+
+	var fighter_counts: Array[int] = []
+	var assigned_total: int = 0
+	for p_idx in range(player_count):
+		var share: float = (1.0 / neighbor_counts[p_idx]) / inverse_sum
+		var fighters: int = clampi(roundi(share * total_pool), MIN_START_FIGHTERS, MAX_START_FIGHTERS)
+		fighter_counts.append(fighters)
+		assigned_total += fighters
+
+	# Distribute remainder (or remove excess) to keep total_pool exact
+	var remainder: int = total_pool - assigned_total
+	while remainder != 0:
+		if remainder > 0:
+			var min_idx: int = 0
+			for i in range(1, player_count):
+				if fighter_counts[i] < fighter_counts[min_idx]:
+					min_idx = i
+			if fighter_counts[min_idx] < MAX_START_FIGHTERS:
+				fighter_counts[min_idx] += 1
+				remainder -= 1
+			else:
+				break
+		else:
+			var max_idx: int = 0
+			for i in range(1, player_count):
+				if fighter_counts[i] > fighter_counts[max_idx]:
+					max_idx = i
+			if fighter_counts[max_idx] > MIN_START_FIGHTERS:
+				fighter_counts[max_idx] -= 1
+				remainder += 1
+			else:
+				break
+
+	return fighter_counts

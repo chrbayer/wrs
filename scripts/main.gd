@@ -374,6 +374,9 @@ func _generate_universe() -> void:
 	var positions: Array = gen_result["positions"]
 	var player_starts: Array = gen_result["player_starts"]
 
+	# Distribute starting fighters based on home world connectivity
+	var start_fighters: Array[int] = UniverseGenerator.generate_player_start_fighters(positions, player_starts)
+
 	# Create systems
 	for i in range(positions.size()):
 		var system = star_system_scene.instantiate() as StarSystem
@@ -386,7 +389,7 @@ func _generate_universe() -> void:
 		if player_start_idx >= 0:
 			system.owner_id = player_start_idx
 			players[player_start_idx].home_system_id = system.system_id
-			system.fighter_count = UniverseGenerator.generate_player_start_fighters()
+			system.fighter_count = start_fighters[player_start_idx]
 			system.production_rate = 3  # Standard production for home systems
 		else:
 			system.owner_id = -1  # Neutral

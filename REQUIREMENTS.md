@@ -28,6 +28,7 @@
 | ~~S-03~~ | ~~Player starting systems shall have a guaranteed minimum distance between them~~ | ~~Done~~ |
 | S-03a | Player starting systems shall be placed to maximize distance between them (greedy selection) | ✅ Done |
 | S-04 | All star systems except player starting systems shall be neutral at game start   | ✅ Done |
+| S-04a | Starting fighters are distributed from a fixed pool (`FIGHTERS_PER_PLAYER` × player count), inversely proportional to neutral neighbor count (compensation: fewer neighbors → more fighters, clamped to `MIN_START_FIGHTERS`–`MAX_START_FIGHTERS`) | ✅ Done |
 | ~~S-05~~ | ~~Conquered star systems shall produce fighters each turn based on production rate~~ | ~~Done~~ |
 | S-05a | Owned star systems shall produce ships based on production rate and selected production mode | ✅ Done |
 | S-06 | Each star system shall display its fighter count to its owner                    | ✅ Done |
@@ -291,7 +292,10 @@
 | PRODUCTION_RATE | 1–5 | Random production rate per turn for neutral systems |
 | HOME_PRODUCTION_RATE | 3 | Production rate for player home systems |
 | INITIAL_FIGHTERS_NEUTRAL | rate×2 to rate×5 | Random starting fighters for neutral systems (scaled by production rate) |
-| INITIAL_FIGHTERS_HOME | 30 | Starting fighters for player home systems |
+| ~~INITIAL_FIGHTERS_HOME~~ | ~~30~~ | ~~Fixed starting fighters for player home systems~~ |
+| FIGHTERS_PER_PLAYER | 30 | Starting fighter pool per player (total = value × player_count) |
+| MIN_START_FIGHTERS | 15 | Minimum starting fighters per player |
+| MAX_START_FIGHTERS | 45 | Maximum starting fighters per player |
 | FIGHTER_SPEED | 150 px/turn | Fighter movement speed |
 | BOMBER_SPEED | 75 px/turn | Bomber movement speed (half of fighter) |
 | DEFENDER_BONUS | 1.5× | Combat effectiveness multiplier for defenders |
