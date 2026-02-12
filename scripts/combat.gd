@@ -242,6 +242,70 @@ static func split_into_waves(owner_id: int, fighters: int, bombers: int, fighter
 	return waves
 
 
+## Test if two 2D line segments (p1-p2) and (p3-p4) intersect.
+## Uses cross-product method. Excludes near-endpoint intersections (epsilon).
+static func segments_intersect(p1: Vector2, p2: Vector2, p3: Vector2, p4: Vector2) -> bool:
+	var d1 = p2 - p1
+	var d2 = p4 - p3
+	var cross = d1.x * d2.y - d1.y * d2.x
+
+	if abs(cross) < 0.0001:
+		return false  # Parallel or collinear
+
+	var d3 = p3 - p1
+	var t = (d3.x * d2.y - d3.y * d2.x) / cross
+	var u = (d3.x * d1.y - d3.y * d1.x) / cross
+
+	# Exclude near-endpoint hits (epsilon = 0.01) to avoid false positives
+	# when fleet path starts/ends at a shield endpoint system
+	var eps = 0.01
+	return t > eps and t < (1.0 - eps) and u > eps and u < (1.0 - eps)
+
+
+## Calculate shield density based on distance between two shield systems.
+## Returns 0.0 (weak, at MAX_SYSTEM_DISTANCE) to 1.0 (strong, at MIN_SYSTEM_DISTANCE).
+static func calculate_shield_density(distance: float) -> float:
+	var min_dist = UniverseGenerator.MIN_SYSTEM_DISTANCE
+	var max_dist = UniverseGenerator.MAX_SYSTEM_DISTANCE
+	if max_dist <= min_dist:
+		return 1.0
+	var density = 1.0 - (distance - min_dist) / (max_dist - min_dist)
+	return clampf(density, 0.0, 1.0)
+
+
+## Calculate the shield effect on a fleet crossing a shield line.
+## Returns Dictionary with fighter_losses, bomber_losses, fighter_blocked, bomber_blocked, density, blockade_value.
+static func calculate_shield_effect(bat_a: int, bat_b: int, distance: float,
+									fighters: int, bombers: int) -> Dictionary:
+	var density = calculate_shield_density(distance)
+	var min_bat = mini(bat_a, bat_b)
+	var sum_bat = bat_a + bat_b
+	var blockade_value = min_bat * density
+
+	var fighter_blocked = blockade_value >= ShipTypes.SHIELD_BLOCKADE_THRESHOLD
+	# Bombers need double the blockade threshold (resistance)
+	var bomber_blocked = blockade_value >= (ShipTypes.SHIELD_BLOCKADE_THRESHOLD / ShipTypes.SHIELD_BOMBER_RESISTANCE)
+
+	# Attrition: sum(bat) * density * damage_factor * ship_count
+	var fighter_losses = 0
+	var bomber_losses = 0
+	if not fighter_blocked and fighters > 0:
+		var loss_rate = sum_bat * density * ShipTypes.SHIELD_DAMAGE_FACTOR
+		fighter_losses = int(loss_rate * fighters)
+	if not bomber_blocked and bombers > 0:
+		var loss_rate = sum_bat * density * ShipTypes.SHIELD_DAMAGE_FACTOR * ShipTypes.SHIELD_BOMBER_RESISTANCE
+		bomber_losses = int(loss_rate * bombers)
+
+	return {
+		"fighter_losses": fighter_losses,
+		"bomber_losses": bomber_losses,
+		"fighter_blocked": fighter_blocked,
+		"bomber_blocked": bomber_blocked,
+		"density": density,
+		"blockade_value": blockade_value,
+	}
+
+
 ## Resolve combat when multiple fleets arrive at a system
 ## Returns detailed result dictionary
 static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionary) -> Dictionary:

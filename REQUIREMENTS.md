@@ -109,7 +109,8 @@
 |------|--------------------------------------------------------------------------|--------|
 | PR-01 | Each owned system shall have a selectable production mode               | ✅ Done |
 | ~~PR-02~~ | ~~Production modes shall be: Fighters, Bombers, Upgrade, Build Battery, Maintain Batteries~~ | ~~Done~~ |
-| PR-02a | Production modes shall be: Fighters, Bombers, Upgrade, Build Battery | ✅ Done |
+| ~~PR-02a~~ | ~~Production modes shall be: Fighters, Bombers, Upgrade, Build Battery~~ | ~~Done~~ |
+| PR-02b | Production modes shall be: Fighters, Bombers, Upgrade, Build Battery, Shield Activate | ✅ Done |
 | ~~PR-03~~ | ~~Fighter production mode shall produce fighters at full rate~~     | ~~Done~~ |
 | ~~PR-03a~~ | ~~Fighter production uses batch delivery per ST-04a~~ | ~~Done~~ |
 | PR-03b | Fighter production delivers `production_rate` fighters per turn | ✅ Done |
@@ -178,6 +179,54 @@
 | RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
 | RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
 | RB-10 | A player's last remaining system is immune to rebellion | ✅ Done |
+
+---
+
+## Shield Lines (FUT-19)
+
+| ID    | Requirement                                                              | Status |
+|-------|--------------------------------------------------------------------------|--------|
+| SL-01 | Two owned systems with `SHIELD_MIN_BATTERIES` batteries each, within `MAX_SYSTEM_DISTANCE`, may form a shield line | ✅ Done |
+| SL-02 | Shield lines require manual activation via `SHIELD_ACTIVATE` production mode on both systems simultaneously | ✅ Done |
+| SL-03 | During activation (`SHIELD_ACTIVATE_TIME` turns), both systems produce no ships, batteries, or upgrades | ✅ Done |
+| SL-04 | After activation completes, both systems return to Fighters production mode automatically | ✅ Done |
+| SL-05 | Each system may participate in at most `MAX_SHIELD_LINES_PER_SYSTEM` shield lines (active + activating) | ✅ Done |
+| SL-06 | Each player may have at most `MAX_SHIELD_STRUCTURES` independent shield structures (connected components of shield lines). Adding a line that connects or extends existing structures is always allowed | ✅ Done |
+| SL-07 | Shield lines cannot be manually deactivated; they are permanent once activated | ✅ Done |
+| SL-08 | A shield line breaks automatically when: (a) either endpoint system changes owner (conquest), (b) either endpoint's battery count falls below `SHIELD_MIN_BATTERIES` (conquest damage, rebellion) | ✅ Done |
+| SL-09 | Shield break checks occur after combat resolution and after rebellion processing | ✅ Done |
+| SL-10 | When a shield activation is cancelled (due to SL-08 conditions), both systems revert to Fighters production mode | ✅ Done |
+| SL-11 | Only enemy shield lines affect fleet movement; own and neutral fleets pass through own shields unhindered | ✅ Done |
+| SL-12 | A fleet's path (line segment from source to target system) is tested for intersection against all enemy shield lines using 2D line-segment intersection (endpoint-exclusive with epsilon = 0.01) | ✅ Done |
+| SL-13 | Shield density = `1.0 - (distance - MIN_SYSTEM_DISTANCE) / (MAX_SYSTEM_DISTANCE - MIN_SYSTEM_DISTANCE)`, clamped to [0.0, 1.0]. Short-distance shields are stronger | ✅ Done |
+| SL-14 | Blockade: fighters are blocked when `min(bat_a, bat_b) × density >= SHIELD_BLOCKADE_THRESHOLD`. Bombers are blocked at double threshold (`SHIELD_BLOCKADE_THRESHOLD / SHIELD_BOMBER_RESISTANCE`) | ✅ Done |
+| SL-15 | Attrition (non-blocked ships): fighter losses = `(bat_a + bat_b) × density × SHIELD_DAMAGE_FACTOR × fighter_count`. Bomber losses use additional `× SHIELD_BOMBER_RESISTANCE` factor | ✅ Done |
+| SL-16 | Multiple shield line crossings on a single path are cumulative; each crossing is calculated independently with the fleet's remaining ship count | ✅ Done |
+| SL-17 | Fleets reduced to 0 ships by shield attrition on arrival are dropped silently (no combat) | ✅ Done |
+| SL-18 | The send fleet dialog shall show a shield crossing preview: expected losses (e.g., "-3 F, -1 B") or "BLOCKED" when the fleet path crosses enemy shield lines | ✅ Done |
+| SL-19 | The send fleet dialog shall prevent sending when the entire fleet would be blocked (fighters blocked AND bombers blocked or absent) | ✅ Done |
+| SL-20 | Send Max and Send All buttons shall also check for full blockade before committing | ✅ Done |
+| SL-21 | Active shield lines are drawn as colored lines (owner's player color) between the two endpoint systems, shortened to star radius. Line width (1.5–4.0 px) and alpha (0.3–0.8) scale with shield density | ✅ Done |
+| SL-22 | Activating shield lines are drawn dimmer (40% alpha) and thinner (50% width) than active lines | ✅ Done |
+| SL-23 | Shield lines are visible when at least one endpoint is visible to the current player | ✅ Done |
+| SL-24 | Previously seen shield lines are remembered in fog-of-war memory and drawn in gray (0.5, 0.5, 0.5, 0.3) when not currently visible | ✅ Done |
+| SL-25 | Shield line memory is updated each turn: visible lines are merged in, lines with both endpoints fully visible but no longer active are removed | ✅ Done |
+| SL-26 | Shield lines are drawn after the visibility overlay and before the fleet arrow | ✅ Done |
+| SL-27 | Closed rings (cycles) of shield lines grant a production bonus to enclosed systems. A connected component is a ring iff `edges == nodes` (with max degree 2 per node) and `nodes >= 3` | ✅ Done |
+| SL-28 | Systems on the ring itself receive `SHIELD_RING_BONUS_RING` production bonus. Systems fully inside the ring polygon receive `SHIELD_RING_BONUS_INNER` bonus. Only systems owned by the ring's owner receive the bonus | ✅ Done |
+| SL-29 | Ring polygon containment is determined by ray-casting point-in-polygon test against the ordered polygon of ring system positions | ✅ Done |
+| SL-30 | When a system is covered by multiple overlapping rings, the highest applicable bonus is used (not additive) | ✅ Done |
+| SL-31 | Ring bonuses apply to Fighter and Bomber production only (effective rate = `production_rate × (1.0 + bonus)`, minimum `production_rate`). Upgrade and Battery Build are unaffected | ✅ Done |
+| SL-32 | Ring bonuses are recalculated each turn before production | ✅ Done |
+| SL-33 | Shield activation progress is processed at the start of end-of-round (before production) | ✅ Done |
+| SL-34 | The "Activate Shield" button in the action panel shows current shield line count for the selected system (e.g., "Activate Shield (1/2)") | ✅ Done |
+| SL-35 | The "Activate Shield" button is disabled when: batteries < `SHIELD_MIN_BATTERIES`, system already has `MAX_SHIELD_LINES_PER_SYSTEM` lines, or system is already in `SHIELD_ACTIVATE` mode | ✅ Done |
+| SL-36 | Clicking "Activate Shield" enters partner selection mode. Clicking another owned system with valid conditions starts the activation. ESC cancels selection mode | ✅ Done |
+| SL-37 | Partner validation checks: same owner, both have `SHIELD_MIN_BATTERIES` batteries, within `MAX_SYSTEM_DISTANCE`, neither at max lines, no duplicate line, neither already activating, structure limit not exceeded | ✅ Done |
+| SL-38 | AI Fortress tactic shall activate shield lines on frontier systems with `SHIELD_MIN_BATTERIES`+ batteries, pairing with nearby qualifying systems. Shield activation is returned as `{"shield_partner": target_id}` in production changes | ✅ Done |
+| SL-39 | All AI tactics shall penalize targets behind enemy shield lines when selecting attack targets. Path cost increases by `density × 3.0` per crossing; targets with cost > 2.0 are skipped by Fortress | ✅ Done |
+| SL-40 | Shield data (`shield_lines`, `shield_activations`) is cleared on game start | ✅ Done |
+| SL-41 | Shield selection mode is cleared on player transition and on ESC | ✅ Done |
 
 ---
 
@@ -278,7 +327,7 @@
 | FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
 | FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
 | FUT-18 | Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
-| FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ❌ Not implemented |
+| FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ✅ Done |
 | FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) at designated build sites within MAX_SYSTEM_DISTANCE of any star or own station (chain building). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars/stations (full visibility range, always succeeds), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ❌ Not implemented |
 
 ---
@@ -327,6 +376,15 @@
 | REBELLION_DOMINANCE_FACTOR | 1.3 | Rebellion triggers when player owns > avg × this factor |
 | REBELLION_CHANCE_PER_EXCESS | 0.05 (5%) | Rebellion chance per unprotected system, per excess system over average |
 | REBELLION_STRENGTH_FACTOR | 3 | Rebels = production_rate × this factor |
+| SHIELD_MIN_BATTERIES | 2 | Minimum batteries per system to participate in a shield line |
+| SHIELD_DAMAGE_FACTOR | 0.04 (4%) | Base attrition loss rate per shield-power-point × density |
+| SHIELD_BLOCKADE_THRESHOLD | 2.5 | Fighters blocked when `min(bat_a, bat_b) × density >= 2.5`; bombers at `>= 5.0` |
+| SHIELD_BOMBER_RESISTANCE | 0.5 (50%) | Bomber damage reduction through shields (halved attrition, doubled blockade threshold) |
+| SHIELD_ACTIVATE_TIME | 2 turns | Duration of shield activation (both systems blocked) |
+| MAX_SHIELD_LINES_PER_SYSTEM | 2 | Maximum shield lines per system (active + activating) |
+| MAX_SHIELD_STRUCTURES | 2 | Maximum independent shield structures (connected components) per player |
+| SHIELD_RING_BONUS_INNER | 0.25 (25%) | Production bonus for systems fully enclosed by a shield ring |
+| SHIELD_RING_BONUS_RING | 0.12 (12%) | Production bonus for systems on the ring itself |
 
 ---
 
@@ -344,3 +402,4 @@
 - **Update 2026-02:** Combat reports reworked: per-stage reports (C-17), attacker losses include battery kills (C-18), battery kills shown by F/B type (C-13b), zero counts omitted (C-19). Victory screen deferred until all reports shown (V-04).
 - **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (40) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.
 - **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems immune. Batteries reduce rebellion chance proportionally (20% per level), only max batteries (5) = fully immune.
+- **Update 2026-02:** Shield lines (FUT-19): territorial defense via manually activated energy lines between battery-equipped systems. Attrition and blockade mechanics scale with shield density (inverse distance) and battery levels. Closed rings grant production bonuses. Bombers have 50% shield resistance. AI Fortress activates shields on frontier; all AI tactics avoid enemy shield crossings. 41 detailed requirements (SL-01 to SL-41), 10 new parameters. Production mode updated to PR-02b.

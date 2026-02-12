@@ -11,8 +11,11 @@ extends RefCounted
 ## Main entry point: returns {"production_changes": [...], "fleet_orders": [...]}
 static func execute_turn(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
-						 p_system_memory: Dictionary) -> Dictionary:
-	var state = _build_state(player_id, tactic, p_systems, fleets, p_system_memory)
+						 p_system_memory: Dictionary,
+						 p_shield_lines: Array = [],
+						 p_shield_activations: Array = []) -> Dictionary:
+	var state = _build_state(player_id, tactic, p_systems, fleets, p_system_memory,
+							 p_shield_lines, p_shield_activations)
 
 	if _should_early_expand(state):
 		return _execute_early_expansion(state)
@@ -34,7 +37,9 @@ static func execute_turn(player_id: int, tactic: int,
 ## Build state dictionary from raw game data
 static func _build_state(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
-						 p_system_memory: Dictionary) -> Dictionary:
+						 p_system_memory: Dictionary,
+						 p_shield_lines: Array = [],
+						 p_shield_activations: Array = []) -> Dictionary:
 	var owned: Array = []
 	for system in p_systems:
 		if system.owner_id == player_id:
@@ -69,6 +74,8 @@ static func _build_state(player_id: int, tactic: int,
 		"known_systems": known,
 		"my_fleets": my_fleets,
 		"all_systems": p_systems,
+		"shield_lines": p_shield_lines,
+		"shield_activations": p_shield_activations,
 	}
 
 
@@ -224,6 +231,24 @@ static func _find_nearest_untargeted(source_pos: Vector2, candidates: Array, sta
 	return best
 
 
+## Like _find_nearest_untargeted but penalizes targets behind enemy shield lines.
+static func _find_nearest_untargeted_shield_aware(source_pos: Vector2, candidates: Array, state: Dictionary) -> Dictionary:
+	var best: Dictionary = {}
+	var best_score: float = INF
+	for c in candidates:
+		var sid: int = c["system_id"] if c is Dictionary else c.system_id
+		if _has_fleet_targeting(state, sid):
+			continue
+		var pos: Vector2 = c["position"] if c is Dictionary else c.global_position
+		var dist: float = source_pos.distance_to(pos)
+		var shield_cost = _ai_path_shield_cost(state, source_pos, pos)
+		var score: float = dist * shield_cost
+		if score < best_score:
+			best_score = score
+			best = c
+	return best
+
+
 # ── Common early expansion phase ─────────────────────────────────
 
 static func _should_early_expand(state: Dictionary) -> bool:
@@ -279,7 +304,7 @@ static func _execute_rush(state: Dictionary) -> Dictionary:
 		if target.is_empty() and enemies.size() > 0 and weakest >= 0:
 			var weak_enemies: Array = enemies.filter(func(e): return e["owner_id"] == weakest)
 			if weak_enemies.size() > 0:
-				target = _find_nearest_untargeted(sys.global_position, weak_enemies, state)
+				target = _find_nearest_untargeted_shield_aware(sys.global_position, weak_enemies, state)
 		if target.is_empty():
 			continue
 
@@ -294,7 +319,13 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 	var production_changes: Array = []
 	var fleet_orders: Array = []
 
+	# Fortress: try to activate shields on frontier systems with >= 2 batteries
+	var shield_partner = _find_fortress_shield_partner(state)
+
 	for sys in state["owned_systems"]:
+		# Skip systems being used for shield activation
+		if shield_partner.has("source") and (sys.system_id == shield_partner["source"] or sys.system_id == shield_partner["target"]):
+			continue
 		var is_front: bool = _is_frontier(sys, state)
 		if is_front:
 			if sys.battery_count < ShipTypes.MAX_BATTERIES and sys.production_mode != StarSystem.ProductionMode.BATTERY_BUILD:
@@ -306,6 +337,10 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.UPGRADE})
 			elif sys.production_rate >= ShipTypes.MAX_PRODUCTION_RATE and sys.production_mode != StarSystem.ProductionMode.FIGHTERS:
 				production_changes.append({"system_id": sys.system_id, "mode": StarSystem.ProductionMode.FIGHTERS})
+
+	# Include shield_partner in production_changes if found
+	if shield_partner.has("source"):
+		production_changes.append({"system_id": shield_partner["source"], "shield_partner": shield_partner["target"]})
 
 	var neutrals: Array = _get_known_neutrals(state)
 	var enemies: Array = _get_known_enemies(state)
@@ -322,7 +357,7 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 				if not order.is_empty():
 					fleet_orders.append(order)
 					continue
-		# Enemies: cautious (fortress style)
+		# Enemies: cautious (fortress style), avoid shield crossings
 		if sys.fighter_count <= 10:
 			continue
 		for target in enemies:
@@ -331,13 +366,68 @@ static func _execute_fortress(state: Dictionary) -> Dictionary:
 			var dist: float = sys.global_position.distance_to(target["position"])
 			if dist > max_dist:
 				continue
-			if sys.fighter_count - 10 >= _estimate_strength(target) * 2.5:
+			var shield_cost = _ai_path_shield_cost(state, sys.global_position, target["position"])
+			if shield_cost > 2.0:
+				continue  # Too costly to cross enemy shields
+			if sys.fighter_count - 10 >= _estimate_strength(target) * 2.5 * shield_cost:
 				var order: Dictionary = _build_fleet_order(sys, target["system_id"], 0.5, 0.0, 10)
 				if not order.is_empty():
 					fleet_orders.append(order)
 				break
 
 	return {"production_changes": production_changes, "fleet_orders": fleet_orders}
+
+
+## Find a valid shield partner for Fortress AI to activate a shield line.
+## Returns {"source": id, "target": id} or empty dict.
+static func _find_fortress_shield_partner(state: Dictionary) -> Dictionary:
+	if not _ai_can_add_structure(state):
+		return {}
+
+	# Find frontier systems with >= 2 batteries that aren't already activating or maxed on lines
+	var candidates: Array = []
+	for sys in state["owned_systems"]:
+		if not _is_frontier(sys, state):
+			continue
+		if sys.battery_count < ShipTypes.SHIELD_MIN_BATTERIES:
+			continue
+		if sys.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
+			continue
+		if _count_ai_shield_lines(state, sys.system_id) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+			continue
+		candidates.append(sys)
+
+	# Try to pair candidates with neighbors
+	for source in candidates:
+		for target in candidates:
+			if source.system_id >= target.system_id:
+				continue  # Avoid duplicates
+			var dist = source.global_position.distance_to(target.global_position)
+			if dist > UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				continue
+			if _ai_shield_line_exists(state, source.system_id, target.system_id):
+				continue
+			return {"source": source.system_id, "target": target.system_id}
+
+	# Try pairing with non-frontier owned systems that have batteries
+	for source in candidates:
+		for other in state["owned_systems"]:
+			if other.system_id == source.system_id:
+				continue
+			if other.battery_count < ShipTypes.SHIELD_MIN_BATTERIES:
+				continue
+			if other.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
+				continue
+			if _count_ai_shield_lines(state, other.system_id) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+				continue
+			var dist = source.global_position.distance_to(other.global_position)
+			if dist > UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				continue
+			if _ai_shield_line_exists(state, source.system_id, other.system_id):
+				continue
+			return {"source": source.system_id, "target": other.system_id}
+
+	return {}
 
 
 static func _execute_economy(state: Dictionary) -> Dictionary:
@@ -520,3 +610,92 @@ static func _execute_balanced_late(state: Dictionary) -> Dictionary:
 					fleet_orders.append(order)
 
 	return {"production_changes": production_changes, "fleet_orders": fleet_orders}
+
+
+# ── Shield helpers (FUT-19) ──────────────────────────────────────
+
+static func _count_ai_shield_lines(state: Dictionary, system_id: int) -> int:
+	var count: int = 0
+	for line in state["shield_lines"]:
+		if line["system_a"] == system_id or line["system_b"] == system_id:
+			count += 1
+	for act in state["shield_activations"]:
+		if act["system_a"] == system_id or act["system_b"] == system_id:
+			count += 1
+	return count
+
+
+static func _ai_shield_line_exists(state: Dictionary, id_a: int, id_b: int) -> bool:
+	for line in state["shield_lines"]:
+		if (line["system_a"] == id_a and line["system_b"] == id_b) or \
+		   (line["system_a"] == id_b and line["system_b"] == id_a):
+			return true
+	for act in state["shield_activations"]:
+		if (act["system_a"] == id_a and act["system_b"] == id_b) or \
+		   (act["system_a"] == id_b and act["system_b"] == id_a):
+			return true
+	return false
+
+
+static func _ai_can_add_structure(state: Dictionary) -> bool:
+	# Build adjacency from existing lines + activations for this owner
+	var pid = state["player_id"]
+	var adj: Dictionary = {}
+	for line in state["shield_lines"]:
+		if line["owner_id"] != pid:
+			continue
+		var a = line["system_a"]
+		var b = line["system_b"]
+		if not adj.has(a):
+			adj[a] = []
+		if not adj.has(b):
+			adj[b] = []
+		adj[a].append(b)
+		adj[b].append(a)
+	for act in state["shield_activations"]:
+		if act["owner_id"] != pid:
+			continue
+		var a = act["system_a"]
+		var b = act["system_b"]
+		if not adj.has(a):
+			adj[a] = []
+		if not adj.has(b):
+			adj[b] = []
+		adj[a].append(b)
+		adj[b].append(a)
+
+	# Count connected components
+	if adj.is_empty():
+		return true
+	var visited: Dictionary = {}
+	var count: int = 0
+	for node in adj:
+		if visited.has(node):
+			continue
+		count += 1
+		var queue: Array = [node]
+		visited[node] = true
+		while queue.size() > 0:
+			var current = queue.pop_front()
+			for neighbor in adj.get(current, []):
+				if not visited.has(neighbor):
+					visited[neighbor] = true
+					queue.append(neighbor)
+	return count < ShipTypes.MAX_SHIELD_STRUCTURES
+
+
+## Calculate a penalty cost for sending to a target that crosses enemy shield lines.
+## Returns a multiplier >= 1.0 (higher = more penalized).
+static func _ai_path_shield_cost(state: Dictionary, source_pos: Vector2, target_pos: Vector2) -> float:
+	var cost: float = 1.0
+	for line in state["shield_lines"]:
+		if line["owner_id"] == state["player_id"]:
+			continue
+		var sys_a = state["all_systems"][line["system_a"]]
+		var sys_b = state["all_systems"][line["system_b"]]
+		if Combat.segments_intersect(source_pos, target_pos,
+									 sys_a.global_position, sys_b.global_position):
+			var distance = sys_a.global_position.distance_to(sys_b.global_position)
+			var density = Combat.calculate_shield_density(distance)
+			cost += density * 3.0  # Significant penalty per crossing
+	return cost

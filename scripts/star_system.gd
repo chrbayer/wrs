@@ -12,7 +12,8 @@ enum ProductionMode {
 	FIGHTERS,
 	BOMBERS,
 	UPGRADE,
-	BATTERY_BUILD
+	BATTERY_BUILD,
+	SHIELD_ACTIVATE
 }
 
 @export var system_id: int = 0
@@ -27,6 +28,8 @@ var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var bomber_production_progress: float = 0.0  # Batch delivery every 2 turns
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
+var shield_activate_progress: int = 0
+var shield_activate_partner_id: int = -1
 
 var is_selected: bool = false
 var is_hovered: bool = false
@@ -286,18 +289,23 @@ func get_total_ships() -> int:
 
 
 ## Process production for this turn based on production mode
-func process_production() -> void:
+func process_production(ring_bonus: float = 0.0) -> void:
 	if owner_id < 0:  # Only owned systems produce
 		return
 
+	var effective_rate: int = production_rate
+	if ring_bonus > 0.0:
+		effective_rate = int(production_rate * (1.0 + ring_bonus))
+		effective_rate = max(effective_rate, production_rate)  # At least base rate
+
 	match production_mode:
 		ProductionMode.FIGHTERS:
-			fighter_count += production_rate
+			fighter_count += effective_rate
 		ProductionMode.BOMBERS:
 			# Half production rate (FUT-07): full batch every 2 turns
 			bomber_production_progress += ShipTypes.BOMBER_PRODUCTION_MULTIPLIER
 			if bomber_production_progress >= 1.0:
-				bomber_count += production_rate
+				bomber_count += effective_rate
 				bomber_production_progress = 0.0
 		ProductionMode.UPGRADE:
 			if production_rate < ShipTypes.MAX_PRODUCTION_RATE:
@@ -315,6 +323,8 @@ func process_production() -> void:
 					battery_build_progress = 0.0
 					# Switch back to fighters production
 					production_mode = ProductionMode.FIGHTERS
+		ProductionMode.SHIELD_ACTIVATE:
+			pass  # No production during shield activation
 
 	update_visuals()
 
@@ -345,6 +355,9 @@ func set_production_mode(mode: ProductionMode) -> void:
 		upgrade_progress = 0.0
 	if mode != ProductionMode.BATTERY_BUILD:
 		battery_build_progress = 0.0
+	if mode != ProductionMode.SHIELD_ACTIVATE:
+		shield_activate_progress = 0
+		shield_activate_partner_id = -1
 
 
 ## Get current production mode as string
@@ -364,6 +377,8 @@ func get_production_mode_string() -> String:
 			var total_turns = battery_count + 1
 			var done_turns = int(battery_build_progress * total_turns)
 			return "Building Battery (%d/%d)" % [done_turns, total_turns]
+		ProductionMode.SHIELD_ACTIVATE:
+			return "Activating Shield (%d/%d)" % [shield_activate_progress, ShipTypes.SHIELD_ACTIVATE_TIME]
 	return "Unknown"
 
 

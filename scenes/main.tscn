@@ -156,7 +156,7 @@ text = "Cancel"
 
 [node name="ActionPanel" type="Panel" parent="HUD"]
 visible = false
-custom_minimum_size = Vector2(280, 260)
+custom_minimum_size = Vector2(280, 310)
 theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
 
 [node name="VBox" type="VBoxContainer" parent="HUD/ActionPanel"]
@@ -194,6 +194,11 @@ text = "Upgrade Production (3/8)"
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 text = "Build Battery (0/5)"
+
+[node name="ActivateShieldBtn" type="Button" parent="HUD/ActionPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Activate Shield (0/2)"
 
 [node name="CloseBtn" type="Button" parent="HUD/ActionPanel/VBox"]
 layout_mode = 2

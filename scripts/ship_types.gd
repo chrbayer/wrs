@@ -45,6 +45,17 @@ const REBELLION_DOMINANCE_FACTOR: float = 1.3
 const REBELLION_CHANCE_PER_EXCESS: float = 0.05
 const REBELLION_STRENGTH_FACTOR: int = 3
 
+# Shield line constants (FUT-19)
+const SHIELD_MIN_BATTERIES: int = 2
+const SHIELD_DAMAGE_FACTOR: float = 0.04
+const SHIELD_BLOCKADE_THRESHOLD: float = 2.5
+const SHIELD_BOMBER_RESISTANCE: float = 0.5
+const SHIELD_ACTIVATE_TIME: int = 2
+const MAX_SHIELD_LINES_PER_SYSTEM: int = 2
+const MAX_SHIELD_STRUCTURES: int = 2
+const SHIELD_RING_BONUS_INNER: float = 0.25
+const SHIELD_RING_BONUS_RING: float = 0.12
+
 
 ## Get the travel speed for a fleet based on composition
 static func get_fleet_speed(fighter_count: int, bomber_count: int) -> float:
