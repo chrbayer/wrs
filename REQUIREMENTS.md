@@ -173,7 +173,7 @@
 | RB-03 | Rebels spawn `production_rate` × `REBELLION_STRENGTH_FACTOR` neutral fighters | ✅ Done |
 | RB-04 | Rebels attack garrison using standard combat (garrison gets `DEFENDER_BONUS`) | ✅ Done |
 | RB-05 | Home systems are immune to rebellion | ✅ Done |
-| RB-06 | Systems with batteries are immune to rebellion | ✅ Done |
+| RB-06 | Batteries reduce rebellion chance proportionally (1/MAX per level), only max batteries = immune | ✅ Done |
 | RB-07 | Rebel-won systems become neutral with remaining rebel fighters | ✅ Done |
 | RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
 | RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
@@ -277,6 +277,8 @@
 | FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
 | FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
 | FUT-18 | Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
+| FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ❌ Not implemented |
+| FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) at designated build sites within MAX_SYSTEM_DISTANCE of any star or own station (chain building). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars/stations (full visibility range, always succeeds), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ❌ Not implemented |
 
 ---
 
@@ -340,4 +342,4 @@
 - **Update 2026-02:** AI phases are now purely state-based (no turn numbers). Early: only neutrals visible (all tactics expand identically). Mid: neutrals + enemies (tactic-specific, but all expand to neutrals). Late: only enemies (full attack mode).
 - **Update 2026-02:** Combat reports reworked: per-stage reports (C-17), attacker losses include battery kills (C-18), battery kills shown by F/B type (C-13b), zero counts omitted (C-19). Victory screen deferred until all reports shown (V-04).
 - **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (40) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.
-- **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems and battery-equipped systems are immune.
+- **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems immune. Batteries reduce rebellion chance proportionally (20% per level), only max batteries (5) = fully immune.

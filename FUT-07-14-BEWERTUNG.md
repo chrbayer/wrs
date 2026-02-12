@@ -825,8 +825,9 @@ Mit Rebellion:
 ├── Spieler A: 14 Systeme
 │   ├── Überschuss: 14 - 7.5 = 6.5
 │   ├── Rebellion-Chance: 6.5 × 0.05 = 32.5% pro System
-│   ├── Immune: Heimatsystem + Systeme mit Batterien
-│   └── Pro ungeschütztem System: 32.5% Rebellion
+│   ├── Immune: Heimatsystem + Systeme mit max Batterien (5)
+│   ├── Reduziert: Batterien senken Chance um 20% pro Level
+│   └── Pro System ohne max Batterien: 32.5% × (1 - Level/5)
 │
 ├── System mit Rate 3: Rebellen = 3 × 3 = 9 Fighter
 ├── System mit Rate 5: Rebellen = 5 × 3 = 15 Fighter
@@ -846,7 +847,7 @@ Mit Rebellion:
 | Aspekt | Bewertung | Begründung |
 |--------|-----------|------------|
 | Anti-Snowball | ★★★★★ | Nur der Führende wird gebremst — asymmetrisch |
-| Batterie-Aufwertung | ★★★★★ | Batterien schützen jetzt auch gegen Rebellionen |
+| Batterie-Aufwertung | ★★★★★ | Batterien reduzieren Rebellionschance (20%/Level, immun erst bei max) |
 | Garnisonen | ★★★★★ | Dominanter Spieler muss Systeme garnisionieren |
 | Strategische Tiefe | ★★★★★ | Expansion hat jetzt Kosten (Garnisonen/Batterien nötig) |
 | Fairness | ★★★★★ | Trifft nur den Führenden, nicht alle |
@@ -856,7 +857,7 @@ Mit Rebellion:
 
 ```
 Dominanter Spieler — Rebellion-Management:
-├── Batterien an Grenz-Systemen (Doppelschutz: vs Angriff + vs Rebellion)
+├── Batterien an Grenz-Systemen (Doppelschutz: vs Angriff + reduziert Rebellion)
 ├── Garnisonen: Mindestens rate×3 Fighter pro System
 ├── Selektive Expansion: Nur hochproduktive Systeme besetzen
 └── Kontrolle: Weniger Systeme, aber besser geschützt
@@ -872,7 +873,7 @@ Verfolger — Rebellion ausnutzen:
 
 | Mechanik | Interaktion |
 |----------|-------------|
-| Batterien (FUT-10) | Doppelter Nutzen: Verteidigung + Rebellionsschutz |
+| Batterien (FUT-10) | Doppelter Nutzen: Verteidigung + Rebellionsreduktion (immun erst bei max) |
 | Fortress-KI | Natürlicher Vorteil: baut ohnehin Batterien |
 | Rush-KI | Natürlicher Nachteil: viele Systeme, wenig Batterien |
 | Economy-KI | Gemischt: hohe Produktion = starke Rebellen, aber auch starke Garnisonen |
@@ -880,4 +881,397 @@ Verfolger — Rebellion ausnutzen:
 
 ### Fazit
 
-FUT-18 löst das zentrale Balance-Problem des Spiels: den Snowball-Effekt. Als **asymmetrische** Mechanik trifft sie nur den dominierenden Spieler und gibt Verfolgern eine Chance. Batterien bekommen einen zusätzlichen strategischen Wert, und Expansion erfordert jetzt bewusstes Garnisions-Management. Die Regel ist thematisch intuitiv — überdehnte Imperien haben historisch immer mit Rebellionen zu kämpfen.
+FUT-18 löst das zentrale Balance-Problem des Spiels: den Snowball-Effekt. Als **asymmetrische** Mechanik trifft sie nur den dominierenden Spieler und gibt Verfolgern eine Chance. Batterien reduzieren die Rebellionschance graduell (20% pro Level), erst bei maximalem Ausbau (Level 5) ist ein System vollständig immun. Das macht Expansion teuer — entweder voll ausbauen oder Rebellionsrisiko akzeptieren. Für FUT-19 bedeutet das: Schildlinien auf nicht voll ausgebauten Systemen können durch Rebellion zusammenbrechen.
+
+---
+
+## Bewertung: FUT-19 — Defensive Shield Lines
+
+> Datum: 2026-02-12
+
+### Requirement
+
+**FUT-19:** Defensive shield lines: Two owned battery-equipped systems (min. 2 batteries each) within range can be manually linked to form a visible border barrier. Enemy fleets crossing this line suffer attrition or are blocked. Effect scales inversely with distance. Extension of battery mechanics.
+
+### Grundprinzip
+
+```
+Batterien bekommen eine vierte Funktion:
+
+Batterie-Funktionen (aktuell):          Batterie-Funktionen (mit FUT-19):
+├── Lokale Verteidigung (FUT-10)         ├── Lokale Verteidigung (FUT-10)
+├── Rebellionsreduktion (FUT-18)         ├── Rebellionsreduktion (FUT-18)
+└── (das war's)                          ├── Schildlinien (FUT-19) ← NEU
+                                         └── Territoriale Kontrolle
+
+Neuer Produktionsmodus: SHIELD_ACTIVATE
+├── 5. Option im Produktionsmenü (neben Fighters/Bombers/Upgrade/Battery)
+├── Spieler wählt Partnersystem → BEIDE Systeme wechseln in Aktivierungsmodus
+├── 2 Runden Aktivierungszeit (keine Produktion auf beiden Systemen)
+├── Max 2 Schildlinien pro System
+└── Permanent aktiv bis System erobert/Rebellion (auch bei Bat. < max!)/Batterien < 2
+```
+
+### Schildlinien-Entstehung
+
+| Bedingung | Erforderlich? |
+|-----------|--------------|
+| Zwei eigene Systeme | ✅ Ja |
+| Beide mit mindestens 2 Batterien | ✅ Ja (Level 1 = nur lokal + Rebellion) |
+| Innerhalb MAX_SYSTEM_DISTANCE (250px) | ✅ Ja |
+| Manuelle Aktivierung (SHIELD_ACTIVATE) | ✅ Ja — bewusste Entscheidung |
+| Max 2 Linien pro System | ✅ Ja — verhindert Schild-Spam |
+| Aktivierungsdauer | 2 Runden (beide Systeme blockiert) |
+| Deaktivierung | ❌ Nicht manuell — permanent bis natürlicher Abbruch |
+
+**Warum manuell?** Automatische Schildlinien wären ein unkontrollierbarer Nebeneffekt des Batteriebaus. Manuelle Aktivierung macht Schildlinien zu einer **bewussten strategischen Entscheidung**: Wo will ich meine Grenze ziehen? Welche 2 Nachbarn verbinde ich? Die Kosten (2 Runden auf beiden Systemen = 4 Systemrunden) erzwingen Priorisierung.
+
+**Warum max 2?** Verhindert, dass ein zentrales System zum "Schild-Hub" wird. Spieler muss wählen, welche zwei Verbindungen die wichtigsten sind.
+
+**Warum Level 2?** Die erste Batterie schützt nur lokal + reduziert Rebellion um 20%. Ab der zweiten entsteht die territoriale Dimension. Das macht den Batterie-Ausbau zu einer bewussten Entscheidung mit klarem Stufensprung:
+
+```
+Batterie-Progression:
+├── Level 0: Kein Schutz
+├── Level 1: Lokale Verteidigung + 20% Rebellionsreduktion (1 Runde Build)
+├── Level 2: + Schildlinien-Berechtigung (1+2 = 3 Runden Build)
+│   └── Aktivierung: +2 Runden auf BEIDEN Systemen (4 Systemrunden)
+│       → Gesamtkosten für erste Schildlinie: 3+3 Build + 4 Aktivierung = 10 Systemrunden
+├── Level 3-5: Stärkere Schilder + stärkere lokale Verteidigung (automatisch)
+└── Max 2 Linien pro System — bewusste Wahl der Verbindungen
+```
+
+### Zwei-Formeln-System
+
+Schildlinien verwenden zwei getrennte Berechnungen:
+
+#### 1. Blockade-Check (basierend auf Minimum)
+
+```
+blockade_value = min(batteries_a, batteries_b) × density
+
+Fighter blockiert wenn: blockade_value ≥ SHIELD_BLOCKADE_THRESHOLD (2.5)
+Bomber  blockiert wenn: blockade_value ≥ SHIELD_BLOCKADE_THRESHOLD / SHIELD_BOMBER_RESISTANCE (5.0)
+```
+
+**Logik:** Das schwächste Glied bestimmt, ob die Linie **dicht** genug ist. Beide Systeme müssen stark sein.
+
+#### 2. Attrition-Schaden (basierend auf Summe)
+
+```
+attrition = density × (batteries_a + batteries_b) × SHIELD_DAMAGE_FACTOR
+
+Fighter-Verluste = fleet_fighters × attrition
+Bomber-Verluste  = fleet_bombers  × attrition × SHIELD_BOMBER_RESISTANCE (0.5)
+```
+
+**Logik:** Die Gesamtfeuerkraft beider Systeme bestimmt den Schaden. Auch asymmetrische Aufstellungen (5+1) verursachen Schaden.
+
+#### Density-Formel
+
+```
+density = 1.0 - (distance - MIN_SYSTEM_DISTANCE) / (MAX_SYSTEM_DISTANCE - MIN_SYSTEM_DISTANCE)
+
+Beispiele:
+├── 120px (Minimum): density = 1.0
+├── 150px:           density = 0.77
+├── 185px:           density = 0.50
+├── 220px:           density = 0.23
+└── 250px (Maximum): density = 0.0 (keine Wirkung)
+```
+
+### Parameter
+
+| Parameter | Wert | Beschreibung |
+|-----------|------|--------------|
+| `SHIELD_MIN_BATTERIES` | 2 | Mindest-Batterien pro System für Schildlinie |
+| `SHIELD_ACTIVATE_TIME` | 2 | Runden für Aktivierung (beide Systeme blockiert) |
+| `MAX_SHIELD_LINES_PER_SYSTEM` | 2 | Maximale Schildlinien pro System |
+| `SHIELD_DAMAGE_FACTOR` | 0.04 (4%) | Basisverlust pro Shield-Power-Punkt × Density |
+| `SHIELD_BLOCKADE_THRESHOLD` | 2.5 | Fighter blockiert wenn min × density ≥ Wert |
+| `SHIELD_BOMBER_RESISTANCE` | 0.5 | Bomber: halber Schaden, doppelter Blockade-Schwellwert |
+
+### Blockade-Matrix
+
+Wann werden Fighter/Bomber blockiert? (`min(bat_a, bat_b) × density ≥ Schwellwert`)
+
+| min(Bat) | Density | Blockade-Wert | Fighter blockiert? | Bomber blockiert? |
+|----------|---------|---------------|--------------------:|------------------:|
+| 2 | 1.0 (120px) | 2.0 | ❌ Nein | ❌ Nein |
+| 3 | 0.77 (150px) | 2.31 | ❌ Nein | ❌ Nein |
+| 3 | 0.85 (139px) | 2.55 | ✅ **Ja** | ❌ Nein |
+| 3 | 1.0 (120px) | 3.0 | ✅ **Ja** | ❌ Nein |
+| 4 | 0.65 (166px) | 2.60 | ✅ **Ja** | ❌ Nein |
+| 4 | 1.0 (120px) | 4.0 | ✅ **Ja** | ❌ Nein |
+| 5 | 0.50 (185px) | 2.50 | ✅ **Ja** | ❌ Nein |
+| 5 | 1.0 (120px) | 5.0 | ✅ **Ja** | ✅ **Ja** |
+
+**Ergebnis:** Fighter-Blockade ab 3+ Batterien bei enger Nachbarschaft. Bomber-Blockade nur bei Maximal-Ausbau (5+5) auf Minimaldistanz — extrem selten.
+
+### Attrition-Matrix
+
+Verluste einer 40-Fighter-Flotte bei Durchquerung:
+
+| Bat A | Bat B | Summe | Density | Attrition | Fighter-Verluste | Bomber-Verluste (40er) |
+|-------|-------|-------|---------|-----------|------------------:|-----------------------:|
+| 2 | 2 | 4 | 1.0 | 16% | 6 | 3 |
+| 2 | 2 | 4 | 0.5 | 8% | 3 | 2 |
+| 3 | 3 | 6 | 0.8 | 19.2% | 8 | 4 |
+| 3 | 1 | 4 | 0.8 | 12.8% | 5 | 3 |
+| 5 | 5 | 10 | 1.0 | 40% | 16 | 8 |
+| 5 | 5 | 10 | 0.5 | 20% | 8 | 4 |
+| 5 | 1 | 6 | 1.0 | 24% | 10 | 5 |
+
+### Zeitpunkt-abhängiges Verhalten
+
+| Zeitpunkt | Blockade existiert? | Verhalten |
+|-----------|--------------------:|-----------|
+| **Vor dem Senden** | Ja → Blockade | Send-Dialog verhindert das Senden (Button deaktiviert) |
+| **Vor dem Senden** | Ja → Nur Attrition | Send-Dialog zeigt Verlustvorschau, Senden erlaubt |
+| **Flotte unterwegs** | Blockade entsteht nachträglich | **Schiffe gehen verloren** (Fighter zerstört, Bomber ggf. durchgelassen bei halber Blockade) |
+| **Flotte unterwegs** | Attrition entsteht nachträglich | Verluste werden bei Kreuzung der Linie berechnet |
+
+```
+Beispiel — nachträgliche Blockade mit Bomber-Durchlass:
+
+Flotte unterwegs: 30 Fighter + 10 Bomber
+Feind errichtet Schildlinie: min=3, density=0.9 → blockade_value = 2.7
+
+Fighter: 2.7 ≥ 2.5 → BLOCKIERT → 30 Fighter zerstört
+Bomber:  2.7 ≥ 5.0 → nicht blockiert → Bomber kommen durch
+         Attrition: 0.9 × 6 × 0.04 × 0.5 = 10.8% → 1 Bomber Verlust
+         → 9 Bomber erreichen das Ziel
+```
+
+### Stacking und Wellen
+
+| Regel | Entscheidung | Begründung |
+|-------|-------------|------------|
+| Mehrere Schildlinien gekreuzt | **Kumulativ** — jede Linie einzeln berechnet | Belohnt dichte Verteidigung, "Defense in Depth" |
+| Wellen (MAX_FLEET_SIZE Split) | **Jede Welle einzeln** betroffen | Konsistent mit Batterie-Verhalten, große Flotten stärker bestraft |
+
+```
+Beispiel — doppelte Schildlinie:
+
+Flotte mit 40 Fightern kreuzt 2 Schildlinien:
+├── Linie 1: Summe 6, density 0.8 → 19.2% → 8 Verluste → 32 Fighter übrig
+├── Linie 2: Summe 4, density 0.6 → 9.6% → 3 Verluste → 29 Fighter übrig
+└── Gesamt: 11 Fighter verloren (27.5% Gesamtverluste)
+```
+
+### Visualisierung
+
+| Element | Darstellung |
+|---------|-------------|
+| Aktive Schildlinie | Leuchtende Linie in Spielerfarbe zwischen den Systemen |
+| Stärke | Dicke/Helligkeit proportional zu density |
+| Blockade-fähig | Zusätzlicher visueller Indikator (z.B. dickere Linie, Partikeleffekt) |
+| Fog of War | Sichtbar wenn beide Endpunkte sichtbar |
+| FoW Memory | Graue Erinnerungslinie wenn Systeme außer Reichweite (konsistent mit FUT-16a) |
+| Send-Dialog | Verlustvorschau: "Schildlinie: ~8 Fighter, ~4 Bomber Verluste" oder "BLOCKIERT" |
+
+### Interaktion mit bestehenden Mechaniken
+
+| Mechanik | Interaktion |
+|----------|-------------|
+| Batterien (FUT-10) | Vierfach-Nutzen: Lokal + Rebellionsreduktion + Schildlinie + territorialer Wert |
+| Rebellion (FUT-18) | Rebellion kann trotz Batterien < max auftreten → Schildlinien brechen zusammen (strategisch verheerend) |
+| Bomber (FUT-07/12) | Bomber als Schild-Brecher: halbe Verluste, praktisch nie blockiert |
+| Fighter-Moral (FUT-17) | Moral + Schildverluste kumulieren → Fernangriffe durch Schilder extrem teuer |
+| Wellen-Splitting (C-20) | Jede Welle einzeln betroffen → große Flotten doppelt bestraft (Schild + Batterien) |
+| Eroberung (FUT-08) | Erobertes System: Batterien auf 50% → Schildlinien werden schwächer oder brechen |
+| Fortress-AI | Natürlicher Vorteil: baut Batterien → hat automatisch Schildlinien |
+| Rush-AI | Natürlicher Nachteil: keine Batterien → kein Schild → verwundbar |
+| Bomber-AI | Aufgewertet: Bomber durchdringen Schilder leichter |
+
+### Strategische Analyse
+
+```
+Entscheidungsbaum für Schildlinien:
+
+Schritt 1: Batterien bauen (Voraussetzung)
+├── Level 1 (1 Runde): Lokaler Schutz + 20% Rebellionsreduktion
+├── Level 2 (1+2 = 3 Runden): Schildlinien-BERECHTIGUNG
+└── Level 3+ (6+ Runden): Stärkere Schilder bei Aktivierung
+
+Schritt 2: Schildlinie aktivieren (bewusste Entscheidung)
+├── SHIELD_ACTIVATE auf System A wählen → Partnersystem B anklicken
+├── BEIDE Systeme 2 Runden blockiert (keine Produktion)
+├── Max 2 Linien pro System → "Welche 2 Nachbarn sind mir am wichtigsten?"
+└── Permanent — Commitment-Entscheidung
+
+Gesamtkosten für eine Schildlinie (2 Systeme je Rate 3):
+├── Batterie-Bau: 2×3 Runden = 6 Systemrunden (je 2 Batterien)
+├── Aktivierung: 2×2 Runden = 4 Systemrunden
+├── Gesamt: 10 Systemrunden = 30 Fighter Opportunitätskosten
+└── → Eine Schildlinie kostet so viel wie eine mittlere Flotte!
+
+Wann lohnt es sich?
+├── Grenz-Systeme mit engem Abstand (hohe Density → starker Schild)
+├── Kritische Engpässe zwischen zwei Reichen
+├── Wenn Verteidigung wichtiger ist als Expansion
+└── NICHT lohnenswert: weit entfernte Systeme (niedrige Density)
+```
+
+### Tempo-Analyse (aktualisiert)
+
+| Strategie | Früh | Mitte | Spät | Änderung durch FUT-19 |
+|-----------|------|-------|------|-----------------------|
+| Fighter-Rush | ★★★★★ | ★★★☆☆ | ★★☆☆☆ | Geschwächt: Schildlinien stoppen Rush |
+| Bomber-Rush | ★★☆☆☆ | ★★★★☆ | ★★★★★ | **Gestärkt**: Bomber durchdringen Schilder |
+| Batterie-Turtle | ★★★☆☆ | ★★★★★ | ★★★★☆ | **Stark gestärkt**: Schildlinien = Festungswände |
+| Eco-Boom | ★☆☆☆☆ | ★★★☆☆ | ★★★★★ | Gestärkt: Schilder schützen während Upgrade |
+| Gemischte Flotten | ★★☆☆☆ | ★★★★★ | ★★★★★ | Unverändert: Fighter + Bomber-Mix bleibt stark |
+
+### Neue Taktiken
+
+```
+Festungswall:
+├── Batterien an 2-3 Grenz-Systemen → Schildlinien bilden sich
+├── Feindliche Fighter-Flotten verlieren 15-25% beim Durchqueren
+├── Bei engem Abstand: Fighter komplett blockiert
+├── Innere Systeme sicher für Eco/Upgrade
+└── Counter: Bomber-Flotten (halbe Verluste, nie blockiert)
+
+Schildbrecher-Taktik:
+├── Schritt 1: Bomber-Angriff auf ein Schild-System
+│   ├── Bomber durchdringen Schildlinie mit halben Verlusten
+│   └── Bomber senken Produktion, Batterien fallen bei Eroberung auf 50%
+├── Schritt 2: Schildlinie bricht zusammen oder schwächt sich
+├── Schritt 3: Fighter-Folgeflotte stößt ungehindert durch
+└── Erfordert: Koordination, Investment in Bomber
+
+Falle stellen:
+├── Voraussetzung: 2 Systeme mit je 2+ Batterien, noch nicht verbunden
+├── Gegner schickt große Flotte los (Pfad kreuzt potenzielle Schildlinie)
+├── Sofort SHIELD_ACTIVATE starten (2 Runden Aktivierung)
+├── Wenn Aktivierung vor Flottenankunft fertig → Blockade!
+│   └── Fighter der Flotte gehen verloren, Bomber kommen ggf. durch
+├── Erfordert: Vorausschauendes Batterie-Building + schnelle Reaktion
+└── Counter: Bomber-Flotten (fast nie blockiert) oder kurze Reisedistanzen
+
+Defense in Depth:
+├── Mehrere parallele Schildlinien hintereinander
+├── Feind muss alle kreuzen → kumulative Verluste
+├── 3 Linien à 15% = ~38% Gesamtverluste
+└── Teuer (viele Batterien nötig), aber extrem effektiv
+```
+
+### Balance-Bewertung
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Strategische Tiefe | ★★★★★ | Territoriale Dimension, Entscheidungen bei Batterie-Platzierung |
+| Batterie-Aufwertung | ★★★★★ | Vierfach-Nutzen macht Batterien zu einer zentralen Entscheidung |
+| Bomber-Relevanz | ★★★★★ | Bomber als Schild-Brecher klar aufgewertet |
+| Counter-Play | ★★★★★ | Schilder stark, aber Bomber + Stationen (FUT-20) als Counter |
+| Kartenrelevanz | ★★★★★ | Systemposition und Nachbarschaft strategisch zentral |
+| Fairness | ★★★★☆ | Fortress-AI bevorzugt, Rush-AI benachteiligt — Ausgleich durch FUT-20 |
+| Komplexität | ★★★★☆ | Zwei Formeln + Aktivierungsmechanik, aber intuitiv (Schildlinie = Mauer) |
+| Visuelle Klarheit | ★★★★☆ | Schildlinien sichtbar, Verlustvorschau im Dialog |
+| Turtle-Risiko | ★★★★☆ | Aktivierungskosten (10 Systemrunden) + max 2 Linien begrenzen Turtle |
+| Implementierungs-Aufwand | ★★★☆☆ | Geometrie (Linienschnitt), neuer Produktionsmodus, UI, AI |
+
+### Risiko: Turtle-Meta
+
+**Problem:** Schildlinien stärken die Defensive. Turtle-Gefahr?
+
+**Eingebaute Bremsen:**
+1. **Manuelle Aktivierung** — Schildlinien kosten 4 Systemrunden (2 Runden × 2 Systeme). Jede Linie = ~30 Fighter Opportunitätskosten
+2. **Max 2 Linien pro System** — begrenzt die Schildabdeckung, erzwingt Lücken
+3. **Bomber** durchdringen Schilder mit halben Verlusten und werden praktisch nie blockiert
+4. **FUT-20 Stationen** ermöglichen Angriffe hinter die Schildlinie
+5. **Rebellion (FUT-18)** bestraft den Führenden — Systeme mit Batterien < max können rebellieren → Schildlinien brechen
+6. **Permanent** — falsch platzierte Linien können nicht umkonfiguriert werden
+
+### Strukturen, Ringe und Produktionsbonus
+
+#### Struktur-Limit
+
+Schildlinien werden nicht einzeln gezählt, sondern als **zusammenhängende Strukturen:**
+
+```
+Struktur = zusammenhängende Kette oder Ring von Schildlinien
+
+Beispiele für 2 Strukturen:
+
+  Struktur 1 (Ring):          Struktur 2 (Kette):
+  [A]====[B]                   [F]====[G]====[H]
+   |      |                    (3 Sterne, 2 Linien, offen)
+  [D]====[C]
+  (4 Sterne, 4 Linien, geschlossen)
+```
+
+| Regel | Wert | Begründung |
+|-------|------|------------|
+| Max Strukturen pro Spieler | **2** | Jede beliebig lang, aber nur 2 unabhängige |
+| Max Linien pro System | **2** | Garantiert einfache Ringe (kein Hub-System) |
+
+**Warum max 2 Strukturen?** Gleiche Anzahl für alle Spieler — kleines Reich kann mit 2 Strukturen alles abdecken, großes Reich nicht.
+
+#### Produktionsbonus für geschlossene Ringe
+
+Wenn eine Struktur einen **geschlossenen Ring** bildet, erhalten umschlossene Sterne einen Produktionsbonus:
+
+```
+    [A]========[B]
+     |          |
+     |  [X][Y]  |       ← [X], [Y] liegen im Polygon A-B-C-D
+     |          |          → Voller Bonus (+25% Produktion)
+    [D]========[C]       ← [A],[B],[C],[D] sind Ring-Sterne
+                            → Halber Bonus (+12% Produktion)
+
+    [E]                  ← Außerhalb → kein Bonus
+```
+
+| Stern-Typ | Bonus | Erkennung |
+|-----------|-------|-----------|
+| Innerer Stern (vollständig umschlossen) | +25% Produktion | Polygon-Test (Ray Casting) |
+| Ring-Stern (am Schild beteiligt) | +12% Produktion | Mitglied der Ring-Struktur |
+| Außerhalb / offene Kette | Kein Bonus | — |
+
+**Warum Polygon-Test?** Max 2 Linien pro System garantiert, dass jeder Ring ein einfaches Polygon ist (keine Kreuzungen, keine verschachtelten Zyklen). Ray Casting ist dann mathematisch korrekt und effizient.
+
+#### Warum das kleine Reiche bevorzugt
+
+```
+Kleines Reich (6 Systeme):                Großes Reich (15 Systeme):
+├── 1 Ring (5 Sterne) + 1 Kette          ├── 1 Ring (6 Sterne) + 1 Kette
+├── Ring umschließt 1 inneren Stern       ├── Ring umschließt 2-3 innere Sterne
+├── 5 Ring-Sterne × 12% + 1 inner × 25%  ├── 6 Ring × 12% + 3 inner × 25%
+├── → 6/6 Systeme profitieren (100%)      ├── → 9/15 Systeme profitieren (60%)
+└── Kompaktes Reich = starker Schild       └── 6 Systeme ohne Bonus (verstreut)
+```
+
+### Parameter (aktualisiert)
+
+| Parameter | Wert | Beschreibung |
+|-----------|------|--------------|
+| `SHIELD_MIN_BATTERIES` | 2 | Mindest-Batterien pro System für Schildlinie |
+| `SHIELD_ACTIVATE_TIME` | 2 | Runden für Aktivierung (beide Systeme blockiert) |
+| `MAX_SHIELD_LINES_PER_SYSTEM` | 2 | Maximale Schildlinien pro System |
+| `MAX_SHIELD_STRUCTURES` | 2 | Max unabhängige Schildstrukturen pro Spieler |
+| `SHIELD_DAMAGE_FACTOR` | 0.04 (4%) | Basisverlust pro Shield-Power-Punkt × Density |
+| `SHIELD_BLOCKADE_THRESHOLD` | 2.5 | Fighter blockiert wenn min × density ≥ Wert |
+| `SHIELD_BOMBER_RESISTANCE` | 0.5 | Bomber: halber Schaden, doppelter Blockade-Schwellwert |
+| `SHIELD_RING_BONUS_INNER` | 0.25 (25%) | Produktionsbonus für umschlossene Sterne |
+| `SHIELD_RING_BONUS_RING` | 0.12 (12%) | Produktionsbonus für Ring-Sterne |
+
+### Fazit
+
+FUT-19 erweitert das Batteriesystem von einer lokalen zu einer **territorialen** Mechanik mit drei Schichten:
+
+1. **Schildlinien** — Attrition und Blockade für feindliche Flotten
+2. **Strukturen** — Max 2 zusammenhängende Schildnetzwerke, bewusst aktiviert
+3. **Ring-Bonus** — Geschlossene Ringe belohnen mit Produktionsbonus, bevorzugt kompakte Reiche
+
+Das Zwei-Formeln-System (Minimum für Blockade, Summe für Schaden) erzeugt interessante Asymmetrien:
+- **Gleichmäßiger Ausbau** (3+3) ermöglicht Blockaden
+- **Asymmetrischer Ausbau** (5+1) verursacht dennoch hohen Schaden
+- **Bomber** sind der natürliche Counter — halbe Verluste, praktisch nie blockiert
+
+Die manuelle Aktivierung + Struktur-Limit machen Schildlinien zu einer **echten strategischen Ebene**: Wo ziehe ich meine Grenzen? Schließe ich den Ring für den Bonus? Das zeitpunkt-abhängige Verhalten (Send-Dialog blockiert vs. nachträgliche Zerstörung) erzeugt zusätzliche taktische Tiefe.
+
+**Anti-Snowball:** Der Produktionsbonus durch Ringe bevorzugt systematisch kleinere, kompakte Reiche — ein weiterer Mechanismus neben Rebellion (FUT-18), der den Führenden bremst.
+
+**Kritisch:** FUT-19 allein birgt Turtle-Risiko. FUT-20 (Stationen) ist als Gegengewicht eingeplant und sollte zeitnah folgen.

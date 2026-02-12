@@ -1610,14 +1610,17 @@ func _process_rebellions() -> void:
 			# Home systems are immune
 			if system.system_id == players[player_id].home_system_id:
 				continue
-			# Systems with batteries are immune
-			if system.battery_count > 0:
+			# Systems with max batteries are immune, lower levels reduce chance
+			if system.battery_count >= ShipTypes.MAX_BATTERIES:
 				continue
 			# Last system is immune (prevent indirect elimination via rebellion)
 			if count <= 1:
 				continue
 
-			if randf() < rebellion_chance:
+			# Batteries below max reduce rebellion chance proportionally
+			var battery_reduction: float = float(system.battery_count) / float(ShipTypes.MAX_BATTERIES)
+			var effective_chance: float = rebellion_chance * (1.0 - battery_reduction)
+			if randf() < effective_chance:
 				var rebel_fighters: int = system.production_rate * ShipTypes.REBELLION_STRENGTH_FACTOR
 				var garrison_f: int = system.fighter_count
 				var garrison_b: int = system.bomber_count
