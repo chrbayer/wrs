@@ -773,3 +773,111 @@ Mit Wave-Splitting (MAX=50):
 ### Fazit
 
 Das Wellen-Splitting löst elegant das Deathball-Problem: Batterien werden gegen große Flotten deutlich effektiver, da sie jede Welle separat beschießen. Gleichzeitig bleiben koordinierte Angriffe mit bis zu 50 Schiffen unverändert möglich. Die Mechanik ist für Spieler transparent — sie sehen separate Kampfberichte pro Welle.
+
+---
+
+## Nachtrag: FUT-18 - Rebellions-Mechanik
+
+> Datum: 2026-02-12
+
+### Requirement
+
+**FUT-18:** Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Asymmetric anti-snowball mechanic.
+
+### Problem: Snowball-Effekt
+
+```
+Ohne Rebellion:
+├── Spieler A erobert mehr Systeme
+├── Mehr Systeme → mehr Produktion
+├── Mehr Produktion → noch mehr Eroberungen
+├── Symmetrische Mechaniken (Batterien, Verteidigerbonus) helfen dem Führer genauso
+└── Führung wird uneinholbar
+```
+
+### Lösung: Asymmetrische Rebellion
+
+```
+Mit Rebellion:
+├── Spieler A dominiert (> Durchschnitt × 1.3 Systeme)
+├── Ungeschützte Systeme rebellieren mit Chance pro Überschuss-System
+├── Rebellen = Produktionsrate × 3 neutrale Fighter
+├── Verteidiger (Garnison) hat DEFENDER_BONUS
+├── Bei Rebel-Sieg: System wird neutral
+└── Nur der Führende wird gebremst → asymmetrisch
+```
+
+### Parameter
+
+| Parameter | Wert | Beschreibung |
+|-----------|------|--------------|
+| `REBELLION_DOMINANCE_FACTOR` | 1.3 | Auslöser: Spieler besitzt > Durchschnitt × 1.3 |
+| `REBELLION_CHANCE_PER_EXCESS` | 0.05 (5%) | Chance pro ungeschütztem System, pro Überschuss |
+| `REBELLION_STRENGTH_FACTOR` | 3 | Rebellen = Produktionsrate × 3 |
+
+### Beispielrechnung
+
+```
+4 Spieler, 30 Systeme insgesamt besetzt:
+├── Durchschnitt: 30/4 = 7.5
+├── Schwelle: 7.5 × 1.3 = 9.75 → ab 10 Systemen
+│
+├── Spieler A: 14 Systeme
+│   ├── Überschuss: 14 - 7.5 = 6.5
+│   ├── Rebellion-Chance: 6.5 × 0.05 = 32.5% pro System
+│   ├── Immune: Heimatsystem + Systeme mit Batterien
+│   └── Pro ungeschütztem System: 32.5% Rebellion
+│
+├── System mit Rate 3: Rebellen = 3 × 3 = 9 Fighter
+├── System mit Rate 5: Rebellen = 5 × 3 = 15 Fighter
+└── System mit Rate 8: Rebellen = 8 × 3 = 24 Fighter
+```
+
+### Immunität
+
+| Bedingung | Immun? | Begründung |
+|-----------|--------|------------|
+| Heimatsystem | ✅ Ja | Ursprung des Spielers, loyale Bevölkerung |
+| Batterien > 0 | ✅ Ja | Militärische Präsenz unterdrückt Aufstände |
+| Alle anderen | ❌ Nein | Ungeschützte Systeme können rebellieren |
+
+### Strategische Implikationen
+
+| Aspekt | Bewertung | Begründung |
+|--------|-----------|------------|
+| Anti-Snowball | ★★★★★ | Nur der Führende wird gebremst — asymmetrisch |
+| Batterie-Aufwertung | ★★★★★ | Batterien schützen jetzt auch gegen Rebellionen |
+| Garnisonen | ★★★★★ | Dominanter Spieler muss Systeme garnisionieren |
+| Strategische Tiefe | ★★★★★ | Expansion hat jetzt Kosten (Garnisonen/Batterien nötig) |
+| Fairness | ★★★★★ | Trifft nur den Führenden, nicht alle |
+| Komplexität | ★★★★☆ | Neue Regel, aber intuitiv (überdehnte Imperien rebellieren) |
+
+### Neue Taktiken
+
+```
+Dominanter Spieler — Rebellion-Management:
+├── Batterien an Grenz-Systemen (Doppelschutz: vs Angriff + vs Rebellion)
+├── Garnisonen: Mindestens rate×3 Fighter pro System
+├── Selektive Expansion: Nur hochproduktive Systeme besetzen
+└── Kontrolle: Weniger Systeme, aber besser geschützt
+
+Verfolger — Rebellion ausnutzen:
+├── Rebellen-Systeme sind neutral → leichte Beute
+├── Führender verliert Produktion + Schiffe
+├── Timing: Angriff wenn Rebellionen den Führer schwächen
+└── Indirekte Hilfe: Rebellionen öffnen Flanken
+```
+
+### Interaktion mit bestehenden Mechaniken
+
+| Mechanik | Interaktion |
+|----------|-------------|
+| Batterien (FUT-10) | Doppelter Nutzen: Verteidigung + Rebellionsschutz |
+| Fortress-KI | Natürlicher Vorteil: baut ohnehin Batterien |
+| Rush-KI | Natürlicher Nachteil: viele Systeme, wenig Batterien |
+| Economy-KI | Gemischt: hohe Produktion = starke Rebellen, aber auch starke Garnisonen |
+| Fighter-Moral (FUT-17) | Garnisonen haben volle Moral (Verteidiger) |
+
+### Fazit
+
+FUT-18 löst das zentrale Balance-Problem des Spiels: den Snowball-Effekt. Als **asymmetrische** Mechanik trifft sie nur den dominierenden Spieler und gibt Verfolgern eine Chance. Batterien bekommen einen zusätzlichen strategischen Wert, und Expansion erfordert jetzt bewusstes Garnisions-Management. Die Regel ist thematisch intuitiv — überdehnte Imperien haben historisch immer mit Rebellionen zu kämpfen.

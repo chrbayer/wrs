@@ -11,6 +11,7 @@ var color: Color
 var is_eliminated: bool = false
 var is_ai: bool = false
 var ai_tactic: AiTactic = AiTactic.NONE
+var home_system_id: int = -1
 
 # Player colors for up to 4 players
 const PLAYER_COLORS = [

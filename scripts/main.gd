@@ -372,6 +372,7 @@ func _generate_universe() -> void:
 		var player_start_idx = player_starts.find(i)
 		if player_start_idx >= 0:
 			system.owner_id = player_start_idx
+			players[player_start_idx].home_system_id = system.system_id
 			system.fighter_count = UniverseGenerator.generate_player_start_fighters()
 			system.production_rate = 3  # Standard production for home systems
 		else:
@@ -985,8 +986,26 @@ func _update_send_count_label() -> void:
 
 
 func _on_send_all_confirmed() -> void:
-	fighter_slider.value = fighter_slider.max_value
-	bomber_slider.value = bomber_slider.max_value
+	var max_total: int = ShipTypes.MAX_FLEET_SIZE
+	var available_f: int = int(fighter_slider.max_value)
+	var available_b: int = int(bomber_slider.max_value) if bomber_slider.visible else 0
+	var total: int = available_f + available_b
+
+	if total <= max_total:
+		fighter_slider.value = available_f
+		bomber_slider.value = available_b
+	else:
+		# Cap at MAX_FLEET_SIZE, preserving fighter/bomber ratio
+		var f_ratio: float = float(available_f) / float(total)
+		var send_f: int = int(round(f_ratio * max_total))
+		send_f = mini(send_f, available_f)
+		var send_b: int = mini(max_total - send_f, available_b)
+		# Fill remainder if rounding left a gap
+		if send_f + send_b < max_total:
+			send_f = mini(send_f + (max_total - send_f - send_b), available_f)
+		fighter_slider.value = send_f
+		bomber_slider.value = send_b
+
 	_on_send_confirmed()
 
 
@@ -1159,56 +1178,89 @@ func _show_combat_report() -> void:
 
 	# Build structured report text
 	var report_text = ""
-	report_text += "DEFENDER\n"
-	report_text += "%s  •  %s\n\n" % [
-		report_data["defender_name"],
-		_format_fb(report_data["defender_fighters"], report_data["defender_bombers"])
-	]
-	report_text += "ATTACKER\n"
-	var attacker_morale = report_data.get("attacker_fighter_morale", 1.0)
-	var att_f = report_data["attacker_fighters"]
-	var att_b = report_data["attacker_bombers"]
-	if attacker_morale < 1.0 and att_f > 0:
-		var parts: Array[String] = []
-		parts.append("%d F (%d%% morale)" % [att_f, int(attacker_morale * 100)])
-		if att_b > 0:
-			parts.append("%d B" % att_b)
-		report_text += "%s  •  %s\n\n" % [report_data["attacker_name"], " / ".join(parts)]
-	else:
+
+	if report_data.get("is_rebellion", false):
+		# Rebellion-specific format
+		report_text += "REBELLION!\n"
+		report_text += "Rebels: %s\n\n" % _format_fb(report_data["attacker_fighters"], 0)
+
+		report_text += "GARRISON\n"
 		report_text += "%s  •  %s\n\n" % [
-			report_data["attacker_name"],
-			_format_fb(att_f, att_b)
+			report_data["defender_name"],
+			_format_fb(report_data["defender_fighters"], report_data["defender_bombers"])
 		]
 
-	var bat_f_kills = report_data.get("battery_fighter_kills", 0)
-	var bat_b_kills = report_data.get("battery_bomber_kills", 0)
-	if bat_f_kills > 0 or bat_b_kills > 0:
-		report_text += "BATTERIES\n"
-		report_text += "Destroyed %s\n\n" % _format_fb(bat_f_kills, bat_b_kills)
+		report_text += "LOSSES\n"
+		report_text += "Rebels: %s\n" % _format_fb(
+			report_data["attacker_fighter_losses"], 0
+		)
+		report_text += "Garrison: %s\n\n" % _format_fb(
+			report_data["defender_fighter_losses"],
+			report_data["defender_bomber_losses"]
+		)
 
-	report_text += "LOSSES\n"
-	report_text += "Attacker: %s\n" % _format_fb(
-		report_data["attacker_fighter_losses"],
-		report_data["attacker_bomber_losses"]
-	)
-	report_text += "Defender: %s\n\n" % _format_fb(
-		report_data["defender_fighter_losses"],
-		report_data["defender_bomber_losses"]
-	)
+		report_text += "OUTCOME\n"
+		if report_data["winner_name"] == "Rebels":
+			report_text += "Rebels seize control with %s" % _format_fb(
+				report_data["remaining_fighters"], 0
+			)
+		else:
+			report_text += "%s holds with %s" % [
+				report_data["winner_name"],
+				_format_fb(report_data["remaining_fighters"], report_data["remaining_bombers"])
+			]
+	else:
+		# Standard combat report format
+		report_text += "DEFENDER\n"
+		report_text += "%s  •  %s\n\n" % [
+			report_data["defender_name"],
+			_format_fb(report_data["defender_fighters"], report_data["defender_bombers"])
+		]
+		report_text += "ATTACKER\n"
+		var attacker_morale = report_data.get("attacker_fighter_morale", 1.0)
+		var att_f = report_data["attacker_fighters"]
+		var att_b = report_data["attacker_bombers"]
+		if attacker_morale < 1.0 and att_f > 0:
+			var parts: Array[String] = []
+			parts.append("%d F (%d%% morale)" % [att_f, int(attacker_morale * 100)])
+			if att_b > 0:
+				parts.append("%d B" % att_b)
+			report_text += "%s  •  %s\n\n" % [report_data["attacker_name"], " / ".join(parts)]
+		else:
+			report_text += "%s  •  %s\n\n" % [
+				report_data["attacker_name"],
+				_format_fb(att_f, att_b)
+			]
 
-	if report_data["production_damage"] > 0:
-		report_text += "BOMBER DAMAGE\n"
-		report_text += "Production reduced by %d\n\n" % report_data["production_damage"]
+		var bat_f_kills = report_data.get("battery_fighter_kills", 0)
+		var bat_b_kills = report_data.get("battery_bomber_kills", 0)
+		if bat_f_kills > 0 or bat_b_kills > 0:
+			report_text += "BATTERIES\n"
+			report_text += "Destroyed %s\n\n" % _format_fb(bat_f_kills, bat_b_kills)
 
-	if report_data["conquest_occurred"]:
-		report_text += "CONQUEST\n"
-		report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
+		report_text += "LOSSES\n"
+		report_text += "Attacker: %s\n" % _format_fb(
+			report_data["attacker_fighter_losses"],
+			report_data["attacker_bomber_losses"]
+		)
+		report_text += "Defender: %s\n\n" % _format_fb(
+			report_data["defender_fighter_losses"],
+			report_data["defender_bomber_losses"]
+		)
 
-	report_text += "OUTCOME\n"
-	report_text += "%s wins with %s" % [
-		report_data["winner_name"],
-		_format_fb(report_data["remaining_fighters"], report_data["remaining_bombers"])
-	]
+		if report_data["production_damage"] > 0:
+			report_text += "BOMBER DAMAGE\n"
+			report_text += "Production reduced by %d\n\n" % report_data["production_damage"]
+
+		if report_data["conquest_occurred"]:
+			report_text += "CONQUEST\n"
+			report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
+
+		report_text += "OUTCOME\n"
+		report_text += "%s wins with %s" % [
+			report_data["winner_name"],
+			_format_fb(report_data["remaining_fighters"], report_data["remaining_bombers"])
+		]
 
 	report_label.text = report_text
 
@@ -1310,7 +1362,10 @@ func _process_turn_end() -> void:
 		if system.owner_id >= 0:
 			system.process_production()
 
-	# 2. Process arriving fleets
+	# 2. Rebellions (after production, before fleet arrival)
+	_process_rebellions()
+
+	# 3. Process arriving fleets (renumbered from 2)
 	var arriving_fleets: Dictionary = {}  # system_id -> Array[Fleet]
 	var remaining_fleets: Array[Fleet] = []
 
@@ -1325,7 +1380,7 @@ func _process_turn_end() -> void:
 
 	fleets_in_transit = remaining_fleets
 
-	# 3. Resolve combats
+	# 4. Resolve combats
 	for system_id in arriving_fleets:
 		var system = systems[system_id]
 		var fleets_here = arriving_fleets[system_id]
@@ -1440,6 +1495,98 @@ func _process_turn_end() -> void:
 				"battery_count": system.battery_count,
 				"has_batteries": system.battery_count > 0
 			}
+
+
+func _process_rebellions() -> void:
+	# Count systems per active (non-eliminated) player
+	var system_counts: Dictionary = {}  # player_id -> count
+	var active_players: int = 0
+	for i in range(player_count):
+		if not _is_player_eliminated(i):
+			active_players += 1
+			system_counts[i] = 0
+
+	if active_players == 0:
+		return
+
+	for system in systems:
+		if system.owner_id >= 0 and system_counts.has(system.owner_id):
+			system_counts[system.owner_id] += 1
+
+	var total_owned: int = 0
+	for pid in system_counts:
+		total_owned += system_counts[pid]
+
+	var average: float = float(total_owned) / float(active_players)
+
+	for player_id in system_counts:
+		var count: int = system_counts[player_id]
+		if count <= average * ShipTypes.REBELLION_DOMINANCE_FACTOR:
+			continue
+
+		var rebellion_chance: float = (count - average) * ShipTypes.REBELLION_CHANCE_PER_EXCESS
+
+		for system in systems:
+			if system.owner_id != player_id:
+				continue
+			# Home systems are immune
+			if system.system_id == players[player_id].home_system_id:
+				continue
+			# Systems with batteries are immune
+			if system.battery_count > 0:
+				continue
+
+			if randf() < rebellion_chance:
+				var rebel_fighters: int = system.production_rate * ShipTypes.REBELLION_STRENGTH_FACTOR
+				var garrison_f: int = system.fighter_count
+				var garrison_b: int = system.bomber_count
+
+				var combat_result = Combat.resolve_combat(
+					rebel_fighters, 0, -1,
+					garrison_f, garrison_b, player_id,
+					0, 1.0
+				)
+
+				system.fighter_count = combat_result.remaining_fighters
+				system.bomber_count = combat_result.remaining_bombers
+				system.owner_id = combat_result.winner_id
+
+				if combat_result.winner_id != player_id:
+					# Rebels won — system becomes neutral, reset production
+					system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
+
+				system.update_visuals()
+
+				# Build rebellion report
+				var report_data = {
+					"system_name": system.system_name,
+					"system_id": system.system_id,
+					"is_rebellion": true,
+					"defender_name": players[player_id].player_name,
+					"defender_fighters": garrison_f,
+					"defender_bombers": garrison_b,
+					"defender_fighter_losses": garrison_f - (combat_result.remaining_fighters if combat_result.winner_id == player_id else 0),
+					"defender_bomber_losses": garrison_b - (combat_result.remaining_bombers if combat_result.winner_id == player_id else 0),
+					"attacker_name": "Rebels",
+					"attacker_fighters": rebel_fighters,
+					"attacker_bombers": 0,
+					"attacker_fighter_losses": rebel_fighters - (combat_result.remaining_fighters if combat_result.winner_id == -1 else 0),
+					"attacker_bomber_losses": 0,
+					"attacker_fighter_morale": 1.0,
+					"battery_fighter_kills": 0,
+					"battery_bomber_kills": 0,
+					"winner_name": "Rebels" if combat_result.winner_id != player_id else players[player_id].player_name,
+					"remaining_fighters": combat_result.remaining_fighters,
+					"remaining_bombers": combat_result.remaining_bombers,
+					"batteries_before": 0,
+					"batteries_after": 0,
+					"production_damage": 0,
+					"conquest_occurred": false
+				}
+
+				if not pending_combat_reports.has(player_id):
+					pending_combat_reports[player_id] = []
+				pending_combat_reports[player_id].append(report_data)
 
 
 func _get_owner_name(owner_id: int) -> String:

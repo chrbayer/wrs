@@ -163,6 +163,22 @@
 
 ---
 
+## Rebellion
+
+| ID   | Requirement                                                              | Status |
+|------|--------------------------------------------------------------------------|--------|
+| RB-01 | Systems of dominant players may rebel (dominance = owns > avg × `REBELLION_DOMINANCE_FACTOR`) | ✅ Done |
+| RB-02 | Rebellion chance per system = (own_systems - average) × `REBELLION_CHANCE_PER_EXCESS` | ✅ Done |
+| RB-03 | Rebels spawn `production_rate` × `REBELLION_STRENGTH_FACTOR` neutral fighters | ✅ Done |
+| RB-04 | Rebels attack garrison using standard combat (garrison gets `DEFENDER_BONUS`) | ✅ Done |
+| RB-05 | Home systems are immune to rebellion | ✅ Done |
+| RB-06 | Systems with batteries are immune to rebellion | ✅ Done |
+| RB-07 | Rebel-won systems become neutral with remaining rebel fighters | ✅ Done |
+| RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
+| RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
+
+---
+
 ## Players & Turns
 
 | ID   | Requirement                                                           | Status |
@@ -199,7 +215,8 @@
 | UI-06 | An "End Turn" button shall advance the game                        | ✅ Done |
 | UI-07 | A "Play Again" option shall be available after game over           | ✅ Done |
 | ~~UI-08~~ | ~~A "Send All" button shall allow sending all fighters at once~~ | ~~Done~~ |
-| UI-08a | A "Send Max" button shall allow sending all available ships at once  | ✅ Done |
+| ~~UI-08a~~ | ~~A "Send Max" button shall allow sending all available ships at once~~  | ~~Done~~ |
+| UI-08b | A "Send Max" button shall send up to `MAX_FLEET_SIZE` ships (preserving fighter/bomber ratio) | ✅ Done |
 | UI-09 | The current player's owned star count shall be visible             | ✅ Done |
 | UI-10 | The current player's total production rate shall be visible        | ✅ Done |
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |
@@ -257,6 +274,7 @@
 | ~~FUT-16~~ | ~~Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes~~    | ~~Done~~ |
 | FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
 | FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
+| FUT-18 | Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
 
 ---
 
@@ -297,7 +315,10 @@
 | FIGHTER_MORALE_THRESHOLD | 2 turns | Travel time without morale penalty |
 | FIGHTER_MORALE_PENALTY | 0.2 (20%) | Attack power reduction per turn beyond threshold |
 | FIGHTER_MORALE_MIN | 0.5 (50%) | Minimum fighter morale (attack power floor) |
-| MAX_FLEET_SIZE | 50 | Maximum ships per combat wave (merged fleets exceeding this are split) |
+| MAX_FLEET_SIZE | 40 | Maximum ships per combat wave (merged fleets exceeding this are split) |
+| REBELLION_DOMINANCE_FACTOR | 1.3 | Rebellion triggers when player owns > avg × this factor |
+| REBELLION_CHANCE_PER_EXCESS | 0.05 (5%) | Rebellion chance per unprotected system, per excess system over average |
+| REBELLION_STRENGTH_FACTOR | 3 | Rebels = production_rate × this factor |
 
 ---
 
@@ -313,4 +334,5 @@
 - **Update 2026-02:** FUT-04a implemented, adding AI opponents with 5 selectable tactics. P-01a replaces P-01 to allow any human/AI mix.
 - **Update 2026-02:** AI phases are now purely state-based (no turn numbers). Early: only neutrals visible (all tactics expand identically). Mid: neutrals + enemies (tactic-specific, but all expand to neutrals). Late: only enemies (full attack mode).
 - **Update 2026-02:** Combat reports reworked: per-stage reports (C-17), attacker losses include battery kills (C-18), battery kills shown by F/B type (C-13b), zero counts omitted (C-19). Victory screen deferred until all reports shown (V-04).
-- **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (50) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.
+- **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (40) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.
+- **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems and battery-equipped systems are immune.

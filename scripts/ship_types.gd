@@ -38,7 +38,12 @@ const FIGHTER_MORALE_MIN: float = 0.5  # Minimum morale (attack power floor)
 const CONQUEST_PRODUCTION_LOSS: int = 1
 
 # Fleet size limit — fleets exceeding this are split into waves for combat
-const MAX_FLEET_SIZE: int = 50
+const MAX_FLEET_SIZE: int = 40
+
+# Rebellion mechanic
+const REBELLION_DOMINANCE_FACTOR: float = 1.3
+const REBELLION_CHANCE_PER_EXCESS: float = 0.05
+const REBELLION_STRENGTH_FACTOR: int = 3
 
 
 ## Get the travel speed for a fleet based on composition
