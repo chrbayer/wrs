@@ -137,11 +137,17 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
 text = "Send"
 
-[node name="SendAllButton" type="Button" parent="HUD/SendPanel/VBox/SendButtonContainer"]
+[node name="SendMaxButton" type="Button" parent="HUD/SendPanel/VBox/SendButtonContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 20
 text = "Send Max"
+
+[node name="SendAllButton" type="Button" parent="HUD/SendPanel/VBox/SendButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Send All"
 
 [node name="CancelButton" type="Button" parent="HUD/SendPanel/VBox"]
 layout_mode = 2

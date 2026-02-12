@@ -39,6 +39,7 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var bomber_slider: HSlider = $HUD/SendPanel/VBox/BomberSlider
 @onready var send_count_label: Label = $HUD/SendPanel/VBox/CountLabel
 @onready var send_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendButton
+@onready var send_max_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendMaxButton
 @onready var send_all_button: Button = $HUD/SendPanel/VBox/SendButtonContainer/SendAllButton
 @onready var cancel_button: Button = $HUD/SendPanel/VBox/CancelButton
 
@@ -160,6 +161,7 @@ func _draw() -> void:
 func _setup_ui_connections() -> void:
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	send_button.pressed.connect(_on_send_confirmed)
+	send_max_button.pressed.connect(_on_send_max_confirmed)
 	send_all_button.pressed.connect(_on_send_all_confirmed)
 	cancel_button.pressed.connect(_on_send_cancelled)
 	fighter_slider.value_changed.connect(_on_fighter_slider_changed)
@@ -1001,7 +1003,7 @@ func _update_send_count_label() -> void:
 	send_count_label.text = text
 
 
-func _on_send_all_confirmed() -> void:
+func _on_send_max_confirmed() -> void:
 	var max_total: int = ShipTypes.MAX_FLEET_SIZE
 	var available_f: int = int(fighter_slider.max_value)
 	var available_b: int = int(bomber_slider.max_value) if bomber_slider.visible else 0
@@ -1023,6 +1025,66 @@ func _on_send_all_confirmed() -> void:
 		bomber_slider.value = send_b
 
 	_on_send_confirmed()
+
+
+func _on_send_all_confirmed() -> void:
+	var available_f: int = int(fighter_slider.max_value)
+	var available_b: int = int(bomber_slider.max_value) if bomber_slider.visible else 0
+	var total: int = available_f + available_b
+
+	if total <= 0:
+		send_panel.visible = false
+		show_fleet_arrow = false
+		queue_redraw()
+		return
+
+	var distance: float = send_source_system.get_distance_to(send_target_system)
+	var remaining_f: int = available_f
+	var remaining_b: int = available_b
+
+	# Split into MAX_FLEET_SIZE waves, preserving fighter/bomber ratio
+	while remaining_f + remaining_b > 0:
+		var remaining_total: int = remaining_f + remaining_b
+		var wave_size: int = mini(remaining_total, ShipTypes.MAX_FLEET_SIZE)
+		var wave_f: int
+		var wave_b: int
+
+		if remaining_total <= ShipTypes.MAX_FLEET_SIZE:
+			wave_f = remaining_f
+			wave_b = remaining_b
+		else:
+			var f_ratio: float = float(remaining_f) / float(remaining_total)
+			wave_f = int(round(f_ratio * wave_size))
+			wave_f = mini(wave_f, remaining_f)
+			wave_b = mini(wave_size - wave_f, remaining_b)
+			if wave_f + wave_b < wave_size:
+				wave_f = mini(wave_f + (wave_size - wave_f - wave_b), remaining_f)
+
+		var fleet = Fleet.new(
+			current_player, wave_f,
+			send_source_system.system_id, send_target_system.system_id,
+			current_turn, distance, wave_b
+		)
+		fleets_in_transit.append(fleet)
+		remaining_f -= wave_f
+		remaining_b -= wave_b
+
+	# Remove all ships from source
+	send_source_system.remove_fighters(available_f)
+	send_source_system.remove_bombers(available_b)
+
+	send_panel.visible = false
+	show_fleet_arrow = false
+	queue_redraw()
+	_update_ui()
+
+	if selected_system and selected_system.get_total_ships() == 0:
+		selected_system.set_selected(false)
+		selected_system = null
+		action_panel.visible = false
+		system_info_label.text = ""
+	elif selected_system:
+		_show_owned_system_info(selected_system)
 
 
 func _on_send_confirmed() -> void:
