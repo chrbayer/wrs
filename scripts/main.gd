@@ -205,11 +205,24 @@ func _show_setup_screen() -> void:
 	# Select the right player count in the dropdown (index = count - 2)
 	player_count_option.select(count - 2)
 	_rebuild_player_config(count)
+	_resize_setup_screen()
 
 
 func _on_player_count_changed(_index: int) -> void:
 	var count = player_count_option.get_selected_id()
 	_rebuild_player_config(count)
+	_resize_setup_screen()
+
+
+func _resize_setup_screen() -> void:
+	var vbox = setup_screen.get_node("VBox")
+	var padding = Vector2(60, 60)  # 30px on each side
+	var needed = vbox.get_combined_minimum_size() + padding
+	needed.x = max(needed.x, 560.0)
+	setup_screen.offset_left = -needed.x / 2.0
+	setup_screen.offset_right = needed.x / 2.0
+	setup_screen.offset_top = -needed.y / 2.0
+	setup_screen.offset_bottom = needed.y / 2.0
 
 
 func _rebuild_player_config(count: int) -> void:
@@ -1534,6 +1547,9 @@ func _process_rebellions() -> void:
 				continue
 			# Systems with batteries are immune
 			if system.battery_count > 0:
+				continue
+			# Last system is immune (prevent indirect elimination via rebellion)
+			if count <= 1:
 				continue
 
 			if randf() < rebellion_chance:

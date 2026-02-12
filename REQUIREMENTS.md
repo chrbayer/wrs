@@ -176,6 +176,7 @@
 | RB-07 | Rebel-won systems become neutral with remaining rebel fighters | ✅ Done |
 | RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
 | RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
+| RB-10 | A player's last remaining system is immune to rebellion | ✅ Done |
 
 ---
 
