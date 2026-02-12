@@ -219,6 +219,7 @@
 | ~~UI-08~~ | ~~A "Send All" button shall allow sending all fighters at once~~ | ~~Done~~ |
 | ~~UI-08a~~ | ~~A "Send Max" button shall allow sending all available ships at once~~  | ~~Done~~ |
 | UI-08b | A "Send Max" button shall send up to `MAX_FLEET_SIZE` ships (preserving fighter/bomber ratio) | ✅ Done |
+| UI-08c | Double-clicking a target system while source is selected shall auto-send max fleet (equivalent to Send Max) | ✅ Done |
 | UI-09 | The current player's owned star count shall be visible             | ✅ Done |
 | UI-10 | The current player's total production rate shall be visible        | ✅ Done |
 | UI-11 | The number of fleets in transit shall be visible                   | ✅ Done |

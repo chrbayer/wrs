@@ -638,6 +638,8 @@ func _on_system_double_clicked(system: StarSystem) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
 	if send_panel.visible:
+		if system == send_target_system:
+			_on_send_max_confirmed()
 		return
 
 	if system.owner_id != current_player:
