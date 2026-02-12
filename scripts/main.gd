@@ -2215,33 +2215,60 @@ func _apply_shield_attrition(fleet: Fleet) -> void:
 
 
 func _process_rebellions() -> void:
-	# Count systems per active (non-eliminated) player
-	var system_counts: Dictionary = {}  # player_id -> count
+	# Compute multi-factor power score per active (non-eliminated) player
 	var active_players: int = 0
+	var system_counts: Dictionary = {}  # player_id -> count
+	var combat_power: Dictionary = {}   # player_id -> fighter equivalents
+	var production_total: Dictionary = {}  # player_id -> sum of production_rate
 	for i in range(player_count):
 		if not _is_player_eliminated(i):
 			active_players += 1
 			system_counts[i] = 0
+			combat_power[i] = 0.0
+			production_total[i] = 0.0
 
 	if active_players == 0:
 		return
 
+	# Sum systems, garrison combat power, and production per player
 	for system in systems:
 		if system.owner_id >= 0 and system_counts.has(system.owner_id):
 			system_counts[system.owner_id] += 1
+			combat_power[system.owner_id] += system.fighter_count + system.bomber_count * (ShipTypes.BOMBER_ATTACK / ShipTypes.FIGHTER_ATTACK)
+			production_total[system.owner_id] += system.production_rate
 
-	var total_owned: int = 0
+	# Add fleet combat power
+	for fleet in fleets_in_transit:
+		if combat_power.has(fleet.owner_id):
+			combat_power[fleet.owner_id] += fleet.fighter_count + fleet.bomber_count * (ShipTypes.BOMBER_ATTACK / ShipTypes.FIGHTER_ATTACK)
+
+	# Add station garrison combat power
+	for station in stations:
+		if station["operative"] and combat_power.has(station["owner_id"]):
+			combat_power[station["owner_id"]] += station["fighter_count"] + station["bomber_count"] * (ShipTypes.BOMBER_ATTACK / ShipTypes.FIGHTER_ATTACK)
+
+	# Compute weighted power scores
+	var power_scores: Dictionary = {}  # player_id -> power
+	var total_power: float = 0.0
 	for pid in system_counts:
-		total_owned += system_counts[pid]
+		var power: float = (
+			system_counts[pid] * ShipTypes.REBELLION_DOMINANCE_WEIGHT_SYSTEMS
+			+ combat_power[pid] * ShipTypes.REBELLION_DOMINANCE_WEIGHT_COMBAT
+			+ production_total[pid] * ShipTypes.REBELLION_DOMINANCE_WEIGHT_PRODUCTION
+		)
+		power_scores[pid] = power
+		total_power += power
 
-	var average: float = float(total_owned) / float(active_players)
+	var avg_power: float = total_power / float(active_players)
 
 	for player_id in system_counts:
-		var count: int = system_counts[player_id]
-		if count <= average * ShipTypes.REBELLION_DOMINANCE_FACTOR:
+		var power: float = power_scores[player_id]
+		if avg_power <= 0.0 or power <= avg_power * ShipTypes.REBELLION_DOMINANCE_FACTOR:
 			continue
 
-		var rebellion_chance: float = (count - average) * ShipTypes.REBELLION_CHANCE_PER_EXCESS
+		var power_ratio: float = power / avg_power
+		var rebellion_chance: float = (power_ratio - ShipTypes.REBELLION_DOMINANCE_FACTOR) * ShipTypes.REBELLION_CHANCE_PER_DOMINANCE
+		var count: int = system_counts[player_id]
 
 		for system in systems:
 			if system.owner_id != player_id:

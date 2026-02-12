@@ -169,8 +169,10 @@
 
 | ID   | Requirement                                                              | Status |
 |------|--------------------------------------------------------------------------|--------|
-| RB-01 | Systems of dominant players may rebel (dominance = owns > avg × `REBELLION_DOMINANCE_FACTOR`) | ✅ Done |
-| RB-02 | Rebellion chance per system = (own_systems - average) × `REBELLION_CHANCE_PER_EXCESS` | ✅ Done |
+| ~~RB-01~~ | ~~Systems of dominant players may rebel (dominance = owns > avg × `REBELLION_DOMINANCE_FACTOR`)~~ | ~~Done~~ |
+| RB-01a | Systems of dominant players may rebel (dominance = power score > avg power × `REBELLION_DOMINANCE_FACTOR`). Power score = weighted sum of system count, combat power (fighter equivalents), and total production rate | ✅ Done |
+| ~~RB-02~~ | ~~Rebellion chance per system = (own_systems - average) × `REBELLION_CHANCE_PER_EXCESS`~~ | ~~Done~~ |
+| RB-02a | Rebellion chance per system = (power_ratio - `REBELLION_DOMINANCE_FACTOR`) × `REBELLION_CHANCE_PER_DOMINANCE`, where power_ratio = player power / avg power | ✅ Done |
 | RB-03 | Rebels spawn `production_rate` × `REBELLION_STRENGTH_FACTOR` neutral fighters | ✅ Done |
 | RB-04 | Rebels attack garrison using standard combat (garrison gets `DEFENDER_BONUS`) | ✅ Done |
 | RB-05 | Home systems are immune to rebellion | ✅ Done |
@@ -367,7 +369,7 @@
 | ~~FUT-16~~ | ~~Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes~~    | ~~Done~~ |
 | FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
 | FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
-| FUT-18 | Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
+| FUT-18 | Rebellion mechanic: systems of dominant players (multi-factor power score: systems, combat power, production) may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
 | FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ✅ Done |
 | FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) at designated build sites within MAX_SYSTEM_DISTANCE of any star or own station (chain building). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars/stations (full visibility range, always succeeds), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ✅ Done |
 
@@ -414,8 +416,12 @@
 | FIGHTER_MORALE_PENALTY | 0.2 (20%) | Attack power reduction per turn beyond threshold |
 | FIGHTER_MORALE_MIN | 0.5 (50%) | Minimum fighter morale (attack power floor) |
 | MAX_FLEET_SIZE | 40 | Maximum ships per combat wave (merged fleets exceeding this are split) |
-| REBELLION_DOMINANCE_FACTOR | 1.3 | Rebellion triggers when player owns > avg × this factor |
-| REBELLION_CHANCE_PER_EXCESS | 0.05 (5%) | Rebellion chance per unprotected system, per excess system over average |
+| REBELLION_DOMINANCE_FACTOR | 1.3 | Rebellion triggers when player power > avg power × this factor |
+| REBELLION_DOMINANCE_WEIGHT_SYSTEMS | 4.0 | Weight of system count in power score |
+| REBELLION_DOMINANCE_WEIGHT_COMBAT | 0.1 | Weight of combat power (fighter equivalents) in power score |
+| REBELLION_DOMINANCE_WEIGHT_PRODUCTION | 0.5 | Weight of total production rate in power score |
+| ~~REBELLION_CHANCE_PER_EXCESS~~ | ~~0.05 (5%)~~ | ~~Replaced by REBELLION_CHANCE_PER_DOMINANCE~~ |
+| REBELLION_CHANCE_PER_DOMINANCE | 0.3 (30%) | Rebellion chance per unprotected system = (power_ratio - DOMINANCE_FACTOR) × this |
 | REBELLION_STRENGTH_FACTOR | 3 | Rebels = production_rate × this factor |
 | SHIELD_MIN_BATTERIES | 2 | Minimum batteries per system to participate in a shield line |
 | SHIELD_DAMAGE_FACTOR | 0.04 (4%) | Base attrition loss rate per shield-power-point × density |
@@ -457,3 +463,4 @@
 - **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems immune. Batteries reduce rebellion chance proportionally (20% per level), only max batteries (5) = fully immune.
 - **Update 2026-02:** Shield lines (FUT-19): territorial defense via manually activated energy lines between battery-equipped systems. Attrition and blockade mechanics scale with shield density (inverse distance) and battery levels. Closed rings grant production bonuses. Bombers have 50% shield resistance. AI Fortress activates shields on frontier; all AI tactics avoid enemy shield crossings. 41 detailed requirements (SL-01 to SL-41), 10 new parameters. Production mode updated to PR-02b.
 - **Update 2026-02:** Space stations (FUT-20): Material-based construction (24 FÄ, 3 rounds) at designated build sites. Chain building from stars and operative stations. Batteries via material delivery (max 2). Visibility: invisible by default, detected via passive scan (stars/stations, full visibility range), fleet scan (size-dependent, `3 px/ship` above threshold of 5), or garrison (weapon signatures). Combat: same as systems with batteries, destroyed on conquest. AI builds stations (Fortress/Economy/Balanced), delivers material, attacks enemy stations, builds batteries. 33 detailed requirements (SS-01 to SS-33), 11 new parameters. V-02 updated to V-02a (elimination includes stations).
+- **Update 2026-02:** Rebellion dominance now uses multi-factor power score (weighted sum of system count, combat power in fighter equivalents, and total production rate) instead of pure system count. RB-01a/RB-02a replace RB-01/RB-02. REBELLION_CHANCE_PER_EXCESS replaced by REBELLION_CHANCE_PER_DOMINANCE (0.3) and three weight constants (REBELLION_DOMINANCE_WEIGHT_SYSTEMS=4.0, WEIGHT_COMBAT=0.1, WEIGHT_PRODUCTION=0.5).
