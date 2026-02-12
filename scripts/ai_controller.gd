@@ -8,30 +8,38 @@ extends RefCounted
 ##   player_id, tactic, owned_systems, known_systems, my_fleets, all_systems
 
 
-## Main entry point: returns {"production_changes": [...], "fleet_orders": [...]}
+## Main entry point: returns {"production_changes": [...], "fleet_orders": [...], "station_actions": [...]}
 static func execute_turn(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
 						 p_system_memory: Dictionary,
 						 p_shield_lines: Array = [],
-						 p_shield_activations: Array = []) -> Dictionary:
+						 p_shield_activations: Array = [],
+						 p_stations: Array = []) -> Dictionary:
 	var state = _build_state(player_id, tactic, p_systems, fleets, p_system_memory,
-							 p_shield_lines, p_shield_activations)
+							 p_shield_lines, p_shield_activations, p_stations)
 
+	var result: Dictionary
 	if _should_early_expand(state):
-		return _execute_early_expansion(state)
-
-	if tactic == Player.AiTactic.RUSH:
-		return _execute_rush(state)
+		result = _execute_early_expansion(state)
+	elif tactic == Player.AiTactic.RUSH:
+		result = _execute_rush(state)
 	elif tactic == Player.AiTactic.FORTRESS:
-		return _execute_fortress(state)
+		result = _execute_fortress(state)
 	elif tactic == Player.AiTactic.ECONOMY:
-		return _execute_economy(state)
+		result = _execute_economy(state)
 	elif tactic == Player.AiTactic.BOMBER:
-		return _execute_bomber(state)
+		result = _execute_bomber(state)
 	elif tactic == Player.AiTactic.BALANCED:
-		return _execute_balanced(state)
+		result = _execute_balanced(state)
+	else:
+		result = {"production_changes": [], "fleet_orders": []}
 
-	return {"production_changes": [], "fleet_orders": []}
+	# Add station-related orders (all tactics)
+	if not result.has("station_actions"):
+		result["station_actions"] = []
+	_add_station_orders(state, result)
+
+	return result
 
 
 ## Build state dictionary from raw game data
@@ -39,7 +47,8 @@ static func _build_state(player_id: int, tactic: int,
 						 p_systems: Array, fleets: Array,
 						 p_system_memory: Dictionary,
 						 p_shield_lines: Array = [],
-						 p_shield_activations: Array = []) -> Dictionary:
+						 p_shield_activations: Array = [],
+						 p_stations: Array = []) -> Dictionary:
 	var owned: Array = []
 	for system in p_systems:
 		if system.owner_id == player_id:
@@ -67,6 +76,15 @@ static func _build_state(player_id: int, tactic: int,
 		if fleet.owner_id == player_id:
 			my_fleets.append(fleet)
 
+	# Categorize stations
+	var own_stations: Array = []
+	var enemy_stations: Array = []
+	for station in p_stations:
+		if station["owner_id"] == player_id:
+			own_stations.append(station)
+		elif player_id in station["discovered_by"]:
+			enemy_stations.append(station)
+
 	return {
 		"player_id": player_id,
 		"tactic": tactic,
@@ -74,8 +92,11 @@ static func _build_state(player_id: int, tactic: int,
 		"known_systems": known,
 		"my_fleets": my_fleets,
 		"all_systems": p_systems,
+		"all_stations": p_stations,
 		"shield_lines": p_shield_lines,
 		"shield_activations": p_shield_activations,
+		"own_stations": own_stations,
+		"enemy_stations": enemy_stations,
 	}
 
 
@@ -699,3 +720,200 @@ static func _ai_path_shield_cost(state: Dictionary, source_pos: Vector2, target_
 			var density = Combat.calculate_shield_density(distance)
 			cost += density * 3.0  # Significant penalty per crossing
 	return cost
+
+
+# ── Station helpers (FUT-20) ─────────────────────────────────────
+
+const STATION_ID_OFFSET: int = 1000
+
+
+## Add station-related fleet orders and actions to the result.
+## Handles material delivery, enemy station attacks, and station building.
+static func _add_station_orders(state: Dictionary, result: Dictionary) -> void:
+	var pid = state["player_id"]
+	var own_stations: Array = state["own_stations"]
+	var enemy_stations: Array = state["enemy_stations"]
+
+	# 1. Send material to stations under construction
+	for station in own_stations:
+		if station["operative"]:
+			continue
+		var station_target_id = station["id"] + STATION_ID_OFFSET
+		if _has_fleet_targeting(state, station_target_id):
+			continue
+		# Find nearest system with enough fighters to send
+		var best_sys: StarSystem = null
+		var best_dist: float = INF
+		for sys in state["owned_systems"]:
+			if sys.fighter_count <= 8:
+				continue
+			var dist = sys.global_position.distance_to(station["position"])
+			if dist < best_dist:
+				best_dist = dist
+				best_sys = sys
+		if best_sys:
+			var send_count = min(best_sys.fighter_count - 4, ShipTypes.STATION_BUILD_PER_ROUND)
+			if send_count > 0:
+				result["fleet_orders"].append({
+					"source_id": best_sys.system_id,
+					"target_id": station_target_id,
+					"fighters": send_count,
+					"bombers": 0,
+				})
+
+	# 2. Send material to stations building batteries
+	for station in own_stations:
+		if not station["operative"] or not station["building_battery"]:
+			continue
+		var station_target_id = station["id"] + STATION_ID_OFFSET
+		if _has_fleet_targeting(state, station_target_id):
+			continue
+		var best_sys: StarSystem = null
+		var best_dist: float = INF
+		for sys in state["owned_systems"]:
+			if sys.fighter_count <= 6:
+				continue
+			var dist = sys.global_position.distance_to(station["position"])
+			if dist < best_dist:
+				best_dist = dist
+				best_sys = sys
+		if best_sys:
+			var send_count = min(best_sys.fighter_count - 4, ShipTypes.STATION_BATTERY_PER_ROUND)
+			if send_count > 0:
+				result["fleet_orders"].append({
+					"source_id": best_sys.system_id,
+					"target_id": station_target_id,
+					"fighters": send_count,
+					"bombers": 0,
+				})
+
+	# 3. Attack enemy stations with garrison or nearby threat
+	for station in enemy_stations:
+		if not station["operative"]:
+			continue
+		var station_target_id = station["id"] + STATION_ID_OFFSET
+		if _has_fleet_targeting(state, station_target_id):
+			continue
+		var garrison = station["fighter_count"] + station["bomber_count"]
+		for sys in state["owned_systems"]:
+			if sys.fighter_count <= 8:
+				continue
+			var dist = sys.global_position.distance_to(station["position"])
+			if dist > UniverseGenerator.MAX_SYSTEM_DISTANCE * 2:
+				continue
+			# Need enough to overcome garrison + batteries
+			var needed = garrison + station["battery_count"] * 3 + 5
+			if sys.fighter_count - 6 >= needed:
+				result["fleet_orders"].append({
+					"source_id": sys.system_id,
+					"target_id": station_target_id,
+					"fighters": min(sys.fighter_count - 6, needed + 4),
+					"bombers": 0,
+				})
+				break
+
+	# 4. Station building (Fortress, Economy, Balanced — if tactic benefits from it)
+	var tactic = state["tactic"]
+	if tactic == Player.AiTactic.FORTRESS or tactic == Player.AiTactic.ECONOMY or tactic == Player.AiTactic.BALANCED:
+		_ai_consider_station_build(state, result)
+
+	# 5. Station battery building for operative stations without batteries (Fortress)
+	if tactic == Player.AiTactic.FORTRESS:
+		for station in own_stations:
+			if station["operative"] and station["battery_count"] < ShipTypes.STATION_MAX_BATTERIES and not station["building_battery"]:
+				result["station_actions"].append({"type": "build_battery", "station_id": station["id"]})
+				break  # One at a time
+
+
+## AI decides whether to build a station and where.
+static func _ai_consider_station_build(state: Dictionary, result: Dictionary) -> void:
+	var pid = state["player_id"]
+	var own_stations: Array = state["own_stations"]
+
+	if own_stations.size() >= ShipTypes.MAX_STATIONS_PER_PLAYER:
+		return
+
+	# Only build if we have enough systems and surplus fighters
+	if state["owned_systems"].size() < 3:
+		return
+	var total_f = _total_fighters(state)
+	if total_f < 20:
+		return
+
+	# Find a good position: midpoint between frontier systems, extending territory
+	var best_pos = _find_station_build_position(state)
+	if best_pos != Vector2.ZERO:
+		result["station_actions"].append({"type": "build_station", "position": best_pos})
+
+
+## Find a good position for AI to build a station.
+## Tries to place it between owned frontier systems and enemy territory.
+static func _find_station_build_position(state: Dictionary) -> Vector2:
+	var pid = state["player_id"]
+	var all_systems = state["all_systems"]
+	var all_stations = state["all_stations"]
+
+	# Find frontier systems
+	var frontier: Array = []
+	for sys in state["owned_systems"]:
+		if _is_frontier(sys, state):
+			frontier.append(sys)
+
+	if frontier.is_empty():
+		return Vector2.ZERO
+
+	# Try to find positions extending from frontier towards enemies
+	var enemies = _get_known_enemies(state)
+	if enemies.is_empty():
+		return Vector2.ZERO
+
+	# Pick the frontier system closest to an enemy
+	var best_frontier: StarSystem = null
+	var best_enemy_dist: float = INF
+	for sys in frontier:
+		for enemy in enemies:
+			var dist = sys.global_position.distance_to(enemy["position"])
+			if dist < best_enemy_dist:
+				best_enemy_dist = dist
+				best_frontier = sys
+
+	if not best_frontier:
+		return Vector2.ZERO
+
+	# Find nearest enemy to this frontier system
+	var nearest_enemy_pos = Vector2.ZERO
+	var min_dist = INF
+	for enemy in enemies:
+		var dist = best_frontier.global_position.distance_to(enemy["position"])
+		if dist < min_dist:
+			min_dist = dist
+			nearest_enemy_pos = enemy["position"]
+
+	# Place station partway from frontier toward enemy
+	var direction = (nearest_enemy_pos - best_frontier.global_position).normalized()
+	var place_dist = UniverseGenerator.MAX_SYSTEM_DISTANCE * 0.8
+	var candidate = best_frontier.global_position + direction * place_dist
+
+	# Validate: minimum distance to all systems and stations
+	for sys in all_systems:
+		if candidate.distance_to(sys.global_position) < UniverseGenerator.MIN_SYSTEM_DISTANCE:
+			return Vector2.ZERO
+	for station in all_stations:
+		if candidate.distance_to(station["position"]) < UniverseGenerator.MIN_SYSTEM_DISTANCE:
+			return Vector2.ZERO
+
+	# Validate: within range of own system or operative station
+	var in_range = false
+	for sys in state["owned_systems"]:
+		if candidate.distance_to(sys.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+			in_range = true
+			break
+	if not in_range:
+		for station in state["own_stations"]:
+			if station["operative"] and candidate.distance_to(station["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				in_range = true
+				break
+	if not in_range:
+		return Vector2.ZERO
+
+	return candidate

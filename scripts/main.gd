@@ -52,6 +52,14 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var activate_shield_btn: Button = $HUD/ActionPanel/VBox/ActivateShieldBtn
 @onready var action_close_btn: Button = $HUD/ActionPanel/VBox/CloseBtn
 
+# Station UI
+@onready var build_station_btn: Button = $HUD/TopBar/BuildStationButton
+@onready var station_action_panel: Panel = $HUD/StationActionPanel
+@onready var station_battery_btn: Button = $HUD/StationActionPanel/VBox/BuildBatteryBtn
+@onready var station_shield_btn: Button = $HUD/StationActionPanel/VBox/ActivateShieldBtn
+@onready var station_close_btn: Button = $HUD/StationActionPanel/VBox/CloseBtn
+@onready var station_title_label: Label = $HUD/StationActionPanel/VBox/TitleLabel
+
 # Player transition screen (in separate CanvasLayer to avoid rendering issues)
 @onready var transition_screen: Control = $TransitionLayer/TransitionScreen
 @onready var transition_label: Label = $TransitionLayer/TransitionScreen/TransitionLabel
@@ -113,6 +121,17 @@ var shield_activations: Array = []     # [{system_a: int, system_b: int, owner_i
 var shield_select_source: StarSystem = null  # Partner selection mode
 var shield_line_memory: Dictionary = {} # player_id -> Array of {system_a, system_b, owner_id}
 
+# Space stations (FUT-20)
+const STATION_ID_OFFSET: int = 1000
+const STATION_CLICK_RADIUS: float = 20.0
+const STATION_DIAMOND_SIZE: float = 12.0
+var stations: Array = []               # Array of station Dictionaries
+var station_placement_mode: bool = false
+var next_station_id: int = 0
+var selected_station_idx: int = -1     # Index into stations, -1 = none
+var send_source_station_idx: int = -1  # Station as fleet source
+var send_target_station_idx: int = -1  # Station as fleet target
+
 # AI turn delay timer
 var ai_delay_timer: Timer = null
 const AI_TURN_DELAY: float = 0.3
@@ -131,13 +150,18 @@ func _draw() -> void:
 	# Draw shield lines after visibility overlay, before fleet arrow
 	if game_started and not setup_screen.visible:
 		_draw_shield_lines()
+		_draw_stations()
 
-	if show_fleet_arrow and send_source_system and send_target_system:
-		var start_pos = send_source_system.global_position
-		var end_pos = send_target_system.global_position
+	# Draw placement zone when in station placement mode
+	if station_placement_mode:
+		_draw_station_placement_zones()
+
+	if show_fleet_arrow and (_get_send_source_pos() != Vector2.ZERO) and (_get_send_target_pos() != Vector2.ZERO):
+		var start_pos = _get_send_source_pos()
+		var end_pos = _get_send_target_pos()
 
 		# Calculate travel time for color based on current slider values
-		var distance = send_source_system.get_distance_to(send_target_system)
+		var distance = start_pos.distance_to(end_pos)
 		var fighters = int(fighter_slider.value) if fighter_slider else 0
 		var bombers = int(bomber_slider.value) if bomber_slider else 0
 		var travel_turns = Fleet.calculate_travel_time(distance, fighters, bombers)
@@ -147,10 +171,14 @@ func _draw() -> void:
 		var color_index = min(travel_turns - 1, ARROW_COLORS.size() - 1)
 		var arrow_color = ARROW_COLORS[color_index]
 
-		# Calculate direction and shorten arrow to not overlap with stars
+		# Calculate direction and shorten arrow to not overlap with stars/stations
 		var direction = (end_pos - start_pos).normalized()
-		var source_radius = send_source_system._get_radius() + 10
-		var target_radius = send_target_system._get_radius() + 10
+		var source_radius: float = STATION_DIAMOND_SIZE + 5
+		if send_source_system:
+			source_radius = send_source_system._get_radius() + 10
+		var target_radius: float = STATION_DIAMOND_SIZE + 5
+		if send_target_system:
+			target_radius = send_target_system._get_radius() + 10
 
 		var arrow_start = start_pos + direction * source_radius
 		var arrow_end = end_pos - direction * target_radius
@@ -191,6 +219,12 @@ func _setup_ui_connections() -> void:
 	activate_shield_btn.pressed.connect(_on_activate_shield_pressed)
 	action_close_btn.pressed.connect(_on_action_close_pressed)
 
+	# Station UI connections
+	build_station_btn.pressed.connect(_on_build_station_pressed)
+	station_battery_btn.pressed.connect(_on_station_battery_pressed)
+	station_shield_btn.pressed.connect(_on_station_shield_pressed)
+	station_close_btn.pressed.connect(_on_station_close_pressed)
+
 	# Create AI delay timer
 	ai_delay_timer = Timer.new()
 	ai_delay_timer.one_shot = true
@@ -205,6 +239,7 @@ func _show_setup_screen() -> void:
 	combat_report_screen.visible = false
 	send_panel.visible = false
 	action_panel.visible = false
+	station_action_panel.visible = false
 	# Hide game UI during setup
 	$HUD/TopBar.visible = false
 	$HUD/BottomBar.visible = false
@@ -352,6 +387,17 @@ func _start_game(player_configs: Array = []) -> void:
 	shield_select_source = null
 	shield_line_memory.clear()
 
+	# Clear stations
+	for station in stations:
+		if station.has("node") and station["node"]:
+			station["node"].queue_free()
+	stations.clear()
+	station_placement_mode = false
+	next_station_id = 0
+	selected_station_idx = -1
+	send_source_station_idx = -1
+	send_target_station_idx = -1
+
 	# Initialize players
 	for i in range(player_count):
 		if i < player_configs.size():
@@ -437,6 +483,14 @@ func _update_fog_of_war() -> void:
 		if system.owner_id == current_player:
 			owned_systems.append(system)
 
+	# Collect scan positions (owned systems + operative stations)
+	var scan_positions: Array[Vector2] = []
+	for sys in owned_systems:
+		scan_positions.append(sys.global_position)
+	for station in stations:
+		if station["owner_id"] == current_player and station["operative"]:
+			scan_positions.append(station["position"])
+
 	# Update visibility based on current player
 	for system in systems:
 		var system_visible = false
@@ -445,9 +499,9 @@ func _update_fog_of_war() -> void:
 		if system.owner_id == current_player:
 			system_visible = true
 		else:
-			# Check if any owned system is within visibility range
-			for owned in owned_systems:
-				if system.global_position.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+			# Check if any scan source is within visibility range
+			for scan_pos in scan_positions:
+				if system.global_position.distance_to(scan_pos) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
 					system_visible = true
 					break
 
@@ -498,13 +552,21 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 	var radius = UniverseGenerator.MAX_SYSTEM_DISTANCE
 	var radius_sq = radius * radius
 
-	# For each pixel, check if it's within range of any owned system
+	# Collect all scan center positions (systems + operative stations)
+	var scan_centers: Array[Vector2] = []
+	for sys in owned_systems:
+		scan_centers.append(sys.global_position)
+	for station in stations:
+		if station["owner_id"] == current_player and station["operative"]:
+			scan_centers.append(station["position"])
+
+	# For each pixel, check if it's within range of any scan center
 	for x in range(img.get_width()):
 		for y in range(img.get_height()):
 			var pos = Vector2(x, y)
 			var in_range = false
-			for system in owned_systems:
-				if pos.distance_squared_to(system.global_position) <= radius_sq:
+			for center in scan_centers:
+				if pos.distance_squared_to(center) <= radius_sq:
 					in_range = true
 					break
 			if in_range:
@@ -586,7 +648,11 @@ func _show_player_transition() -> void:
 		selected_system = null
 	send_panel.visible = false
 	action_panel.visible = false
+	station_action_panel.visible = false
 	shield_select_source = null
+	station_placement_mode = false
+	selected_station_idx = -1
+	_station_shield_source_idx = -1
 
 	# AI players: execute turn automatically (no transition screen)
 	if players[current_player].is_ai:
@@ -645,6 +711,11 @@ func _update_ui() -> void:
 	ship_count_label.text = "Ships: %d" % total_ships
 	production_label.text = "Production: +%d" % total_production
 
+	# Update build station button
+	var station_count = _count_player_stations(current_player)
+	build_station_btn.text = "Build Station (%d/%d)" % [station_count, ShipTypes.MAX_STATIONS_PER_PLAYER]
+	build_station_btn.disabled = station_count >= ShipTypes.MAX_STATIONS_PER_PLAYER
+
 	# Update fleet info
 	var my_fleets = fleets_in_transit.filter(func(f): return f.owner_id == current_player)
 	if my_fleets.size() > 0:
@@ -670,6 +741,10 @@ func _get_player_total_ships(player_id: int) -> int:
 	for system in systems:
 		if system.owner_id == player_id:
 			total += system.fighter_count + system.bomber_count
+	# Ships in stations
+	for station in stations:
+		if station["owner_id"] == player_id:
+			total += station["fighter_count"] + station["bomber_count"]
 	# Ships in transit
 	for fleet in fleets_in_transit:
 		if fleet.owner_id == player_id:
@@ -683,10 +758,21 @@ func _on_system_clicked(system: StarSystem) -> void:
 	if send_panel.visible:
 		return
 
+	# Cancel station shield selection if active
+	if _station_shield_source_idx >= 0:
+		_station_shield_source_idx = -1
+
 	# Shield partner selection mode
 	if shield_select_source:
 		_try_activate_shield(shield_select_source, system)
 		return
+
+	# If a station is selected as source and we click a system, send fleet from station
+	if selected_station_idx >= 0:
+		var src = stations[selected_station_idx]
+		if src["owner_id"] == current_player and (src["fighter_count"] + src["bomber_count"]) > 0:
+			_start_send_fleet_from_station(selected_station_idx, system)
+			return
 
 	# If we have an owned source selected and click a different system, send fleet
 	if selected_system and selected_system != system:
@@ -710,9 +796,11 @@ func _on_system_clicked(system: StarSystem) -> void:
 	if selected_system:
 		selected_system.set_selected(false)
 	selected_system = system
+	selected_station_idx = -1
 	system.set_selected(true)
 	send_panel.visible = false
 	action_panel.visible = false
+	station_action_panel.visible = false
 	show_fleet_arrow = false
 	queue_redraw()
 
@@ -1068,14 +1156,34 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# Station placement mode: click to place
+	if station_placement_mode and event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			var mouse_pos = get_global_mouse_position()
+			if _is_valid_station_placement(mouse_pos):
+				_place_station(mouse_pos)
+			else:
+				system_info_label.text = "Invalid placement! Must be within range of own system/station, away from others."
+			get_viewport().set_input_as_handled()
+			return
+
 	if event.is_action_pressed("ui_cancel"):
-		if combat_report_screen.visible:
+		if station_placement_mode:
+			station_placement_mode = false
+			system_info_label.text = ""
+			queue_redraw()
+		elif combat_report_screen.visible:
 			_on_close_report_pressed()
+		elif _station_shield_source_idx >= 0:
+			_station_shield_source_idx = -1
+			system_info_label.text = ""
 		elif shield_select_source:
 			shield_select_source = null
 			system_info_label.text = ""
 		elif send_panel.visible:
 			_on_send_cancelled()
+		elif station_action_panel.visible:
+			_on_station_close_pressed()
 		elif action_panel.visible:
 			_on_action_close_pressed()
 		get_viewport().set_input_as_handled()
@@ -1279,7 +1387,9 @@ func _on_bomber_slider_changed(_value: float) -> void:
 func _update_send_count_label() -> void:
 	var fighters = int(fighter_slider.value)
 	var bombers = int(bomber_slider.value) if bomber_slider.visible else 0
-	var distance = send_source_system.get_distance_to(send_target_system)
+	var source_pos = _get_send_source_pos()
+	var target_pos = _get_send_target_pos()
+	var distance = source_pos.distance_to(target_pos)
 	var travel_time = Fleet.calculate_travel_time(distance, fighters, bombers)
 	var morale = Fleet.calculate_fighter_morale(travel_time)
 
@@ -1292,7 +1402,7 @@ func _update_send_count_label() -> void:
 
 	# Shield crossing preview
 	var crossings = _get_shield_crossings(
-		send_source_system.global_position, send_target_system.global_position,
+		source_pos, target_pos,
 		current_player, fighters, bombers
 	)
 	if crossings.size() > 0:
@@ -1359,7 +1469,7 @@ func _on_send_max_confirmed() -> void:
 
 	# Check shield blockade before committing
 	var crossings = _get_shield_crossings(
-		send_source_system.global_position, send_target_system.global_position,
+		_get_send_source_pos(), _get_send_target_pos(),
 		current_player, available_f, available_b
 	)
 	for effect in crossings:
@@ -1397,16 +1507,15 @@ func _on_send_all_confirmed() -> void:
 		return
 
 	# Check shield blockade before committing
-	var crossings = _get_shield_crossings(
-		send_source_system.global_position, send_target_system.global_position,
-		current_player, available_f, available_b
-	)
+	var source_pos = _get_send_source_pos()
+	var target_pos = _get_send_target_pos()
+	var crossings = _get_shield_crossings(source_pos, target_pos, current_player, available_f, available_b)
 	for effect in crossings:
 		if effect["fighter_blocked"] and (effect["bomber_blocked"] or available_b == 0):
 			system_info_label.text = "Fleet blocked by enemy shield line!"
 			return
 
-	var distance: float = send_source_system.get_distance_to(send_target_system)
+	var distance: float = source_pos.distance_to(target_pos)
 	var remaining_f: int = available_f
 	var remaining_b: int = available_b
 
@@ -1430,7 +1539,7 @@ func _on_send_all_confirmed() -> void:
 
 		var fleet = Fleet.new(
 			current_player, wave_f,
-			send_source_system.system_id, send_target_system.system_id,
+			_get_send_source_id(), _get_send_target_id(),
 			current_turn, distance, wave_b
 		)
 		fleets_in_transit.append(fleet)
@@ -1438,8 +1547,13 @@ func _on_send_all_confirmed() -> void:
 		remaining_b -= wave_b
 
 	# Remove all ships from source
-	send_source_system.remove_fighters(available_f)
-	send_source_system.remove_bombers(available_b)
+	if send_source_system:
+		send_source_system.remove_fighters(available_f)
+		send_source_system.remove_bombers(available_b)
+	elif send_source_station_idx >= 0:
+		var src = stations[send_source_station_idx]
+		src["fighter_count"] = max(0, src["fighter_count"] - available_f)
+		src["bomber_count"] = max(0, src["bomber_count"] - available_b)
 
 	send_panel.visible = false
 	show_fleet_arrow = false
@@ -1465,11 +1579,11 @@ func _on_send_confirmed() -> void:
 		queue_redraw()
 		return
 
+	var source_pos = _get_send_source_pos()
+	var target_pos = _get_send_target_pos()
+
 	# Check shield blockade before sending
-	var crossings = _get_shield_crossings(
-		send_source_system.global_position, send_target_system.global_position,
-		current_player, fighters, bombers
-	)
+	var crossings = _get_shield_crossings(source_pos, target_pos, current_player, fighters, bombers)
 	var fully_blocked = false
 	for effect in crossings:
 		if effect["fighter_blocked"] and (effect["bomber_blocked"] or bombers == 0):
@@ -1480,20 +1594,27 @@ func _on_send_confirmed() -> void:
 		return
 
 	# Create fleet
-	var distance = send_source_system.get_distance_to(send_target_system)
+	var distance = source_pos.distance_to(target_pos)
+	var source_id = _get_send_source_id()
+	var target_id = _get_send_target_id()
 	var fleet = Fleet.new(
 		current_player,
 		fighters,
-		send_source_system.system_id,
-		send_target_system.system_id,
+		source_id,
+		target_id,
 		current_turn,
 		distance,
 		bombers
 	)
 
 	# Remove ships from source
-	send_source_system.remove_fighters(fighters)
-	send_source_system.remove_bombers(bombers)
+	if send_source_system:
+		send_source_system.remove_fighters(fighters)
+		send_source_system.remove_bombers(bombers)
+	elif send_source_station_idx >= 0:
+		var src = stations[send_source_station_idx]
+		src["fighter_count"] = max(0, src["fighter_count"] - fighters)
+		src["bomber_count"] = max(0, src["bomber_count"] - bombers)
 	fleets_in_transit.append(fleet)
 
 	# Update UI
@@ -1518,6 +1639,8 @@ func _on_send_cancelled() -> void:
 	queue_redraw()
 	send_source_system = null
 	send_target_system = null
+	send_source_station_idx = -1
+	send_target_station_idx = -1
 
 
 func _on_end_turn_pressed() -> void:
@@ -1551,9 +1674,12 @@ func _advance_to_next_player() -> void:
 
 
 func _is_player_eliminated(player_id: int) -> bool:
-	# Check if a player has no systems and no fleets
+	# Check if a player has no systems, no stations, and no fleets
 	for system in systems:
 		if system.owner_id == player_id:
+			return false
+	for station in stations:
+		if station["owner_id"] == player_id:
 			return false
 	for fleet in fleets_in_transit:
 		if fleet.owner_id == player_id:
@@ -1583,7 +1709,8 @@ func _execute_ai_turn() -> void:
 		fleets_in_transit,
 		system_memory,
 		shield_lines,
-		shield_activations
+		shield_activations,
+		stations
 	)
 
 	# Apply production changes
@@ -1598,10 +1725,26 @@ func _execute_ai_turn() -> void:
 		elif change.has("mode"):
 			sys.set_production_mode(change["mode"])
 
+	# Apply station actions
+	for action in decisions.get("station_actions", []):
+		if action["type"] == "build_station":
+			var pos = action["position"]
+			if _count_player_stations(current_player) < ShipTypes.MAX_STATIONS_PER_PLAYER:
+				if _is_valid_station_placement(pos):
+					_place_station_for_player(pos, current_player)
+		elif action["type"] == "build_battery":
+			var idx = _find_station_by_id(action["station_id"])
+			if idx >= 0:
+				var station = stations[idx]
+				if station["owner_id"] == current_player and station["operative"]:
+					if station["battery_count"] < ShipTypes.STATION_MAX_BATTERIES and not station["building_battery"]:
+						station["building_battery"] = true
+						station["battery_build_progress"] = 0
+						station["battery_material"] = 0
+
 	# Apply fleet orders
 	for order in decisions["fleet_orders"]:
 		var source = systems[order["source_id"]]
-		var target = systems[order["target_id"]]
 		if source.owner_id != current_player:
 			continue
 
@@ -1611,12 +1754,14 @@ func _execute_ai_turn() -> void:
 		if fighters <= 0 and bombers <= 0:
 			continue
 
-		var distance = source.global_position.distance_to(target.global_position)
+		var target_id = order["target_id"]
+		var target_pos = _get_entity_position(target_id)
+		var distance = source.global_position.distance_to(target_pos)
 		var fleet = Fleet.new(
 			current_player,
 			fighters,
 			source.system_id,
-			target.system_id,
+			target_id,
 			current_turn,
 			distance,
 			bombers
@@ -1826,6 +1971,13 @@ func _process_turn_end() -> void:
 	# 0. Process shield activations
 	_process_shield_activations()
 
+	# 0a. Process station building/battery
+	_process_station_building()
+
+	# 0b. Passive scan (discover stations)
+	for pid in range(player_count):
+		_perform_passive_scan(pid)
+
 	# 1. Calculate ring bonuses and production in owned systems
 	var ring_bonuses = _calculate_ring_bonuses()
 	for system in systems:
@@ -1836,8 +1988,12 @@ func _process_turn_end() -> void:
 	# 2. Rebellions (after production, before fleet arrival)
 	_process_rebellions()
 
+	# 2a. Fleet scan (discover stations while in transit)
+	_perform_fleet_scan()
+
 	# 3. Process arriving fleets (renumbered from 2)
 	var arriving_fleets: Dictionary = {}  # system_id -> Array[Fleet]
+	var arriving_at_stations: Dictionary = {}  # station_idx -> Array[Fleet]
 	var remaining_fleets: Array[Fleet] = []
 
 	for fleet in fleets_in_transit:
@@ -1848,13 +2004,25 @@ func _process_turn_end() -> void:
 			if fleet.fighter_count <= 0 and fleet.bomber_count <= 0:
 				continue
 			var target_id = fleet.target_system_id
-			if not arriving_fleets.has(target_id):
-				arriving_fleets[target_id] = []
-			arriving_fleets[target_id].append(fleet)
+			if _is_station_id(target_id):
+				# Fleet targeting a station
+				var station_idx = _find_station_by_id(target_id - STATION_ID_OFFSET)
+				if station_idx < 0:
+					continue  # Station destroyed — fleet lost
+				if not arriving_at_stations.has(station_idx):
+					arriving_at_stations[station_idx] = []
+				arriving_at_stations[station_idx].append(fleet)
+			else:
+				if not arriving_fleets.has(target_id):
+					arriving_fleets[target_id] = []
+				arriving_fleets[target_id].append(fleet)
 		else:
 			remaining_fleets.append(fleet)
 
 	fleets_in_transit = remaining_fleets
+
+	# 3a. Process fleet arrivals at stations
+	_process_station_fleet_arrivals(arriving_at_stations)
 
 	# 4. Resolve combats
 	for system_id in arriving_fleets:
@@ -2012,8 +2180,8 @@ func _process_shield_activations() -> void:
 ## Apply shield attrition to a fleet that is about to arrive.
 ## Checks all enemy shield lines the fleet's path crosses.
 func _apply_shield_attrition(fleet: Fleet) -> void:
-	var source_pos = systems[fleet.source_system_id].global_position
-	var target_pos = systems[fleet.target_system_id].global_position
+	var source_pos = _get_entity_position(fleet.source_system_id)
+	var target_pos = _get_entity_position(fleet.target_system_id)
 
 	for line in shield_lines:
 		if line["owner_id"] == fleet.owner_id:
@@ -2179,6 +2347,11 @@ func _check_victory() -> bool:
 	for player_id in system_counts:
 		if system_counts[player_id] > 0:
 			players_with_systems.append(player_id)
+
+	# Also check if players have stations
+	for station in stations:
+		if station["owner_id"] >= 0 and station["owner_id"] not in players_with_systems:
+			players_with_systems.append(station["owner_id"])
 
 	# Also check if players have fleets
 	for fleet in fleets_in_transit:
@@ -2429,6 +2602,1002 @@ func _check_shield_breaks() -> void:
 			if sys_b.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
 				sys_b.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 	shield_activations = remaining_acts
+
+
+# ── Space Stations (FUT-20) ──────────────────────────────────────
+
+## Get position for any entity (system or station) by ID
+func _get_entity_position(entity_id: int) -> Vector2:
+	if entity_id >= STATION_ID_OFFSET:
+		var idx = entity_id - STATION_ID_OFFSET
+		if idx >= 0 and idx < stations.size():
+			return stations[idx]["position"]
+		return Vector2.ZERO
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].global_position
+	return Vector2.ZERO
+
+
+## Get owner for any entity by ID
+func _get_entity_owner(entity_id: int) -> int:
+	if entity_id >= STATION_ID_OFFSET:
+		var idx = entity_id - STATION_ID_OFFSET
+		if idx >= 0 and idx < stations.size():
+			return stations[idx]["owner_id"]
+		return -1
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].owner_id
+	return -1
+
+
+## Check if an entity ID refers to a station
+func _is_station_id(entity_id: int) -> bool:
+	return entity_id >= STATION_ID_OFFSET
+
+
+## Convert ships to fighter-equivalents (FÄ): 1 bomber = 2 FÄ
+func _ships_to_fae(fighters: int, bombers: int) -> int:
+	return fighters + bombers * 2
+
+
+## Count stations owned by a player (including under construction)
+func _count_player_stations(player_id: int) -> int:
+	var count = 0
+	for station in stations:
+		if station["owner_id"] == player_id:
+			count += 1
+	return count
+
+
+## Find station at a position (for click detection)
+func _find_station_at(pos: Vector2) -> int:
+	for i in range(stations.size()):
+		if pos.distance_to(stations[i]["position"]) <= STATION_CLICK_RADIUS:
+			return i
+	return -1
+
+
+## Check if a station is visible to a player
+func _is_station_visible_to(station: Dictionary, player_id: int) -> bool:
+	# Own stations always visible
+	if station["owner_id"] == player_id:
+		return true
+	# Discovered stations are permanently visible
+	if player_id in station["discovered_by"]:
+		return true
+	# Stations with garrison are visible to all
+	if station["operative"] and (station["fighter_count"] > 0 or station["bomber_count"] > 0):
+		return true
+	return false
+
+
+## Check if a station is in scan range of a player (passive scan)
+func _is_station_in_scan_range(station: Dictionary, player_id: int) -> bool:
+	var station_pos = station["position"]
+	# Check distance to any owned system
+	for system in systems:
+		if system.owner_id == player_id:
+			if station_pos.distance_to(system.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				return true
+	# Check distance to any owned operative station
+	for other in stations:
+		if other["owner_id"] == player_id and other["operative"] and other["id"] != station["id"]:
+			if station_pos.distance_to(other["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				return true
+	return false
+
+
+## Validate station placement position
+func _is_valid_station_placement(pos: Vector2) -> bool:
+	# Check minimum distance to all systems
+	for system in systems:
+		if pos.distance_to(system.global_position) < UniverseGenerator.MIN_SYSTEM_DISTANCE:
+			return false
+	# Check minimum distance to all stations
+	for station in stations:
+		if pos.distance_to(station["position"]) < UniverseGenerator.MIN_SYSTEM_DISTANCE:
+			return false
+	# Check maximum distance — must be within range of own star OR own operative station
+	var in_range = false
+	for system in systems:
+		if system.owner_id == current_player:
+			if pos.distance_to(system.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				in_range = true
+				break
+	if not in_range:
+		for station in stations:
+			if station["owner_id"] == current_player and station["operative"]:
+				if pos.distance_to(station["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+					in_range = true
+					break
+	if not in_range:
+		return false
+	# Check within map bounds
+	var viewport_size = get_viewport().get_visible_rect().size
+	var edge = UniverseGenerator.MAP_EDGE_MARGIN
+	if pos.x < edge or pos.x > viewport_size.x - edge:
+		return false
+	if pos.y < edge or pos.y > viewport_size.y - edge:
+		return false
+	return true
+
+
+## Create a new station (build marker)
+func _place_station(pos: Vector2) -> void:
+	var station = {
+		"id": next_station_id,
+		"position": pos,
+		"owner_id": current_player,
+		"operative": false,
+		"build_progress": 0,
+		"material": 0,
+		"fighter_count": 0,
+		"bomber_count": 0,
+		"battery_count": 0,
+		"building_battery": false,
+		"battery_build_progress": 0,
+		"battery_material": 0,
+		"discovered_by": [current_player],
+		"node": null,
+	}
+	next_station_id += 1
+	stations.append(station)
+
+	# Create Area2D for click detection
+	_create_station_area(stations.size() - 1)
+
+	station_placement_mode = false
+	system_info_label.text = "Station build site placed! Send fleets to deliver material."
+	queue_redraw()
+
+
+## Place a station for a specific player (used by AI)
+func _place_station_for_player(pos: Vector2, player_id: int) -> void:
+	var station = {
+		"id": next_station_id,
+		"position": pos,
+		"owner_id": player_id,
+		"operative": false,
+		"build_progress": 0,
+		"material": 0,
+		"fighter_count": 0,
+		"bomber_count": 0,
+		"battery_count": 0,
+		"building_battery": false,
+		"battery_build_progress": 0,
+		"battery_material": 0,
+		"discovered_by": [player_id],
+		"node": null,
+	}
+	next_station_id += 1
+	stations.append(station)
+	_create_station_area(stations.size() - 1)
+	queue_redraw()
+
+
+## Create an Area2D node for station click detection
+func _create_station_area(station_idx: int) -> void:
+	var station = stations[station_idx]
+	var area = Area2D.new()
+	area.position = station["position"]
+	area.name = "Station_%d" % station["id"]
+
+	var shape = CollisionShape2D.new()
+	var circle = CircleShape2D.new()
+	circle.radius = STATION_CLICK_RADIUS
+	shape.shape = circle
+	area.add_child(shape)
+
+	area.input_event.connect(_on_station_input_event.bind(station["id"]))
+	area.mouse_entered.connect(_on_station_hover_started.bind(station["id"]))
+	area.mouse_exited.connect(_on_station_hover_ended.bind(station["id"]))
+	area.input_pickable = true
+
+	systems_container.add_child(area)
+	station["node"] = area
+
+
+## Handle station input events (bound to station ID, not array index)
+func _on_station_input_event(_viewport: Node, event: InputEvent, _shape_idx: int, station_id: int) -> void:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			var station_idx = _find_station_by_id(station_id)
+			if station_idx < 0:
+				return
+			if not _is_station_visible_to(stations[station_idx], current_player):
+				return
+			if event.double_click:
+				_on_station_double_clicked(station_idx)
+			else:
+				_on_station_clicked(station_idx)
+
+
+func _on_station_hover_started(station_id: int) -> void:
+	var station_idx = _find_station_by_id(station_id)
+	if station_idx < 0:
+		return
+	if combat_report_screen.visible:
+		return
+	if not _is_station_visible_to(stations[station_idx], current_player):
+		return
+	var station = stations[station_idx]
+	var info = _get_station_info_text(station)
+
+	# Show travel time if a source is selected
+	if selected_system or selected_station_idx >= 0:
+		var source_pos: Vector2
+		if selected_system:
+			source_pos = selected_system.global_position
+		else:
+			source_pos = stations[selected_station_idx]["position"]
+		var distance = source_pos.distance_to(station["position"])
+		var fighter_time = Fleet.calculate_travel_time(distance, 1, 0)
+		var bomber_time = Fleet.calculate_travel_time(distance, 1, 1)
+		if fighter_time != bomber_time:
+			info += " [F:%d B:%d turns]" % [fighter_time, bomber_time]
+		else:
+			info += " [%d turns]" % fighter_time
+
+	system_info_label.text = info
+
+
+func _on_station_hover_ended(_station_id: int) -> void:
+	if combat_report_screen.visible:
+		return
+	if selected_system and selected_system.owner_id == current_player:
+		_show_owned_system_info(selected_system)
+	elif selected_station_idx >= 0 and stations[selected_station_idx]["owner_id"] == current_player:
+		system_info_label.text = _get_station_info_text(stations[selected_station_idx])
+	else:
+		system_info_label.text = ""
+
+
+## Get info text for a station
+func _get_station_info_text(station: Dictionary) -> String:
+	var text = ""
+	if station["owner_id"] == current_player:
+		if not station["operative"]:
+			text = "Station (Building %d/%d)" % [station["build_progress"], ShipTypes.STATION_BUILD_ROUNDS]
+			text += " Material: %d/%d FÄ" % [station["material"], ShipTypes.STATION_BUILD_PER_ROUND]
+		else:
+			text = "Station"
+			if station["fighter_count"] > 0 or station["bomber_count"] > 0:
+				text += " F:%d B:%d" % [station["fighter_count"], station["bomber_count"]]
+			if station["battery_count"] > 0:
+				text += " [%d batteries]" % station["battery_count"]
+			if station["building_battery"]:
+				var target_rounds = station["battery_count"] + 1
+				text += "\nBuilding Battery (%d/%d) Material: %d/%d FÄ" % [
+					station["battery_build_progress"], target_rounds,
+					station["battery_material"], ShipTypes.STATION_BATTERY_PER_ROUND
+				]
+	else:
+		var owner_name = "Unknown"
+		if station["owner_id"] >= 0:
+			owner_name = players[station["owner_id"]].player_name
+		text = "Station - %s" % owner_name
+	return text
+
+
+## Handle station click
+func _on_station_clicked(station_idx: int) -> void:
+	if game_ended or transition_screen.visible or combat_report_screen.visible:
+		return
+	if send_panel.visible:
+		return
+
+	var station = stations[station_idx]
+
+	# Shield partner selection mode — stations can be shield endpoints
+	if shield_select_source:
+		# Stations can't be shield activation targets (only systems have production modes)
+		# But operative stations with batteries can be shield line endpoints
+		system_info_label.text = "Shield activation requires two star systems"
+		shield_select_source = null
+		return
+
+	# If we have a selected source (system or station) with ships, start send fleet
+	if selected_system and selected_system != null:
+		if selected_system.owner_id == current_player and selected_system.get_total_ships() > 0:
+			_start_send_fleet_to_station(selected_system, station_idx)
+			return
+	if selected_station_idx >= 0 and selected_station_idx != station_idx:
+		var src = stations[selected_station_idx]
+		if src["owner_id"] == current_player and (src["fighter_count"] + src["bomber_count"]) > 0:
+			_start_send_fleet_station_to_station(selected_station_idx, station_idx)
+			return
+
+	# Toggle selection on same station
+	if selected_station_idx == station_idx:
+		selected_station_idx = -1
+		send_panel.visible = false
+		station_action_panel.visible = false
+		show_fleet_arrow = false
+		queue_redraw()
+		system_info_label.text = ""
+		return
+
+	# Select station (deselect system if any)
+	if selected_system:
+		selected_system.set_selected(false)
+		selected_system = null
+	selected_station_idx = station_idx
+	send_panel.visible = false
+	action_panel.visible = false
+	station_action_panel.visible = false
+	show_fleet_arrow = false
+	queue_redraw()
+	system_info_label.text = _get_station_info_text(station)
+
+
+## Handle station double-click
+func _on_station_double_clicked(station_idx: int) -> void:
+	if game_ended or transition_screen.visible or combat_report_screen.visible:
+		return
+	if send_panel.visible:
+		if send_target_station_idx == station_idx:
+			_on_send_max_confirmed()
+		return
+
+	var station = stations[station_idx]
+	if station["owner_id"] != current_player:
+		return
+	if not station["operative"]:
+		return
+
+	# Select station
+	if selected_system:
+		selected_system.set_selected(false)
+		selected_system = null
+	selected_station_idx = station_idx
+	action_panel.visible = false
+	system_info_label.text = _get_station_info_text(station)
+	_show_station_action_panel(station_idx)
+
+
+## Show action panel for a station
+func _show_station_action_panel(station_idx: int) -> void:
+	var station = stations[station_idx]
+
+	station_title_label.text = "Station"
+
+	# Battery button
+	var can_build_battery = station["battery_count"] < ShipTypes.STATION_MAX_BATTERIES and not station["building_battery"]
+	station_battery_btn.disabled = not can_build_battery
+	station_battery_btn.text = "Build Battery (%d/%d)" % [station["battery_count"], ShipTypes.STATION_MAX_BATTERIES]
+
+	# Shield button (station shield lines not yet supported)
+	station_shield_btn.disabled = true
+	station_shield_btn.text = "Activate Shield (N/A)"
+
+	# Position panel
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_size = station_action_panel.size
+	var margin = 20.0
+	var panel_pos = Vector2(
+		station["position"].x + 60,
+		station["position"].y - panel_size.y / 2.0
+	)
+	panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+	panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
+	station_action_panel.position = panel_pos
+	station_action_panel.visible = true
+
+
+func _on_station_battery_pressed() -> void:
+	if selected_station_idx < 0:
+		return
+	var station = stations[selected_station_idx]
+	if station["owner_id"] != current_player or not station["operative"]:
+		return
+	station["building_battery"] = true
+	station["battery_build_progress"] = 0
+	station["battery_material"] = 0
+	system_info_label.text = _get_station_info_text(station)
+	_show_station_action_panel(selected_station_idx)
+
+
+func _on_station_shield_pressed() -> void:
+	pass  # Station shield lines not yet supported
+
+
+var _station_shield_source_idx: int = -1
+
+
+func _on_station_close_pressed() -> void:
+	station_action_panel.visible = false
+
+
+## Build Station button handler
+func _on_build_station_pressed() -> void:
+	if game_ended or transition_screen.visible:
+		return
+	if _count_player_stations(current_player) >= ShipTypes.MAX_STATIONS_PER_PLAYER:
+		system_info_label.text = "Maximum stations reached (%d/%d)" % [
+			_count_player_stations(current_player), ShipTypes.MAX_STATIONS_PER_PLAYER]
+		return
+	station_placement_mode = true
+	# Deselect current
+	if selected_system:
+		selected_system.set_selected(false)
+		selected_system = null
+	selected_station_idx = -1
+	send_panel.visible = false
+	action_panel.visible = false
+	station_action_panel.visible = false
+	system_info_label.text = "Click to place station (ESC to cancel)"
+	queue_redraw()
+
+
+## Count shield lines connected to a station
+func _count_shield_lines_for_station(station_idx: int) -> int:
+	var station_id = stations[station_idx]["id"] + STATION_ID_OFFSET
+	var count = 0
+	for line in shield_lines:
+		if line["system_a"] == station_id or line["system_b"] == station_id:
+			count += 1
+	for act in shield_activations:
+		if act["system_a"] == station_id or act["system_b"] == station_id:
+			count += 1
+	return count
+
+
+## Start send fleet from system to station
+func _start_send_fleet_to_station(source: StarSystem, target_station_idx: int) -> void:
+	var station = stations[target_station_idx]
+	send_source_system = source
+	send_target_system = null
+	send_source_station_idx = -1
+	send_target_station_idx = target_station_idx
+
+	# Setup sliders
+	fighter_slider.max_value = source.fighter_count
+	fighter_slider.value = ceili(source.fighter_count / 2.0)
+	bomber_slider.max_value = source.bomber_count
+	bomber_slider.value = ceili(source.bomber_count / 2.0) if source.bomber_count > 0 else 0
+	bomber_slider.visible = source.bomber_count > 0
+
+	var bomber_label = $HUD/SendPanel/VBox/BomberLabel
+	if bomber_label:
+		bomber_label.visible = source.bomber_count > 0
+
+	send_panel.visible = true
+	action_panel.visible = false
+	station_action_panel.visible = false
+	show_fleet_arrow = true
+	queue_redraw()
+	_position_send_panel_generic()
+	_update_send_count_label()
+
+
+## Start send fleet from station to station
+func _start_send_fleet_station_to_station(src_idx: int, tgt_idx: int) -> void:
+	var src = stations[src_idx]
+	send_source_system = null
+	send_target_system = null
+	send_source_station_idx = src_idx
+	send_target_station_idx = tgt_idx
+
+	fighter_slider.max_value = src["fighter_count"]
+	fighter_slider.value = ceili(src["fighter_count"] / 2.0)
+	bomber_slider.max_value = src["bomber_count"]
+	bomber_slider.value = ceili(src["bomber_count"] / 2.0) if src["bomber_count"] > 0 else 0
+	bomber_slider.visible = src["bomber_count"] > 0
+
+	var bomber_label = $HUD/SendPanel/VBox/BomberLabel
+	if bomber_label:
+		bomber_label.visible = src["bomber_count"] > 0
+
+	send_panel.visible = true
+	action_panel.visible = false
+	station_action_panel.visible = false
+	show_fleet_arrow = true
+	queue_redraw()
+	_position_send_panel_generic()
+	_update_send_count_label()
+
+
+## Start send fleet from station to system
+func _start_send_fleet_from_station(src_idx: int, target: StarSystem) -> void:
+	var src = stations[src_idx]
+	send_source_system = null
+	send_target_system = target
+	send_source_station_idx = src_idx
+	send_target_station_idx = -1
+
+	fighter_slider.max_value = src["fighter_count"]
+	fighter_slider.value = ceili(src["fighter_count"] / 2.0)
+	bomber_slider.max_value = src["bomber_count"]
+	bomber_slider.value = ceili(src["bomber_count"] / 2.0) if src["bomber_count"] > 0 else 0
+	bomber_slider.visible = src["bomber_count"] > 0
+
+	var bomber_label = $HUD/SendPanel/VBox/BomberLabel
+	if bomber_label:
+		bomber_label.visible = src["bomber_count"] > 0
+
+	send_panel.visible = true
+	action_panel.visible = false
+	station_action_panel.visible = false
+	show_fleet_arrow = true
+	queue_redraw()
+	_position_send_panel_generic()
+	_update_send_count_label()
+
+
+## Get the current send source position (system or station)
+func _get_send_source_pos() -> Vector2:
+	if send_source_system:
+		return send_source_system.global_position
+	if send_source_station_idx >= 0:
+		return stations[send_source_station_idx]["position"]
+	return Vector2.ZERO
+
+
+## Get the current send target position (system or station)
+func _get_send_target_pos() -> Vector2:
+	if send_target_system:
+		return send_target_system.global_position
+	if send_target_station_idx >= 0:
+		return stations[send_target_station_idx]["position"]
+	return Vector2.ZERO
+
+
+## Get the current send source entity ID (for Fleet)
+func _get_send_source_id() -> int:
+	if send_source_system:
+		return send_source_system.system_id
+	if send_source_station_idx >= 0:
+		return stations[send_source_station_idx]["id"] + STATION_ID_OFFSET
+	return -1
+
+
+## Get the current send target entity ID (for Fleet)
+func _get_send_target_id() -> int:
+	if send_target_system:
+		return send_target_system.system_id
+	if send_target_station_idx >= 0:
+		return stations[send_target_station_idx]["id"] + STATION_ID_OFFSET
+	return -1
+
+
+## Position send panel generically (for both system and station sources/targets)
+func _position_send_panel_generic() -> void:
+	var vbox = send_panel.get_node("VBox")
+	var padding = Vector2(40, 40)
+	var needed_size = vbox.get_combined_minimum_size() + padding
+	needed_size.x = max(needed_size.x, send_panel.custom_minimum_size.x)
+	needed_size.y = max(needed_size.y, send_panel.custom_minimum_size.y)
+	send_panel.size = needed_size
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_size = send_panel.size
+	var margin = 20.0
+
+	var source_pos = _get_send_source_pos()
+	var target_pos = _get_send_target_pos()
+
+	# Simple positioning: to the right and center of source
+	var panel_pos = Vector2(source_pos.x + 60, source_pos.y - panel_size.y / 2.0)
+	panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+	panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
+	send_panel.position = panel_pos
+
+
+## Process station building each turn
+func _process_station_building() -> void:
+	for station in stations:
+		if station["owner_id"] < 0:
+			continue
+		# Station construction
+		if not station["operative"]:
+			if station["material"] >= ShipTypes.STATION_BUILD_PER_ROUND:
+				station["material"] -= ShipTypes.STATION_BUILD_PER_ROUND
+				station["build_progress"] += 1
+				if station["build_progress"] >= ShipTypes.STATION_BUILD_ROUNDS:
+					station["operative"] = true
+					station["material"] = 0  # Leftover material is lost
+		# Battery construction
+		elif station["building_battery"]:
+			if station["battery_material"] >= ShipTypes.STATION_BATTERY_PER_ROUND:
+				station["battery_material"] -= ShipTypes.STATION_BATTERY_PER_ROUND
+				station["battery_build_progress"] += 1
+				var target_rounds = station["battery_count"] + 1  # Scales with level
+				if station["battery_build_progress"] >= target_rounds:
+					station["battery_count"] += 1
+					station["building_battery"] = false
+					station["battery_build_progress"] = 0
+					station["battery_material"] = 0
+
+
+## Process fleet arrival at a station
+func _process_fleet_arrival_at_station(fleet: Fleet, station: Dictionary) -> void:
+	# Under construction: ships become material
+	if not station["operative"]:
+		var fae = _ships_to_fae(fleet.fighter_count, fleet.bomber_count)
+		station["material"] += fae
+		return
+	# Operative, building battery: ships become battery material
+	if station["building_battery"]:
+		var fae = _ships_to_fae(fleet.fighter_count, fleet.bomber_count)
+		station["battery_material"] += fae
+		return
+	# Operative, idle: ships join garrison
+	station["fighter_count"] += fleet.fighter_count
+	station["bomber_count"] += fleet.bomber_count
+
+
+## Resolve combat at a station (enemy fleet arrival)
+func _resolve_station_combat(station: Dictionary, arriving_fleets: Dictionary) -> Dictionary:
+	var station_owner = station["owner_id"]
+	var station_fighters = station["fighter_count"]
+	var station_bombers = station["bomber_count"]
+
+	var result = {
+		"winner": station_owner,
+		"remaining_fighters": station_fighters,
+		"remaining_bombers": station_bombers,
+		"log": [],
+		"conquest_occurred": false,
+		"production_damage": 0,
+		"battery_kills": 0,
+		"attacker_fighter_losses": 0,
+		"attacker_bomber_losses": 0,
+		"defender_fighter_losses": 0,
+		"defender_bomber_losses": 0,
+		"attacker_fighter_morale": 1.0,
+		"stages": []
+	}
+
+	# Add friendly reinforcements
+	if arriving_fleets.has(station_owner):
+		result["remaining_fighters"] += arriving_fleets[station_owner]["fighters"]
+		result["remaining_bombers"] += arriving_fleets[station_owner]["bombers"]
+		arriving_fleets.erase(station_owner)
+
+	# Split waves
+	var waves: Array = []
+	for attacker_id in arriving_fleets:
+		var force = arriving_fleets[attacker_id]
+		var owner_waves = Combat.split_into_waves(attacker_id, force["fighters"], force["bombers"], force["fighter_morale"])
+		waves.append_array(owner_waves)
+
+	for wave in waves:
+		wave["pre_fighters"] = wave["fighters"]
+		wave["pre_bombers"] = wave["bombers"]
+		wave["bat_fighter_kills"] = 0
+		wave["bat_bomber_kills"] = 0
+
+	# Battery pre-combat
+	if station["battery_count"] > 0 and waves.size() > 0:
+		waves.sort_custom(func(a, b):
+			return Combat.calculate_attack_power(a["fighters"], a["bombers"], a["fighter_morale"]) > Combat.calculate_attack_power(b["fighters"], b["bombers"], b["fighter_morale"])
+		)
+		for wave in waves:
+			var battery_result = Combat.resolve_battery_combat(station["battery_count"], wave["fighters"], wave["bombers"])
+			wave["fighters"] = max(0, wave["fighters"] - battery_result["fighter_kills"])
+			wave["bombers"] = max(0, wave["bombers"] - battery_result["bomber_kills"])
+			wave["bat_fighter_kills"] = battery_result["fighter_kills"]
+			wave["bat_bomber_kills"] = battery_result["bomber_kills"]
+			result["battery_kills"] += battery_result["fighter_kills"] + battery_result["bomber_kills"]
+
+		var surviving_waves: Array = []
+		for wave in waves:
+			if wave["fighters"] + wave["bombers"] > 0:
+				surviving_waves.append(wave)
+		waves = surviving_waves
+
+	waves.sort_custom(func(a, b):
+		return Combat.calculate_attack_power(a["fighters"], a["bombers"], a["fighter_morale"]) > Combat.calculate_attack_power(b["fighters"], b["bombers"], b["fighter_morale"])
+	)
+
+	# Process each wave
+	for wave in waves:
+		var attacker_id = wave["id"]
+
+		if attacker_id == result["winner"]:
+			result["remaining_fighters"] += wave["fighters"]
+			result["remaining_bombers"] += wave["bombers"]
+			continue
+
+		if result["remaining_fighters"] == 0 and result["remaining_bombers"] == 0 and result["winner"] == -1:
+			result["winner"] = attacker_id
+			result["remaining_fighters"] = wave["fighters"]
+			result["remaining_bombers"] = wave["bombers"]
+			result["conquest_occurred"] = true
+		else:
+			var combat_result = Combat.resolve_combat(
+				wave["fighters"], wave["bombers"], attacker_id,
+				result["remaining_fighters"], result["remaining_bombers"], result["winner"],
+				0, wave["fighter_morale"]
+			)
+			result["attacker_fighter_losses"] += combat_result.attacker_fighter_losses
+			result["attacker_bomber_losses"] += combat_result.attacker_bomber_losses
+			result["defender_fighter_losses"] += combat_result.defender_fighter_losses
+			result["defender_bomber_losses"] += combat_result.defender_bomber_losses
+
+			if combat_result.winner_id != result["winner"] and combat_result.winner_id != -1:
+				if result["winner"] != -1:
+					result["conquest_occurred"] = true
+
+			result["winner"] = combat_result.winner_id
+			result["remaining_fighters"] = combat_result.remaining_fighters
+			result["remaining_bombers"] = combat_result.remaining_bombers
+
+	return result
+
+
+## Destroy a station (removes from array, frees node)
+func _destroy_station(station_idx: int) -> void:
+	var station = stations[station_idx]
+	if station.has("node") and station["node"]:
+		station["node"].queue_free()
+	# Remove shield lines connected to this station
+	var station_id = station["id"] + STATION_ID_OFFSET
+	shield_lines = shield_lines.filter(func(l): return l["system_a"] != station_id and l["system_b"] != station_id)
+	shield_activations = shield_activations.filter(func(a): return a["system_a"] != station_id and a["system_b"] != station_id)
+	stations.remove_at(station_idx)
+	# Update all station index references after removal
+	if selected_station_idx == station_idx:
+		selected_station_idx = -1
+	elif selected_station_idx > station_idx:
+		selected_station_idx -= 1
+	if send_source_station_idx == station_idx:
+		send_source_station_idx = -1
+	elif send_source_station_idx > station_idx:
+		send_source_station_idx -= 1
+	if send_target_station_idx == station_idx:
+		send_target_station_idx = -1
+	elif send_target_station_idx > station_idx:
+		send_target_station_idx -= 1
+
+
+## Destroy all stations belonging to a player (on elimination)
+func _destroy_player_stations(player_id: int) -> void:
+	var i = stations.size() - 1
+	while i >= 0:
+		if stations[i]["owner_id"] == player_id:
+			_destroy_station(i)
+		i -= 1
+
+
+## Perform fleet scan for station discovery
+func _perform_fleet_scan() -> void:
+	for fleet in fleets_in_transit:
+		var fleet_size = fleet.fighter_count + fleet.bomber_count
+		if fleet_size <= ShipTypes.STATION_FLEET_SCAN_THRESHOLD:
+			continue
+		var scan_range = min(ShipTypes.STATION_FLEET_SCAN_MAX,
+							max(0, (fleet_size - ShipTypes.STATION_FLEET_SCAN_THRESHOLD) * ShipTypes.STATION_FLEET_SCAN_PER_SHIP))
+		if scan_range <= 0:
+			continue
+
+		var source_pos = _get_entity_position(fleet.source_system_id)
+		var target_pos = _get_entity_position(fleet.target_system_id)
+
+		for station in stations:
+			if station["owner_id"] == fleet.owner_id:
+				continue
+			if fleet.owner_id in station["discovered_by"]:
+				continue
+			# Check minimum distance from fleet path to station
+			var dist = _point_to_segment_distance(station["position"], source_pos, target_pos)
+			if dist <= scan_range:
+				station["discovered_by"].append(fleet.owner_id)
+
+
+## Calculate minimum distance from point to line segment
+func _point_to_segment_distance(point: Vector2, seg_start: Vector2, seg_end: Vector2) -> float:
+	var seg = seg_end - seg_start
+	var seg_len_sq = seg.length_squared()
+	if seg_len_sq < 0.001:
+		return point.distance_to(seg_start)
+	var t = clampf((point - seg_start).dot(seg) / seg_len_sq, 0.0, 1.0)
+	var closest = seg_start + seg * t
+	return point.distance_to(closest)
+
+
+## Draw all stations on the map
+func _draw_stations() -> void:
+	for station in stations:
+		_draw_single_station(station)
+
+
+## Draw a single station (diamond shape)
+func _draw_single_station(station: Dictionary) -> void:
+	var visible_to_player = _is_station_visible_to(station, current_player)
+	if not visible_to_player:
+		return
+
+	var pos = station["position"]
+	var size = STATION_DIAMOND_SIZE
+	var color: Color
+
+	if station["owner_id"] >= 0 and station["owner_id"] < players.size():
+		color = players[station["owner_id"]].color
+	else:
+		color = Player.get_neutral_color()
+
+	# Under construction: transparent
+	if not station["operative"]:
+		color.a = 0.5
+
+	# Remembered (not in current visibility): gray
+	var in_scan = _is_station_in_scan_range(station, current_player)
+	if not in_scan and station["owner_id"] != current_player:
+		color = Color(0.5, 0.5, 0.5, 0.5)
+
+	# Draw diamond shape
+	var diamond = PackedVector2Array([
+		pos + Vector2(0, -size),   # Top
+		pos + Vector2(size, 0),    # Right
+		pos + Vector2(0, size),    # Bottom
+		pos + Vector2(-size, 0),   # Left
+	])
+	draw_colored_polygon(diamond, color)
+
+	# Outline
+	var outline_color = color.lightened(0.3)
+	outline_color.a = color.a
+	for i in range(4):
+		draw_line(diamond[i], diamond[(i + 1) % 4], outline_color, 1.5)
+
+	# Build progress indicator (ring around diamond)
+	if not station["operative"] and station["owner_id"] == current_player:
+		var progress = float(station["build_progress"]) / float(ShipTypes.STATION_BUILD_ROUNDS)
+		if progress > 0:
+			var arc_radius = size + 4
+			var arc_points = PackedVector2Array()
+			var arc_steps = int(progress * 32)
+			for i_step in range(arc_steps + 1):
+				var angle = -PI / 2.0 + (float(i_step) / 32.0) * TAU
+				arc_points.append(pos + Vector2(cos(angle), sin(angle)) * arc_radius)
+			if arc_points.size() > 1:
+				draw_polyline(arc_points, Color(0, 1, 1, 0.7), 2.0)
+
+	# Battery indicator
+	if station["battery_count"] > 0 and (station["owner_id"] == current_player or in_scan):
+		var bat_text = "[%d]" % station["battery_count"]
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-10, size + 18), bat_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+
+	# Ship count (only for own stations or visible garrison)
+	if station["owner_id"] == current_player:
+		if station["operative"]:
+			var count_text = ""
+			if station["fighter_count"] > 0 or station["bomber_count"] > 0:
+				if station["bomber_count"] > 0:
+					count_text = "%d/%d" % [station["fighter_count"], station["bomber_count"]]
+				else:
+					count_text = str(station["fighter_count"])
+			if count_text != "":
+				draw_string(ThemeDB.fallback_font, pos + Vector2(-20, -size - 6), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+	elif station["fighter_count"] > 0 or station["bomber_count"] > 0:
+		# Enemy station with visible garrison
+		var count_text = "?"
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-6, -size - 6), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+
+
+## Perform passive scan from own systems and stations to discover enemy stations
+func _perform_passive_scan(player_id: int) -> void:
+	for station in stations:
+		if station["owner_id"] == player_id:
+			continue
+		if player_id in station["discovered_by"]:
+			continue
+		if _is_station_in_scan_range(station, player_id):
+			station["discovered_by"].append(player_id)
+
+
+## Check if player has any stations (for elimination check)
+func _player_has_stations(player_id: int) -> bool:
+	for station in stations:
+		if station["owner_id"] == player_id:
+			return true
+	return false
+
+
+## Find station index by station ID (not array index)
+func _find_station_by_id(station_id: int) -> int:
+	for i in range(stations.size()):
+		if stations[i]["id"] == station_id:
+			return i
+	return -1
+
+
+## Process fleet arrivals at stations
+func _process_station_fleet_arrivals(arriving_at_stations: Dictionary) -> void:
+	# Sort station indices in descending order for safe removal during destruction
+	var station_indices = arriving_at_stations.keys()
+	station_indices.sort()
+	station_indices.reverse()
+
+	for station_idx in station_indices:
+		var station = stations[station_idx]
+		var fleets_here: Array = arriving_at_stations[station_idx]
+		var old_owner = station["owner_id"]
+
+		var merged = Combat.merge_fleets_by_owner(fleets_here)
+
+		# Friendly fleets: deliver material or reinforce garrison
+		if merged.has(old_owner):
+			var friendly = merged[old_owner]
+			for fleet in fleets_here:
+				if fleet.owner_id == old_owner:
+					_process_fleet_arrival_at_station(fleet, station)
+			merged.erase(old_owner)
+
+		# Enemy fleets: combat
+		if merged.size() > 0:
+			var result = _resolve_station_combat(station, merged)
+
+			# Apply results
+			if result["conquest_occurred"] or (result["winner"] != old_owner and result["winner"] >= 0):
+				# Station conquered = destroyed
+				# Create combat report
+				var attacker_id = result["winner"]
+				var report_data = {
+					"system_name": "Station",
+					"system_id": -1,
+					"defender_name": _get_owner_name(old_owner),
+					"defender_fighters": station["fighter_count"],
+					"defender_bombers": station["bomber_count"],
+					"defender_fighter_losses": result["defender_fighter_losses"],
+					"defender_bomber_losses": result["defender_bomber_losses"],
+					"attacker_name": _get_owner_name(attacker_id),
+					"attacker_fighters": result["attacker_fighter_losses"] + result["remaining_fighters"],
+					"attacker_bombers": result["attacker_bomber_losses"] + result["remaining_bombers"],
+					"attacker_fighter_losses": result["attacker_fighter_losses"],
+					"attacker_bomber_losses": result["attacker_bomber_losses"],
+					"attacker_fighter_morale": result["attacker_fighter_morale"],
+					"battery_fighter_kills": result["battery_kills"],
+					"battery_bomber_kills": 0,
+					"winner_name": _get_owner_name(attacker_id) + " (Station destroyed)",
+					"remaining_fighters": result["remaining_fighters"],
+					"remaining_bombers": result["remaining_bombers"],
+					"batteries_before": station["battery_count"],
+					"batteries_after": 0,
+					"production_damage": 0,
+					"conquest_occurred": true
+				}
+
+				# Report for involved players
+				if old_owner >= 0:
+					if not pending_combat_reports.has(old_owner):
+						pending_combat_reports[old_owner] = []
+					pending_combat_reports[old_owner].append(report_data)
+				if attacker_id >= 0 and attacker_id != old_owner:
+					if not pending_combat_reports.has(attacker_id):
+						pending_combat_reports[attacker_id] = []
+					pending_combat_reports[attacker_id].append(report_data)
+
+				_destroy_station(station_idx)
+			else:
+				# Defender held
+				station["fighter_count"] = result["remaining_fighters"]
+				station["bomber_count"] = result["remaining_bombers"]
+
+
+## Draw station placement zones (valid/invalid areas)
+func _draw_station_placement_zones() -> void:
+	# Draw range circles around owned systems
+	for system in systems:
+		if system.owner_id == current_player:
+			_draw_placement_circle(system.global_position)
+	# Draw range circles around own operative stations
+	for station in stations:
+		if station["owner_id"] == current_player and station["operative"]:
+			_draw_placement_circle(station["position"])
+
+
+func _draw_placement_circle(center: Vector2) -> void:
+	var radius = UniverseGenerator.MAX_SYSTEM_DISTANCE
+	var segments = 48
+	var color = Color(0.0, 1.0, 0.5, 0.15)
+	var points = PackedVector2Array()
+	for i in range(segments + 1):
+		var angle = float(i) / float(segments) * TAU
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	if points.size() > 1:
+		draw_polyline(points, color, 1.5)
 
 
 func _on_restart_pressed() -> void:

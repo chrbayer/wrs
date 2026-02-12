@@ -56,6 +56,17 @@ const MAX_SHIELD_STRUCTURES: int = 2
 const SHIELD_RING_BONUS_INNER: float = 0.25
 const SHIELD_RING_BONUS_RING: float = 0.12
 
+# Space station constants (FUT-20)
+const STATION_BUILD_COST: int = 24       # Total FÄ to build station
+const STATION_BUILD_PER_ROUND: int = 8   # FÄ consumed per build round
+const STATION_BUILD_ROUNDS: int = 3      # Rounds at full supply
+const MAX_STATIONS_PER_PLAYER: int = 3   # Max stations (including under construction)
+const STATION_MAX_BATTERIES: int = 2     # Max batteries per station
+const STATION_BATTERY_PER_ROUND: int = 4 # FÄ consumed per battery build round
+const STATION_FLEET_SCAN_MAX: float = 60.0       # Max fleet scan range (px)
+const STATION_FLEET_SCAN_THRESHOLD: int = 5      # Fleets <= this have no scan
+const STATION_FLEET_SCAN_PER_SHIP: float = 3.0   # Scan range per ship above threshold
+
 
 ## Get the travel speed for a fleet based on composition
 static func get_fleet_speed(fighter_count: int, bomber_count: int) -> float:

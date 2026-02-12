@@ -230,6 +230,46 @@
 
 ---
 
+## Space Stations (FUT-20)
+
+| ID    | Requirement                                                              | Status |
+|-------|--------------------------------------------------------------------------|--------|
+| SS-01 | Players may place station build sites within `MAX_SYSTEM_DISTANCE` of any owned system or own operative station (chain building). Max `MAX_STATIONS_PER_PLAYER` stations per player (including under construction) | ✅ Done |
+| SS-02 | Station build sites must maintain `MIN_SYSTEM_DISTANCE` distance from all systems and other stations, and stay within map bounds | ✅ Done |
+| SS-03 | Stations are built by delivering ships as material. Ships are converted to FÄ (Fighter-Equivalents): 1 fighter = 1 FÄ, 1 bomber = 2 FÄ | ✅ Done |
+| SS-04 | Station construction requires `STATION_BUILD_COST` total FÄ, consuming `STATION_BUILD_PER_ROUND` FÄ per round. Construction completes after `STATION_BUILD_ROUNDS` rounds at full supply | ✅ Done |
+| SS-05 | Material delivered to a station under construction is added to its material pool. Excess material beyond the per-round requirement is banked for future rounds | ✅ Done |
+| SS-06 | Once operative, stations may build up to `STATION_MAX_BATTERIES` batteries by delivering material (`STATION_BATTERY_PER_ROUND` FÄ/round). Battery build time scales with level (1 turn for 1st, 2 for 2nd) | ✅ Done |
+| SS-07 | Fleets sent to operative stations in idle state join the garrison as fighters/bombers | ✅ Done |
+| SS-08 | Fleets sent to operative stations building batteries are converted to battery material (FÄ) | ✅ Done |
+| SS-09 | Stations are invisible to enemy players by default. A station becomes visible when: (a) owned by the player, (b) discovered via passive/fleet scan, or (c) has garrison ships (weapon signatures visible to all) | ✅ Done |
+| SS-10 | Passive scan: owned systems and operative stations detect enemy stations within `MAX_SYSTEM_DISTANCE`. Discovery is permanent (`discovered_by` list) | ✅ Done |
+| SS-11 | Fleet scan: fleets with more than `STATION_FLEET_SCAN_THRESHOLD` ships scan for stations along their path. Scan range = `min(STATION_FLEET_SCAN_MAX, max(0, (fleet_size - STATION_FLEET_SCAN_THRESHOLD) × STATION_FLEET_SCAN_PER_SHIP))` pixels from the flight path (point-to-segment distance). Discovery is permanent | ✅ Done |
+| SS-12 | Enemy fleets arriving at a station trigger combat. Batteries fire first (same pre-combat as systems). Station garrison defends with standard defender bonus | ✅ Done |
+| SS-13 | Stations are destroyed on conquest (not captured). Attacking survivors retain their ships but the station is removed from the map | ✅ Done |
+| SS-14 | Station combat produces combat reports for involved players, showing "Station" as the system name and "(Station destroyed)" on conquest | ✅ Done |
+| SS-15 | Friendly reinforcements arriving at a station in the same turn are processed before enemy combat: material delivery for under construction / battery building, garrison for idle stations | ✅ Done |
+| SS-16 | Stations are drawn as diamond shapes (player color) on the map. Under construction: 50% opacity with progress arc. Operative: full opacity. Out-of-scan: gray | ✅ Done |
+| SS-17 | Own stations show fighter/bomber count above and battery count below. Enemy stations with garrison show "?" | ✅ Done |
+| SS-18 | Station placement mode is activated via "Build Station" button in the top bar. The button shows current/max count. Valid placement zones are shown as circles around owned entities | ✅ Done |
+| SS-19 | Clicking a station selects it (showing info in bottom bar). Double-clicking an own operative station opens the station action panel with Build Battery and Close buttons | ✅ Done |
+| SS-20 | When a source (system or station) is selected and the user clicks a station, the send fleet dialog opens with the station as target | ✅ Done |
+| SS-21 | When a station is selected as source (has garrison), clicking a system or another station opens the send fleet dialog from that station | ✅ Done |
+| SS-22 | Double-clicking a station that is the current send target triggers Send Max (same as double-clicking a system target) | ✅ Done |
+| SS-23 | Station data is cleared on game start. Station placement mode and selection state are cleared on player transition and ESC | ✅ Done |
+| SS-24 | Player elimination check includes stations: a player with stations but no systems or fleets is not eliminated | ✅ Done |
+| SS-25 | Victory check includes stations: a player with only stations is still alive | ✅ Done |
+| SS-26 | Operative stations extend the player's visibility range (passive scan from station position, visibility texture includes station positions) | ✅ Done |
+| SS-27 | Destroying a station removes any shield lines or activations connected to its entity ID | ✅ Done |
+| SS-28 | Station Area2D click detection uses station ID (not array index) to remain valid after station destruction | ✅ Done |
+| SS-29 | Station fleet arrivals are processed in reverse index order to safely handle station destruction during combat | ✅ Done |
+| SS-30 | AI tactics (Fortress, Economy, Balanced) may build stations to extend territory. AI sends material to own under-construction stations and attacks visible enemy stations | ✅ Done |
+| SS-31 | AI Fortress tactic builds station batteries on operative stations | ✅ Done |
+| SS-32 | Send fleet dialog position works for all source/target combinations: system→system, system→station, station→system, station→station | ✅ Done |
+| SS-33 | Fleet arrows use correct radii for station source/target (diamond radius instead of star radius) | ✅ Done |
+
+---
+
 ## Players & Turns
 
 | ID   | Requirement                                                           | Status |
@@ -248,7 +288,8 @@
 | ID   | Requirement                                                                  | Status |
 |------|------------------------------------------------------------------------------|--------|
 | V-01 | A player wins by controlling all star systems                                | ✅ Done |
-| V-02 | A player is eliminated when they control no systems and have no fleets       | ✅ Done |
+| ~~V-02~~ | ~~A player is eliminated when they control no systems and have no fleets~~ | ~~Done~~ |
+| V-02a | A player is eliminated when they control no systems, have no stations, and have no fleets | ✅ Done |
 | V-03 | The game shall display a victory screen when a player wins                   | ✅ Done |
 | V-04 | Human players shall see all pending combat reports before the victory screen is shown | ✅ Done |
 
@@ -328,7 +369,7 @@
 | FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
 | FUT-18 | Rebellion mechanic: systems of dominant players may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
 | FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ✅ Done |
-| FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) at designated build sites within MAX_SYSTEM_DISTANCE of any star or own station (chain building). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars/stations (full visibility range, always succeeds), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ❌ Not implemented |
+| FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) at designated build sites within MAX_SYSTEM_DISTANCE of any star or own station (chain building). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars/stations (full visibility range, always succeeds), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ✅ Done |
 
 ---
 
@@ -385,6 +426,18 @@
 | MAX_SHIELD_STRUCTURES | 2 | Maximum independent shield structures (connected components) per player |
 | SHIELD_RING_BONUS_INNER | 0.25 (25%) | Production bonus for systems fully enclosed by a shield ring |
 | SHIELD_RING_BONUS_RING | 0.12 (12%) | Production bonus for systems on the ring itself |
+| STATION_BUILD_COST | 24 FÄ | Total fighter-equivalents to build a station |
+| STATION_BUILD_PER_ROUND | 8 FÄ | Material consumed per build round |
+| STATION_BUILD_ROUNDS | 3 rounds | Rounds to complete station at full supply |
+| MAX_STATIONS_PER_PLAYER | 3 | Maximum stations per player (including under construction) |
+| STATION_MAX_BATTERIES | 2 | Maximum batteries per station |
+| STATION_BATTERY_PER_ROUND | 4 FÄ | Material consumed per battery build round |
+| STATION_FLEET_SCAN_MAX | 60 px | Maximum fleet scan range |
+| STATION_FLEET_SCAN_THRESHOLD | 5 ships | Fleets with ≤ this many ships have no scan capability |
+| STATION_FLEET_SCAN_PER_SHIP | 3.0 px/ship | Scan range increase per ship above threshold |
+| STATION_ID_OFFSET | 1000 | Entity ID offset to distinguish station IDs from system IDs in fleet source/target |
+| STATION_CLICK_RADIUS | 20 px | Click detection radius for stations |
+| STATION_DIAMOND_SIZE | 12 px | Visual size of station diamond shape |
 
 ---
 
@@ -403,3 +456,4 @@
 - **Update 2026-02:** Fleet wave splitting (C-20): merged fleets exceeding MAX_FLEET_SIZE (40) are split into waves, each facing batteries independently. Counters the "deathball" strategy by making batteries more effective against large forces.
 - **Update 2026-02:** Rebellion mechanic (FUT-18): asymmetric anti-snowball mechanic. Dominant players' unprotected systems may rebel, spawning neutral fighters. Home systems immune. Batteries reduce rebellion chance proportionally (20% per level), only max batteries (5) = fully immune.
 - **Update 2026-02:** Shield lines (FUT-19): territorial defense via manually activated energy lines between battery-equipped systems. Attrition and blockade mechanics scale with shield density (inverse distance) and battery levels. Closed rings grant production bonuses. Bombers have 50% shield resistance. AI Fortress activates shields on frontier; all AI tactics avoid enemy shield crossings. 41 detailed requirements (SL-01 to SL-41), 10 new parameters. Production mode updated to PR-02b.
+- **Update 2026-02:** Space stations (FUT-20): Material-based construction (24 FÄ, 3 rounds) at designated build sites. Chain building from stars and operative stations. Batteries via material delivery (max 2). Visibility: invisible by default, detected via passive scan (stars/stations, full visibility range), fleet scan (size-dependent, `3 px/ship` above threshold of 5), or garrison (weapon signatures). Combat: same as systems with batteries, destroyed on conquest. AI builds stations (Fortress/Economy/Balanced), delivers material, attacks enemy stations, builds batteries. 33 detailed requirements (SS-01 to SS-33), 11 new parameters. V-02 updated to V-02a (elimination includes stations).
