@@ -119,37 +119,40 @@ static func generate_initial_fighters(production_rate: int) -> int:
 
 
 ## Generate starting fighters distributed by home world connectivity (compensation model).
-## Players with fewer neutral neighbors get more fighters to offset their weaker position.
-## Total pool is fixed (FIGHTERS_PER_PLAYER × player_count), distributed inversely to neighbor count.
+## Players with fewer/weaker neutral neighbors get more fighters to offset their weaker position.
+## Scoring considers both neighbor count and their production rates.
+## Total pool is fixed (FIGHTERS_PER_PLAYER × player_count), distributed inversely to score.
 const FIGHTERS_PER_PLAYER: int = 30
-const MIN_START_FIGHTERS: int = 15
-const MAX_START_FIGHTERS: int = 45
+const MIN_START_FIGHTERS: int = 20
+const MAX_START_FIGHTERS: int = 40
 
-static func generate_player_start_fighters(positions: Array, player_starts: Array) -> Array[int]:
+static func generate_player_start_fighters(positions: Array, player_starts: Array,
+										   production_rates: Array = []) -> Array[int]:
 	var player_count: int = player_starts.size()
 	var total_pool: int = FIGHTERS_PER_PLAYER * player_count
 
-	# Count neutral neighbors for each player's home world
-	var neighbor_counts: Array[int] = []
+	# Score each player's starting position by neighbor count weighted by production rate
+	var position_scores: Array[float] = []
 	for p_idx in range(player_count):
 		var home_pos: Vector2 = positions[player_starts[p_idx]]
-		var neighbors: int = 0
+		var score: float = 0.0
 		for i in range(positions.size()):
 			if i in player_starts:
 				continue
 			if home_pos.distance_to(positions[i]) <= MAX_SYSTEM_DISTANCE:
-				neighbors += 1
-		neighbor_counts.append(maxi(1, neighbors))
+				var prod_rate: float = production_rates[i] if production_rates.size() > i else 3.0
+				score += prod_rate
+		position_scores.append(maxf(1.0, score))
 
-	# Inverse proportional distribution: fewer neighbors → larger share
+	# Inverse proportional distribution: lower score → larger share
 	var inverse_sum: float = 0.0
-	for count in neighbor_counts:
-		inverse_sum += 1.0 / count
+	for score in position_scores:
+		inverse_sum += 1.0 / score
 
 	var fighter_counts: Array[int] = []
 	var assigned_total: int = 0
 	for p_idx in range(player_count):
-		var share: float = (1.0 / neighbor_counts[p_idx]) / inverse_sum
+		var share: float = (1.0 / position_scores[p_idx]) / inverse_sum
 		var fighters: int = clampi(roundi(share * total_pool), MIN_START_FIGHTERS, MAX_START_FIGHTERS)
 		fighter_counts.append(fighters)
 		assigned_total += fighters

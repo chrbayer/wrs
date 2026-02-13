@@ -28,7 +28,8 @@
 | ~~S-03~~ | ~~Player starting systems shall have a guaranteed minimum distance between them~~ | ~~Done~~ |
 | S-03a | Player starting systems shall be placed to maximize distance between them (greedy selection) | ✅ Done |
 | S-04 | All star systems except player starting systems shall be neutral at game start   | ✅ Done |
-| S-04a | Starting fighters are distributed from a fixed pool (`FIGHTERS_PER_PLAYER` × player count), inversely proportional to neutral neighbor count (compensation: fewer neighbors → more fighters, clamped to `MIN_START_FIGHTERS`–`MAX_START_FIGHTERS`) | ✅ Done |
+| ~~S-04a~~ | ~~Starting fighters are distributed from a fixed pool (`FIGHTERS_PER_PLAYER` × player count), inversely proportional to neutral neighbor count (compensation: fewer neighbors → more fighters, clamped to `MIN_START_FIGHTERS`–`MAX_START_FIGHTERS`)~~ | ~~Done~~ |
+| S-04b | Starting fighters are distributed from a fixed pool (`FIGHTERS_PER_PLAYER` × player count), inversely proportional to neighbor production score (sum of neighbor production rates; weaker neighbors → more fighters, clamped to `MIN_START_FIGHTERS`–`MAX_START_FIGHTERS`) | ✅ Done |
 | ~~S-05~~ | ~~Conquered star systems shall produce fighters each turn based on production rate~~ | ~~Done~~ |
 | S-05a | Owned star systems shall produce ships based on production rate and selected production mode | ✅ Done |
 | S-06 | Each star system shall display its fighter count to its owner                    | ✅ Done |
@@ -118,11 +119,13 @@
 | ~~PR-04a~~ | ~~Bomber production uses batch delivery per ST-08a~~ | ~~Done~~ |
 | PR-04b | Bomber production delivers `production_rate` bombers every 2 turns (batch, half rate per FUT-07) | ✅ Done |
 | PR-05 | Upgrade mode shall gradually increase production rate (slower at higher rates) | ✅ Done |
+| PR-05a | Upgrade mode shall continue until production rate reaches at least 3 before auto-switching to Fighters | ✅ Done |
 | PR-06 | Production rate shall have a maximum of `MAX_PRODUCTION_RATE`           | ✅ Done |
 | PR-07 | Production rate shall have a minimum of `MIN_PRODUCTION_RATE`           | ✅ Done |
 | ~~PR-08~~ | ~~Build Battery mode shall add one battery per turn (max 3)~~       | ~~Done~~ |
 | ~~PR-08a~~ | ~~Build Battery mode shall add one battery every `BATTERY_BUILD_TURNS` turns (max `MAX_BATTERIES`)~~ | ~~Done~~ |
 | PR-08b | Battery build time scales with target level (1 turn for 1st, 2 for 2nd, etc.), max `MAX_BATTERIES` | ✅ Done |
+| PR-08c | Battery build mode shall continue until at least 2 batteries are built before auto-switching to Fighters | ✅ Done |
 | ~~PR-09~~ | ~~After building a battery, production mode shall switch to Maintain Batteries~~ | ~~Removed~~ |
 | ~~PR-09a~~ | ~~After building a battery, maintenance toggle shall be enabled automatically~~ | ~~Removed~~ |
 | ~~PR-13~~ | ~~Battery maintenance is an independent toggle, orthogonal to production mode~~ | ~~Removed~~ |
@@ -319,13 +322,15 @@
 | UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
 | ~~UI-14~~ | ~~Hovering over any visible system shows its name, owner, production rate, and travel time from selected system~~ | ~~Done~~ |
 | UI-14a | Hovering over systems shows name, owner, production rate; owned systems also show production mode | ✅ Done |
-| UI-15 | Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow | ✅ Done |
+| ~~UI-15~~ | ~~Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow~~ | ~~Done~~ |
+| UI-15a | Send fleet dialog shall be positioned near the source system, dynamically avoiding overlap with target star, route arrow, and viewport edges | ✅ Done |
 | UI-16 | Combat report dialog shall be positioned near the relevant system  | ✅ Done |
 | UI-17 | During combat report display, only the close button shall be interactive | ✅ Done |
 | UI-18 | Send fleet dialog shall have separate sliders for fighters and bombers   | ✅ Done |
 | UI-19 | Bomber slider shall only be visible when bombers are available           | ✅ Done |
 | ~~UI-20~~ | ~~An action panel shall allow setting production mode for owned systems~~    | ~~Done~~ |
 | UI-20a | An action panel shall allow setting production mode for owned systems, opened by double-clicking the system (single click selects only) | ✅ Done |
+| UI-20b | The action panel shall close immediately after a production mode is selected | ✅ Done |
 | UI-21 | Action panel buttons shall be disabled when not applicable (e.g., max batteries reached) | ✅ Done |
 | UI-22 | Star labels shall show fighter/bomber counts (e.g., "10/5")              | ✅ Done |
 | UI-23 | Star labels shall show battery indicator (e.g., "[2]")                   | ✅ Done |
@@ -336,7 +341,8 @@
 | ~~UI-27~~ | ~~System info shall show current production mode and progress~~              | ~~Done~~ |
 | UI-27a | System info shall show current production mode with progress as completed/total turns (e.g., "2/5") | ✅ Done |
 | UI-28 | Visibility range of owned systems shall be subtly indicated on the map   | ✅ Done |
-| UI-29 | ESC key shall close the topmost open dialog (combat report, send fleet, or action panel) | ✅ Done |
+| ~~UI-29~~ | ~~ESC key shall close the topmost open dialog (combat report, send fleet, or action panel)~~ | ~~Done~~ |
+| UI-29a | ESC key shall close the topmost open dialog, or deselect the current star/station if no dialog is open | ✅ Done |
 | UI-30 | Send fleet dialog shall display fighter morale when below 100% | ✅ Done |
 | UI-31 | Setup screen allows per-player Human/AI selection with tactic choice | ✅ Done |
 | UI-32 | In all-AI spectator mode, Space key toggles pause/resume with "PAUSED" indicator | ✅ Done |
@@ -389,8 +395,8 @@
 | INITIAL_FIGHTERS_NEUTRAL | rate×2 to rate×5 | Random starting fighters for neutral systems (scaled by production rate) |
 | ~~INITIAL_FIGHTERS_HOME~~ | ~~30~~ | ~~Fixed starting fighters for player home systems~~ |
 | FIGHTERS_PER_PLAYER | 30 | Starting fighter pool per player (total = value × player_count) |
-| MIN_START_FIGHTERS | 15 | Minimum starting fighters per player |
-| MAX_START_FIGHTERS | 45 | Maximum starting fighters per player |
+| MIN_START_FIGHTERS | 20 | Minimum starting fighters per player |
+| MAX_START_FIGHTERS | 40 | Maximum starting fighters per player |
 | FIGHTER_SPEED | 150 px/turn | Fighter movement speed |
 | BOMBER_SPEED | 75 px/turn | Bomber movement speed (half of fighter) |
 | DEFENDER_BONUS | 1.5× | Combat effectiveness multiplier for defenders |

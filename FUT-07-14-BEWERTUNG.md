@@ -312,6 +312,11 @@ Produktionsmodi (wählbar):
 │ • Build Battery         │
 └─────────────────────────┘
 
+Automatisches Weiterbauen:
+├── Upgrade Production: bleibt aktiv bis mindestens Level 3 erreicht
+├── Build Battery: bleibt aktiv bis mindestens 2 Batterien gebaut
+└── Danach automatischer Wechsel zu Fighters
+
 Batterien sind permanent — kein Decay, kein Maintenance-Toggle.
 ```
 

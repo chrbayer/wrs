@@ -313,7 +313,9 @@ func process_production(ring_bonus: float = 0.0) -> void:
 				if upgrade_progress >= 1.0:
 					production_rate += 1
 					upgrade_progress = 0.0
-					production_mode = ProductionMode.FIGHTERS
+					# Keep upgrading until at least level 3
+					if production_rate >= 3:
+						production_mode = ProductionMode.FIGHTERS
 		ProductionMode.BATTERY_BUILD:
 			if battery_count < ShipTypes.MAX_BATTERIES:
 				# Build time scales with target level (like production upgrade)
@@ -321,8 +323,9 @@ func process_production(ring_bonus: float = 0.0) -> void:
 				if battery_build_progress >= 1.0:
 					battery_count += 1
 					battery_build_progress = 0.0
-					# Switch back to fighters production
-					production_mode = ProductionMode.FIGHTERS
+					# Keep building until at least 2 batteries
+					if battery_count >= 2:
+						production_mode = ProductionMode.FIGHTERS
 		ProductionMode.SHIELD_ACTIVATE:
 			pass  # No production during shield activation
 

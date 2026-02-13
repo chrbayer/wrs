@@ -438,8 +438,18 @@ func _generate_universe() -> void:
 	var positions: Array = gen_result["positions"]
 	var player_starts: Array = gen_result["player_starts"]
 
-	# Distribute starting fighters based on home world connectivity
-	var start_fighters: Array[int] = UniverseGenerator.generate_player_start_fighters(positions, player_starts)
+	# Pre-generate production rates so fighter distribution can weight by them
+	var production_rates: Array[int] = []
+	for i in range(positions.size()):
+		var player_start_idx = player_starts.find(i)
+		if player_start_idx >= 0:
+			production_rates.append(3)  # Standard production for home systems
+		else:
+			production_rates.append(UniverseGenerator.generate_production_rate())
+
+	# Distribute starting fighters based on home world connectivity + neighbor production
+	var start_fighters: Array[int] = UniverseGenerator.generate_player_start_fighters(
+		positions, player_starts, production_rates)
 
 	# Create systems
 	for i in range(positions.size()):
@@ -447,6 +457,7 @@ func _generate_universe() -> void:
 		system.system_id = i
 		system.system_name = UniverseGenerator.generate_star_name()
 		system.position = positions[i]
+		system.production_rate = production_rates[i]
 
 		# Check if this is a player start
 		var player_start_idx = player_starts.find(i)
@@ -454,10 +465,8 @@ func _generate_universe() -> void:
 			system.owner_id = player_start_idx
 			players[player_start_idx].home_system_id = system.system_id
 			system.fighter_count = start_fighters[player_start_idx]
-			system.production_rate = 3  # Standard production for home systems
 		else:
 			system.owner_id = -1  # Neutral
-			system.production_rate = UniverseGenerator.generate_production_rate()
 			system.fighter_count = UniverseGenerator.generate_initial_fighters(system.production_rate)
 
 		# Connect signals
@@ -929,28 +938,28 @@ func _on_produce_fighters_pressed() -> void:
 	if selected_system and selected_system.owner_id == current_player:
 		selected_system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
+		action_panel.visible = false
 
 
 func _on_produce_bombers_pressed() -> void:
 	if selected_system and selected_system.owner_id == current_player:
 		selected_system.set_production_mode(StarSystem.ProductionMode.BOMBERS)
 		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
+		action_panel.visible = false
 
 
 func _on_upgrade_pressed() -> void:
 	if selected_system and selected_system.owner_id == current_player:
 		selected_system.set_production_mode(StarSystem.ProductionMode.UPGRADE)
 		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
+		action_panel.visible = false
 
 
 func _on_build_battery_pressed() -> void:
 	if selected_system and selected_system.owner_id == current_player:
 		selected_system.set_production_mode(StarSystem.ProductionMode.BATTERY_BUILD)
 		_show_owned_system_info(selected_system)
-		_show_action_panel(selected_system)
+		action_panel.visible = false
 
 
 
@@ -1186,6 +1195,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_station_close_pressed()
 		elif action_panel.visible:
 			_on_action_close_pressed()
+		elif selected_system:
+			selected_system.set_selected(false)
+			selected_system = null
+			system_info_label.text = ""
+			queue_redraw()
+		elif selected_station_idx >= 0:
+			selected_station_idx = -1
+			station_action_panel.visible = false
+			system_info_label.text = ""
+			queue_redraw()
 		get_viewport().set_input_as_handled()
 
 
@@ -1364,8 +1383,17 @@ func _position_send_panel() -> void:
 		for pt in check_points:
 			min_dist_source = min(min_dist_source, pt.distance_to(source_pos))
 
-		# Score: prefer far from arrow and both stars
-		var score = min_dist_line * 2.0 + min(min_dist_target, 150.0) - min_dist_source * 0.2
+		# Check if panel rect overlaps with target star (using expanded radius)
+		var target_radius = send_target_system._get_radius() + 20.0
+		var panel_rect = Rect2(pos, panel_size)
+		var target_overlap_penalty: float = 0.0
+		if panel_rect.has_point(target_pos):
+			target_overlap_penalty = 500.0
+		elif min_dist_target < target_radius:
+			target_overlap_penalty = 300.0
+
+		# Score: prefer far from arrow and both stars, heavily penalize target overlap
+		var score = min_dist_line * 2.0 + min_dist_target * 3.0 - min_dist_source * 0.2 - target_overlap_penalty
 
 		if score > best_score:
 			best_score = score
