@@ -2124,7 +2124,8 @@ func _process_turn_end() -> void:
 					"bombers": merged[aid]["bombers"],
 				}
 
-		var result = Combat.resolve_system_combat(system, merged)
+		var eff_batteries = _get_effective_battery_count(system)
+		var result = Combat.resolve_system_combat(system, merged, eff_batteries)
 
 		# Apply results to system
 		system.owner_id = result["winner"]
@@ -2513,26 +2514,31 @@ func _draw_single_shield_line(line: Dictionary, is_activating: bool) -> void:
 	var sys_a = systems[line["system_a"]]
 	var sys_b = systems[line["system_b"]]
 
-	# Only draw if at least one endpoint is visible
-	if not sys_a.visible and not sys_b.visible:
-		return
+	var owner_id = line["owner_id"]
+	# Enemy shield lines: only visible when BOTH endpoints are visible
+	# Own shield lines: visible when at least one endpoint is visible
+	if owner_id == current_player:
+		if not sys_a.visible and not sys_b.visible:
+			return
+	else:
+		if not sys_a.visible or not sys_b.visible:
+			return
 
 	var distance = sys_a.global_position.distance_to(sys_b.global_position)
 	var density = Combat.calculate_shield_density(distance)
 
-	var owner_id = line["owner_id"]
 	var base_color: Color
 	if owner_id >= 0 and owner_id < players.size():
 		base_color = players[owner_id].color
 	else:
 		base_color = Color.WHITE
 
-	var alpha = 0.3 + density * 0.5
-	var width = 1.5 + density * 2.5
+	var alpha = 0.4 + density * 0.5
+	var width = 2.0 + density * 2.5
 
 	if is_activating:
-		alpha *= 0.4
-		width *= 0.5
+		alpha *= 0.6
+		width *= 0.7
 
 	base_color.a = alpha
 
@@ -2671,6 +2677,24 @@ func _calculate_ring_bonuses() -> Dictionary:
 					bonuses[system.system_id] = max(current, ShipTypes.SHIELD_RING_BONUS_INNER)
 
 	return bonuses
+
+
+## Calculate effective battery count including shield line neighbor support.
+## Neighbors contribute their batteries × shield_density × 0.5.
+func _get_effective_battery_count(system: StarSystem) -> int:
+	var base = system.battery_count
+	var support = 0.0
+	for line in shield_lines:
+		var neighbor: StarSystem = null
+		if line["system_a"] == system.system_id and line["owner_id"] == system.owner_id:
+			neighbor = systems[line["system_b"]]
+		elif line["system_b"] == system.system_id and line["owner_id"] == system.owner_id:
+			neighbor = systems[line["system_a"]]
+		if neighbor and neighbor.owner_id == system.owner_id:
+			var dist = system.global_position.distance_to(neighbor.global_position)
+			var density = Combat.calculate_shield_density(dist)
+			support += neighbor.battery_count * density * ShipTypes.SHIELD_BATTERY_SUPPORT_FACTOR
+	return base + int(support)
 
 
 ## Check and remove broken shield lines (ownership changed, batteries < 2).

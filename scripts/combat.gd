@@ -308,7 +308,8 @@ static func calculate_shield_effect(bat_a: int, bat_b: int, distance: float,
 
 ## Resolve combat when multiple fleets arrive at a system
 ## Returns detailed result dictionary
-static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionary) -> Dictionary:
+## effective_battery_count includes shield line neighbor support (if -1, uses system.battery_count)
+static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionary, effective_battery_count: int = -1) -> Dictionary:
 	var system_owner = system.owner_id
 	var system_fighters = system.fighter_count
 	var system_bombers = system.bomber_count
@@ -351,13 +352,14 @@ static func resolve_system_combat(system: StarSystem, arriving_fleets: Dictionar
 		wave["bat_bomber_kills"] = 0
 
 	# Battery pre-combat phase: batteries engage each wave independently (largest attack value first)
-	if system.battery_count > 0 and waves.size() > 0:
+	var bat_count = effective_battery_count if effective_battery_count >= 0 else system.battery_count
+	if bat_count > 0 and waves.size() > 0:
 		waves.sort_custom(func(a, b):
 			return calculate_attack_power(a["fighters"], a["bombers"], a["fighter_morale"]) > calculate_attack_power(b["fighters"], b["bombers"], b["fighter_morale"])
 		)
 
 		for wave in waves:
-			var battery_result = resolve_battery_combat(system.battery_count, wave["fighters"], wave["bombers"])
+			var battery_result = resolve_battery_combat(bat_count, wave["fighters"], wave["bombers"])
 			wave["fighters"] = max(0, wave["fighters"] - battery_result["fighter_kills"])
 			wave["bombers"] = max(0, wave["bombers"] - battery_result["bomber_kills"])
 			wave["bat_fighter_kills"] = battery_result["fighter_kills"]

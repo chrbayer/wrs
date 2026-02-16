@@ -58,6 +58,7 @@ const MAX_SHIELD_LINES_PER_SYSTEM: int = 2
 const MAX_SHIELD_STRUCTURES: int = 2
 const SHIELD_RING_BONUS_INNER: float = 0.25
 const SHIELD_RING_BONUS_RING: float = 0.12
+const SHIELD_BATTERY_SUPPORT_FACTOR: float = 0.5  # Neighbor battery contribution scaled by density
 
 # Space station constants (FUT-20)
 const STATION_BUILD_COST: int = 24       # Total FÄ to build station

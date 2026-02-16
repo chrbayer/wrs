@@ -88,6 +88,12 @@ Stärke skaliert mit zwei Faktoren:
    - Blockade: `min(batteries_a, batteries_b)` — schwächstes Glied bestimmt Durchlässigkeit
    - Schaden: `batteries_a + batteries_b` — Gesamtfeuerkraft bestimmt Verluste
 
+3. **Batterie-Unterstützung bei Verteidigung:**
+   - Verbundene Nachbarn über Schildlinien feuern mit: `Nachbar-Batterien × density × 0.5`
+   - Nur Nachbarn des gleichen Besitzers tragen bei
+   - Effektive Batterie-Zahl wird auf ganzzahligen Wert gerundet (abgerundet)
+   - Beispiel: 5 eigene Bat. + Nachbar (5 Bat., Dichte 1.0) = 5 + 2 = 7 effektive Batterien
+
 #### Was passiert mit der Flotte?
 
 **Blockade + Attrition:**

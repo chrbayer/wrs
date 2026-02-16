@@ -49,6 +49,8 @@ Formel: `Batterie-Kills = battery_count x BATTERY_DAMAGE_PER_ROUND (3.0)`, gegen
 
 **Batterie-ROI:** 5 Batterien "verdienen" sich bei jedem Angriff 15 Fighter-Aquivalente zuruck. Ab dem 3. abgewehrten Angriff (45 vernichtete Fighter) ist die Investition amortisiert.
 
+**Schildlinien-Batterieunterstützung:** Verbundene Nachbarsterne feuern mit: `Nachbar-Batterien × Schilddichte × 0.5`. Bei 2 Nachbarn mit je 5 Batterien und Dichte 1.0 (120px): +5 effektive Batterien → 30 Kills/Welle statt 15. Bei Dichte 0.5 (185px): +2.5 → 22.5 Kills/Welle. Starke defensive Synergie, aber abhangig von kompakter Sternverteilung.
+
 ### 1.4 Kampfsystem
 
 #### Erwartungswerte
