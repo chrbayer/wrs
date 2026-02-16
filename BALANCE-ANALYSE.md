@@ -1,6 +1,6 @@
 # Balance-Analyse: Weltraumschlacht
 
-> Stand: 2026-02-12 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen).
+> Stand: 2026-02-16 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen). Station-Verbesserungen (Naming, Selektion, Shield-Aktivierung Stern↔Station, Partial Scan) eingearbeitet.
 
 ---
 
@@ -313,13 +313,14 @@ Da Produktionsraten ganzzahlig sind, muss der Bonus entweder abgerundet oder als
 | Scan-Methode | Reichweite | Zuverlassigkeit | Kosten |
 |--------------|-----------|-----------------|--------|
 | Passiver Scan (Sterne) | STATION_PASSIVE_SCAN_RANGE (200px) | 100% | Kostenlos |
-| Passiver Scan (Stationen) | MAX_SYSTEM_DISTANCE (250px) | 100% | 1 Station-Slot |
+| Passiver Scan (Stationen, operativ) | MAX_SYSTEM_DISTANCE (250px) | 100% | 1 Station-Slot |
+| Passiver Scan (Stationen, im Bau ≥2/3) | 125px (50% von 250px) | 100% | 1 Station-Slot |
 | Flotten-Scan (25+ Schiffe) | 60px | Situativ | Flotte muss vorbei |
 | Flotten-Scan (6-24 Schiffe) | 3-57px | Gering | Flotte muss nah vorbei |
 | Flotten-Scan (1-5 Schiffe) | 0px | Keine | Kein Scan |
 | Garnison-Sichtbarkeit | Global | 100% | Sicherheit verloren |
 
-**Analyse:** Stationen sind uberraschend schwer zu entdecken. Solange keine Garnison stationiert ist, kann nur passiver Scan (eigene Sterne/Stationen in Sichtweite) oder vorbeifliegende grosse Flotten sie aufspuren. Das schafft ein interessantes **Information-Asymmetry**-Spiel:
+**Analyse:** Stationen sind uberraschend schwer zu entdecken. Solange keine Garnison stationiert ist, kann nur passiver Scan (eigene Sterne/Stationen in Sichtweite) oder vorbeifliegende grosse Flotten sie aufspuren. Stationen im Bau beginnen ab Fortschritt 2/3 mit halbem Scanradius zu scannen (125px), was einen fruhen Aufklarungsvorteil bietet. Das schafft ein interessantes **Information-Asymmetry**-Spiel:
 
 - **Angreifer:** Muss Station bauen, ohne dass feindliche Sterne sie scannen. Optimalposition: ausserhalb aller feindlichen Scan-Radien.
 - **Verteidiger:** Muss Lucken in der eigenen Scan-Abdeckung identifizieren und ggf. eigene Aufklarungs-Station platzieren.

@@ -193,8 +193,8 @@
 
 | ID    | Requirement                                                              | Status |
 |-------|--------------------------------------------------------------------------|--------|
-| SL-01 | Two owned systems with `SHIELD_MIN_BATTERIES` batteries each, within `MAX_SYSTEM_DISTANCE`, may form a shield line | ✅ Done |
-| SL-02 | Shield lines require manual activation via `SHIELD_ACTIVATE` production mode on both systems simultaneously | ✅ Done |
+| SL-01 | Two owned entities (systems or stations) with `SHIELD_MIN_BATTERIES` batteries each, within `MAX_SYSTEM_DISTANCE`, may form a shield line | ✅ Done |
+| SL-02 | Shield lines require manual activation via `SHIELD_ACTIVATE` production mode (systems) or shield button (stations) on both endpoints simultaneously | ✅ Done |
 | SL-03 | During activation (`SHIELD_ACTIVATE_TIME` turns), both systems produce no ships, batteries, or upgrades | ✅ Done |
 | SL-04 | After activation completes, both systems return to Fighters production mode automatically | ✅ Done |
 | SL-05 | Each system may participate in at most `MAX_SHIELD_LINES_PER_SYSTEM` shield lines (active + activating) | ✅ Done |
@@ -231,8 +231,9 @@
 | SL-33 | Shield activation progress is processed at the start of end-of-round (before production) | ✅ Done |
 | SL-34 | The "Activate Shield" button in the action panel shows current shield line count for the selected system (e.g., "Activate Shield (1/2)") | ✅ Done |
 | SL-35 | The "Activate Shield" button is disabled when: batteries < `SHIELD_MIN_BATTERIES`, system already has `MAX_SHIELD_LINES_PER_SYSTEM` lines, or system is already in `SHIELD_ACTIVATE` mode | ✅ Done |
-| SL-36 | Clicking "Activate Shield" enters partner selection mode. Clicking another owned system with valid conditions starts the activation. ESC cancels selection mode | ✅ Done |
-| SL-37 | Partner validation checks: same owner, both have `SHIELD_MIN_BATTERIES` batteries, within `MAX_SYSTEM_DISTANCE`, neither at max lines, no duplicate line, neither already activating, structure limit not exceeded | ✅ Done |
+| SL-36 | Clicking "Activate Shield" enters partner selection mode. Clicking another owned system or station with valid conditions starts the activation. ESC cancels selection mode | ✅ Done |
+| SL-36a | Shield activation supports mixed endpoints: system↔system, system↔station, station↔system, station↔station | ✅ Done |
+| SL-37 | Partner validation checks: same owner, both have `SHIELD_MIN_BATTERIES` batteries, within `MAX_SYSTEM_DISTANCE`, neither at max lines, no duplicate line, neither already activating, structure limit not exceeded. Applies to both systems and stations | ✅ Done |
 | SL-38 | AI Fortress tactic shall activate shield lines on frontier systems with `SHIELD_MIN_BATTERIES`+ batteries, pairing with nearby qualifying systems. Shield activation is returned as `{"shield_partner": target_id}` in production changes | ✅ Done |
 | SL-39 | All AI tactics shall penalize targets behind enemy shield lines when selecting attack targets. Path cost increases by `density × 3.0` per crossing; targets with cost > 2.0 are skipped by Fortress | ✅ Done |
 | SL-40 | Shield data (`shield_lines`, `shield_activations`) is cleared on game start | ✅ Done |
@@ -259,10 +260,12 @@
 | SS-11 | Fleet scan: fleets with more than `STATION_FLEET_SCAN_THRESHOLD` ships scan for stations along their path. Scan range = `min(STATION_FLEET_SCAN_MAX, max(0, (fleet_size - STATION_FLEET_SCAN_THRESHOLD) × STATION_FLEET_SCAN_PER_SHIP))` pixels from the flight path (point-to-segment distance). Discovery is permanent | ✅ Done |
 | SS-12 | Enemy fleets arriving at a station trigger combat. Batteries fire first (same pre-combat as systems). Station garrison defends with standard defender bonus | ✅ Done |
 | SS-13 | Stations are destroyed on conquest (not captured). Attacking survivors retain their ships but the station is removed from the map | ✅ Done |
-| SS-14 | Station combat produces combat reports for involved players, showing "Station" as the system name and "(Station destroyed)" on conquest | ✅ Done |
+| ~~SS-14~~ | ~~Station combat produces combat reports for involved players, showing "Station" as the system name and "(Station destroyed)" on conquest~~ | ~~Done~~ |
+| SS-14a | Station combat produces combat reports for involved players, showing the station's name (e.g., "S-1") as the system name and "(Station destroyed)" on conquest | ✅ Done |
 | SS-15 | Friendly reinforcements arriving at a station in the same turn are processed before enemy combat: material delivery for under construction / battery building, garrison for idle stations | ✅ Done |
-| SS-16 | Stations are drawn as diamond shapes (player color) on the map. Under construction: 50% opacity with progress arc. Operative: full opacity. Out-of-scan: gray | ✅ Done |
-| SS-17 | Own stations show fighter/bomber count above and battery count below. Enemy stations with garrison show "?" | ✅ Done |
+| SS-16 | Stations are drawn as diamond shapes (player color) on the map. Under construction: 50% opacity with progress arc. Operative: full opacity. Out-of-scan: gray. Selected stations show pulsing cyan halo (same style as star selection) | ✅ Done |
+| ~~SS-17~~ | ~~Own stations show fighter/bomber count above and battery count below. Enemy stations with garrison show "?"~~ | ~~Done~~ |
+| SS-17a | Own stations show fighter/bomber count and battery indicator merged above (e.g., "10 [2]", matching star label style with font size 20). Enemy stations in scan show "?" with battery count. Discovered enemy stations out of scan show "? [?]" in gray | ✅ Done |
 | ~~SS-18~~ | ~~Station placement mode is activated via "Build Station" button in the top bar. The button shows current/max count. Valid placement zones are shown as circles around owned entities~~ | ~~Done~~ |
 | SS-18a | Station placement mode is toggled via "Build Station" button (press again to cancel). Stations can be placed anywhere in the FoW visible area (no green circles). Enemy scan radii are shown as light red circles (stars: 200px, stations: 250px), clipped to FoW | ✅ Done |
 | SS-19 | Clicking a station selects it (showing info in bottom bar). Double-clicking an own operative station opens the station action panel with Build Battery and Close buttons | ✅ Done |
@@ -272,7 +275,8 @@
 | SS-23 | Station data is cleared on game start. Station placement mode and selection state are cleared on player transition and ESC | ✅ Done |
 | SS-24 | Player elimination check includes stations: a player with stations but no systems or fleets is not eliminated | ✅ Done |
 | SS-25 | Victory check includes stations: a player with only stations is still alive | ✅ Done |
-| SS-26 | Operative stations extend the player's visibility range (passive scan from station position, visibility texture includes station positions) | ✅ Done |
+| ~~SS-26~~ | ~~Operative stations extend the player's visibility range (passive scan from station position, visibility texture includes station positions)~~ | ~~Done~~ |
+| SS-26a | Operative stations extend the player's full visibility range. Under-construction stations with build progress >= `STATION_PARTIAL_SCAN_MIN_PROGRESS` provide partial scanning at `STATION_PARTIAL_SCAN_MULTIPLIER` (50%) of full range | ✅ Done |
 | SS-27 | Destroying a station removes any shield lines or activations connected to its entity ID | ✅ Done |
 | SS-28 | Station Area2D click detection uses station ID (not array index) to remain valid after station destruction | ✅ Done |
 | SS-29 | Station fleet arrivals are processed in reverse index order to safely handle station destruction during combat | ✅ Done |
@@ -280,6 +284,10 @@
 | SS-31 | AI Fortress tactic builds station batteries on operative stations | ✅ Done |
 | SS-32 | Send fleet dialog position works for all source/target combinations: system→system, system→station, station→system, station→station | ✅ Done |
 | SS-33 | Fleet arrows use correct radii for station source/target (diamond radius instead of star radius) | ✅ Done |
+| SS-34 | Stations shall have auto-generated names ("S-1", "S-2", etc.) displayed below the diamond shape. Station name is shown in info text, panel title, and combat reports | ✅ Done |
+| SS-35 | When building a battery on a station, existing garrison fighters/bombers are immediately consumed as battery material (converted to FÄ) before waiting for incoming supply | ✅ Done |
+| SS-36 | The "Activate Shield" button on station panels shall be enabled when: station is operative, has `SHIELD_MIN_BATTERIES`+ batteries, has fewer than `MAX_SHIELD_LINES_PER_SYSTEM` shield lines, and is not currently activating a shield | ✅ Done |
+| SS-37 | Shield activation from/to stations supports all endpoint combinations: system↔station, station↔system, station↔station. Station shield activations use `shield_activating` flag instead of production mode | ✅ Done |
 
 ---
 
@@ -458,6 +466,8 @@
 | STATION_FLEET_SCAN_THRESHOLD | 5 ships | Fleets with ≤ this many ships have no scan capability |
 | STATION_FLEET_SCAN_PER_SHIP | 3.0 px/ship | Scan range increase per ship above threshold |
 | STATION_ID_OFFSET | 1000 | Entity ID offset to distinguish station IDs from system IDs in fleet source/target |
+| STATION_PARTIAL_SCAN_MULTIPLIER | 0.5 (50%) | Under-construction station scan range factor (applied at build progress >= MIN_PROGRESS) |
+| STATION_PARTIAL_SCAN_MIN_PROGRESS | 2 | Minimum build progress for partial scanning (of 3 total) |
 | STATION_CLICK_RADIUS | 20 px | Click detection radius for stations |
 | STATION_DIAMOND_SIZE | 12 px | Visual size of station diamond shape |
 
@@ -480,3 +490,4 @@
 - **Update 2026-02:** Shield lines (FUT-19): territorial defense via manually activated energy lines between battery-equipped systems. Attrition and blockade mechanics scale with shield density (inverse distance) and battery levels. Closed rings grant production bonuses. Battery support: connected neighbors contribute batteries × density × 0.5 to pre-combat fire. Bombers have 50% shield resistance. AI Fortress activates shields on frontier; all AI tactics avoid enemy shield crossings. 42 detailed requirements (SL-01 to SL-42), 11 new parameters. Production mode updated to PR-02b.
 - **Update 2026-02:** Space stations (FUT-20): Material-based construction (24 FÄ, 3 rounds) anywhere in FoW visible area. Chain building from stars and operative stations. Batteries via material delivery (max 2). Visibility: invisible by default, detected via passive scan (stars: 200px, stations: 250px), fleet scan (size-dependent, `3 px/ship` above threshold of 5), or garrison (weapon signatures). Placement mode shows enemy scan radii as red circles, toggled via button. Combat: same as systems with batteries, destroyed on conquest. AI builds stations (Fortress/Economy/Balanced), delivers material, attacks enemy stations, builds batteries. 33 detailed requirements (SS-01 to SS-33), 12 new parameters. V-02 updated to V-02a (elimination includes stations).
 - **Update 2026-02:** Rebellion dominance now uses multi-factor power score (weighted sum of system count, combat power in fighter equivalents, and total production rate) instead of pure system count. RB-01a/RB-02a replace RB-01/RB-02. REBELLION_CHANCE_PER_EXCESS replaced by REBELLION_CHANCE_PER_DOMINANCE (0.3) and three weight constants (REBELLION_DOMINANCE_WEIGHT_SYSTEMS=4.0, WEIGHT_COMBAT=0.1, WEIGHT_PRODUCTION=0.5).
+- **Update 2026-02:** Station improvements: Stations now have auto-generated names ("S-1", "S-2") shown in labels, info text, and combat reports (SS-34, SS-14a). Station selection shows pulsing cyan halo like star selection (SS-16 update). Battery building consumes existing garrison immediately (SS-35). Shield activation supports mixed star/station endpoints (SL-36a, SS-36, SS-37). Enemy station battery display shows "?" when not in scan (SS-17a). Under-construction stations at build progress 2/3 provide partial scanning at 50% range (SS-26a). New parameters: STATION_PARTIAL_SCAN_MULTIPLIER (0.5), STATION_PARTIAL_SCAN_MIN_PROGRESS (2).

@@ -401,6 +401,7 @@ func _start_game(player_configs: Array = []) -> void:
 	selected_station_idx = -1
 	send_source_station_idx = -1
 	send_target_station_idx = -1
+	_station_shield_source_idx = -1
 
 	# Initialize players
 	for i in range(player_count):
@@ -564,22 +565,27 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 
 	var radius = UniverseGenerator.MAX_SYSTEM_DISTANCE
 	var radius_sq = radius * radius
+	var partial_radius = radius * ShipTypes.STATION_PARTIAL_SCAN_MULTIPLIER
+	var partial_radius_sq = partial_radius * partial_radius
 
-	# Collect all scan center positions (systems + operative stations)
-	var scan_centers: Array[Vector2] = []
+	# Collect scan centers with their radius_sq (systems + stations)
+	var scan_sources: Array = []  # [{pos: Vector2, radius_sq: float}]
 	for sys in owned_systems:
-		scan_centers.append(sys.global_position)
+		scan_sources.append({"pos": sys.global_position, "radius_sq": radius_sq})
 	for station in stations:
-		if station["owner_id"] == current_player and station["operative"]:
-			scan_centers.append(station["position"])
+		if station["owner_id"] == current_player:
+			if station["operative"]:
+				scan_sources.append({"pos": station["position"], "radius_sq": radius_sq})
+			elif station["build_progress"] >= ShipTypes.STATION_PARTIAL_SCAN_MIN_PROGRESS:
+				scan_sources.append({"pos": station["position"], "radius_sq": partial_radius_sq})
 
 	# For each pixel, check if it's within range of any scan center
 	for x in range(img.get_width()):
 		for y in range(img.get_height()):
 			var pos = Vector2(x, y)
 			var in_range = false
-			for center in scan_centers:
-				if pos.distance_squared_to(center) <= radius_sq:
+			for source in scan_sources:
+				if pos.distance_squared_to(source["pos"]) <= source["radius_sq"]:
 					in_range = true
 					break
 			if in_range:
@@ -598,8 +604,8 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 		if sys.owner_id != current_player and sys.owner_id >= 0:
 			# Only include visible enemy stars (within own FoW)
 			var sys_visible = false
-			for center in scan_centers:
-				if sys.global_position.distance_squared_to(center) <= radius_sq:
+			for source in scan_sources:
+				if sys.global_position.distance_squared_to(source["pos"]) <= source["radius_sq"]:
 					sys_visible = true
 					break
 			if sys_visible:
@@ -615,8 +621,8 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 				var pos = Vector2(x, y)
 				# Must be in own FoW visible area
 				var in_fow = false
-				for center in scan_centers:
-					if pos.distance_squared_to(center) <= radius_sq:
+				for source in scan_sources:
+					if pos.distance_squared_to(source["pos"]) <= source["radius_sq"]:
 						in_fow = true
 						break
 				if not in_fow:
@@ -638,19 +644,19 @@ func _update_shield_line_memory(owned_systems: Array[StarSystem]) -> void:
 	# Build set of currently visible shield lines
 	var visible_lines: Array = []
 	for line in shield_lines:
-		var sys_a = systems[line["system_a"]]
-		var sys_b = systems[line["system_b"]]
+		var pos_a = _get_entity_position(line["system_a"])
+		var pos_b = _get_entity_position(line["system_b"])
 		# Visible if at least one endpoint is visible to current player
-		var a_visible = sys_a.owner_id == current_player
-		var b_visible = sys_b.owner_id == current_player
+		var a_visible = _get_entity_owner(line["system_a"]) == current_player
+		var b_visible = _get_entity_owner(line["system_b"]) == current_player
 		if not a_visible:
 			for owned in owned_systems:
-				if sys_a.global_position.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				if pos_a.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
 					a_visible = true
 					break
 		if not b_visible:
 			for owned in owned_systems:
-				if sys_b.global_position.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+				if pos_b.distance_to(owned.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
 					b_visible = true
 					break
 		if a_visible or b_visible:
@@ -673,10 +679,8 @@ func _update_shield_line_memory(owned_systems: Array[StarSystem]) -> void:
 	for i in range(shield_line_memory[current_player].size()):
 		var mem = shield_line_memory[current_player][i]
 		# Check if both endpoints are visible - if so, we'd know if the line still exists
-		var sys_a = systems[mem["system_a"]]
-		var sys_b = systems[mem["system_b"]]
-		var a_vis = sys_a.visible and not sys_a.is_remembered
-		var b_vis = sys_b.visible and not sys_b.is_remembered
+		var a_vis = _is_shield_endpoint_currently_visible(mem["system_a"])
+		var b_vis = _is_shield_endpoint_currently_visible(mem["system_b"])
 		if a_vis and b_vis:
 			# Both visible - check if line still active
 			var still_active = false
@@ -813,9 +817,11 @@ func _on_system_clicked(system: StarSystem) -> void:
 	if send_panel.visible:
 		return
 
-	# Cancel station shield selection if active
+	# Station shield source selection mode (station -> system)
 	if _station_shield_source_idx >= 0:
+		_try_activate_shield_mixed_station_to_system(_station_shield_source_idx, system)
 		_station_shield_source_idx = -1
+		return
 
 	# Shield partner selection mode
 	if shield_select_source:
@@ -1522,13 +1528,15 @@ func _get_shield_crossings(source_pos: Vector2, target_pos: Vector2,
 	for line in shield_lines:
 		if line["owner_id"] == fleet_owner:
 			continue  # Own shield lines don't affect own fleets
-		var sys_a = systems[line["system_a"]]
-		var sys_b = systems[line["system_b"]]
-		if Combat.segments_intersect(source_pos, target_pos,
-									 sys_a.global_position, sys_b.global_position):
-			var distance = sys_a.global_position.distance_to(sys_b.global_position)
+		var pos_a = _get_entity_position(line["system_a"])
+		var pos_b = _get_entity_position(line["system_b"])
+		if pos_a == Vector2.ZERO or pos_b == Vector2.ZERO:
+			continue
+		if Combat.segments_intersect(source_pos, target_pos, pos_a, pos_b):
+			var distance = pos_a.distance_to(pos_b)
 			var effect = Combat.calculate_shield_effect(
-				sys_a.battery_count, sys_b.battery_count,
+				_get_entity_battery_count(line["system_a"]),
+				_get_entity_battery_count(line["system_b"]),
 				distance, fighters, bombers
 			)
 			crossings.append(effect)
@@ -2231,10 +2239,9 @@ func _process_shield_activations() -> void:
 
 	for act in shield_activations:
 		act["progress"] += 1
-		var sys_a = systems[act["system_a"]]
-		var sys_b = systems[act["system_b"]]
-		sys_a.shield_activate_progress = act["progress"]
-		sys_b.shield_activate_progress = act["progress"]
+		# Update progress on endpoints (system or station)
+		_set_shield_activate_progress(act["system_a"], act["progress"])
+		_set_shield_activate_progress(act["system_b"], act["progress"])
 
 		if act["progress"] >= ShipTypes.SHIELD_ACTIVATE_TIME:
 			completed.append(act)
@@ -2250,11 +2257,32 @@ func _process_shield_activations() -> void:
 			"system_b": act["system_b"],
 			"owner_id": act["owner_id"]
 		})
-		# Reset both systems to FIGHTERS mode
-		var sys_a = systems[act["system_a"]]
-		var sys_b = systems[act["system_b"]]
-		sys_a.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
-		sys_b.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
+		# Reset endpoints
+		_reset_shield_activate_endpoint(act["system_a"])
+		_reset_shield_activate_endpoint(act["system_b"])
+
+
+## Set shield activation progress on a system or station endpoint
+func _set_shield_activate_progress(entity_id: int, progress: int) -> void:
+	if _is_station_id(entity_id):
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			stations[idx]["shield_activate_progress"] = progress
+	else:
+		if entity_id >= 0 and entity_id < systems.size():
+			systems[entity_id].shield_activate_progress = progress
+
+
+## Reset a shield activation endpoint (system -> FIGHTERS mode, station -> clear flag)
+func _reset_shield_activate_endpoint(entity_id: int) -> void:
+	if _is_station_id(entity_id):
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			stations[idx]["shield_activating"] = false
+			stations[idx]["shield_activate_progress"] = 0
+	else:
+		if entity_id >= 0 and entity_id < systems.size():
+			systems[entity_id].set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 
 
 ## Apply shield attrition to a fleet that is about to arrive.
@@ -2267,14 +2295,17 @@ func _apply_shield_attrition(fleet: Fleet) -> void:
 		if line["owner_id"] == fleet.owner_id:
 			continue  # Own shields don't affect own fleets
 
-		var sys_a = systems[line["system_a"]]
-		var sys_b = systems[line["system_b"]]
+		var pos_a = _get_entity_position(line["system_a"])
+		var pos_b = _get_entity_position(line["system_b"])
+		if pos_a == Vector2.ZERO or pos_b == Vector2.ZERO:
+			continue
 
-		if Combat.segments_intersect(source_pos, target_pos,
-									 sys_a.global_position, sys_b.global_position):
-			var distance = sys_a.global_position.distance_to(sys_b.global_position)
+		if Combat.segments_intersect(source_pos, target_pos, pos_a, pos_b):
+			var distance = pos_a.distance_to(pos_b)
+			var bat_a = _get_entity_battery_count(line["system_a"])
+			var bat_b = _get_entity_battery_count(line["system_b"])
 			var effect = Combat.calculate_shield_effect(
-				sys_a.battery_count, sys_b.battery_count,
+				bat_a, bat_b,
 				distance, fleet.fighter_count, fleet.bomber_count
 			)
 
@@ -2515,32 +2546,41 @@ func _draw_shield_lines() -> void:
 					already_active = true
 					break
 			if not already_active:
-				var sys_a = systems[mem_line["system_a"]]
-				var sys_b = systems[mem_line["system_b"]]
-				if sys_a.visible or sys_b.visible:
-					var start_pos = sys_a.global_position
-					var end_pos = sys_b.global_position
-					var dir = (end_pos - start_pos).normalized()
-					start_pos += dir * sys_a._get_radius()
-					end_pos -= dir * sys_b._get_radius()
+				var pos_a = _get_entity_position(mem_line["system_a"])
+				var pos_b = _get_entity_position(mem_line["system_b"])
+				if pos_a == Vector2.ZERO or pos_b == Vector2.ZERO:
+					continue
+				var vis_a = _is_shield_endpoint_visible(mem_line["system_a"])
+				var vis_b = _is_shield_endpoint_visible(mem_line["system_b"])
+				if vis_a or vis_b:
+					var dir = (pos_b - pos_a).normalized()
+					var r_a = STATION_DIAMOND_SIZE + 4 if _is_station_id(mem_line["system_a"]) else systems[mem_line["system_a"]]._get_radius()
+					var r_b = STATION_DIAMOND_SIZE + 4 if _is_station_id(mem_line["system_b"]) else systems[mem_line["system_b"]]._get_radius()
+					var start_pos = pos_a + dir * r_a
+					var end_pos = pos_b - dir * r_b
 					draw_line(start_pos, end_pos, Color(0.5, 0.5, 0.5, 0.3), 1.5)
 
 
 func _draw_single_shield_line(line: Dictionary, is_activating: bool) -> void:
-	var sys_a = systems[line["system_a"]]
-	var sys_b = systems[line["system_b"]]
+	var id_a = line["system_a"]
+	var id_b = line["system_b"]
+	var pos_a = _get_entity_position(id_a)
+	var pos_b = _get_entity_position(id_b)
+	if pos_a == Vector2.ZERO or pos_b == Vector2.ZERO:
+		return
 
 	var owner_id = line["owner_id"]
-	# Enemy shield lines: only visible when BOTH endpoints are visible
-	# Own shield lines: visible when at least one endpoint is visible
+	# Visibility check: own lines need at least one endpoint visible, enemy need both
+	var vis_a = _is_shield_endpoint_visible(id_a)
+	var vis_b = _is_shield_endpoint_visible(id_b)
 	if owner_id == current_player:
-		if not sys_a.visible and not sys_b.visible:
+		if not vis_a and not vis_b:
 			return
 	else:
-		if not sys_a.visible or not sys_b.visible:
+		if not vis_a or not vis_b:
 			return
 
-	var distance = sys_a.global_position.distance_to(sys_b.global_position)
+	var distance = pos_a.distance_to(pos_b)
 	var density = Combat.calculate_shield_density(distance)
 
 	var base_color: Color
@@ -2558,14 +2598,38 @@ func _draw_single_shield_line(line: Dictionary, is_activating: bool) -> void:
 
 	base_color.a = alpha
 
-	# Shorten line to star radius
-	var start_pos = sys_a.global_position
-	var end_pos = sys_b.global_position
-	var dir = (end_pos - start_pos).normalized()
-	start_pos += dir * sys_a._get_radius()
-	end_pos -= dir * sys_b._get_radius()
+	# Shorten line to endpoint radius
+	var dir = (pos_b - pos_a).normalized()
+	var radius_a = STATION_DIAMOND_SIZE + 4 if _is_station_id(id_a) else systems[id_a]._get_radius()
+	var radius_b = STATION_DIAMOND_SIZE + 4 if _is_station_id(id_b) else systems[id_b]._get_radius()
+	var start_pos = pos_a + dir * radius_a
+	var end_pos = pos_b - dir * radius_b
 
 	draw_line(start_pos, end_pos, base_color, width)
+
+
+## Check if a shield endpoint (system or station) is visible
+func _is_shield_endpoint_visible(entity_id: int) -> bool:
+	if _is_station_id(entity_id):
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			return _is_station_visible_to(stations[idx], current_player)
+		return false
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].visible
+	return false
+
+
+## Check if a shield endpoint is currently directly visible (not just remembered)
+func _is_shield_endpoint_currently_visible(entity_id: int) -> bool:
+	if _is_station_id(entity_id):
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			return _is_station_in_scan_range(stations[idx], current_player) or stations[idx]["owner_id"] == current_player
+		return false
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].visible and not systems[entity_id].is_remembered
+	return false
 
 
 func _line_matches_dict(a: Dictionary, b: Dictionary) -> bool:
@@ -2651,7 +2715,7 @@ func _order_cycle_nodes(nodes: Array, adj: Dictionary) -> Array:
 	return ordered
 
 
-## Test if a point is inside a polygon defined by system IDs using ray casting.
+## Test if a point is inside a polygon defined by entity IDs using ray casting.
 func _point_in_polygon(point: Vector2, polygon_ids: Array) -> bool:
 	var polygon_size = polygon_ids.size()
 	if polygon_size < 3:
@@ -2660,8 +2724,8 @@ func _point_in_polygon(point: Vector2, polygon_ids: Array) -> bool:
 	var inside = false
 	var j = polygon_size - 1
 	for i in range(polygon_size):
-		var pi = systems[polygon_ids[i]].global_position
-		var pj = systems[polygon_ids[j]].global_position
+		var pi = _get_entity_position(polygon_ids[i])
+		var pj = _get_entity_position(polygon_ids[j])
 		if ((pi.y > point.y) != (pj.y > point.y)) and \
 		   (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x):
 			inside = not inside
@@ -2701,15 +2765,16 @@ func _get_effective_battery_count(system: StarSystem) -> int:
 	var base = system.battery_count
 	var support = 0.0
 	for line in shield_lines:
-		var neighbor: StarSystem = null
+		var neighbor_id: int = -1
 		if line["system_a"] == system.system_id and line["owner_id"] == system.owner_id:
-			neighbor = systems[line["system_b"]]
+			neighbor_id = line["system_b"]
 		elif line["system_b"] == system.system_id and line["owner_id"] == system.owner_id:
-			neighbor = systems[line["system_a"]]
-		if neighbor and neighbor.owner_id == system.owner_id:
-			var dist = system.global_position.distance_to(neighbor.global_position)
+			neighbor_id = line["system_a"]
+		if neighbor_id >= 0 and _get_entity_owner(neighbor_id) == system.owner_id:
+			var neighbor_pos = _get_entity_position(neighbor_id)
+			var dist = system.global_position.distance_to(neighbor_pos)
 			var density = Combat.calculate_shield_density(dist)
-			support += neighbor.battery_count * density * ShipTypes.SHIELD_BATTERY_SUPPORT_FACTOR
+			support += _get_entity_battery_count(neighbor_id) * density * ShipTypes.SHIELD_BATTERY_SUPPORT_FACTOR
 	return base + int(support)
 
 
@@ -2719,29 +2784,31 @@ func _check_shield_breaks() -> void:
 	# Check active shield lines
 	var remaining_lines: Array = []
 	for line in shield_lines:
-		var sys_a = systems[line["system_a"]]
-		var sys_b = systems[line["system_b"]]
-		if sys_a.owner_id == line["owner_id"] and sys_b.owner_id == line["owner_id"] and \
-		   sys_a.battery_count >= ShipTypes.SHIELD_MIN_BATTERIES and \
-		   sys_b.battery_count >= ShipTypes.SHIELD_MIN_BATTERIES:
+		var owner_a = _get_entity_owner(line["system_a"])
+		var owner_b = _get_entity_owner(line["system_b"])
+		var bat_a = _get_entity_battery_count(line["system_a"])
+		var bat_b = _get_entity_battery_count(line["system_b"])
+		if owner_a == line["owner_id"] and owner_b == line["owner_id"] and \
+		   bat_a >= ShipTypes.SHIELD_MIN_BATTERIES and \
+		   bat_b >= ShipTypes.SHIELD_MIN_BATTERIES:
 			remaining_lines.append(line)
 	shield_lines = remaining_lines
 
 	# Check activations
 	var remaining_acts: Array = []
 	for act in shield_activations:
-		var sys_a = systems[act["system_a"]]
-		var sys_b = systems[act["system_b"]]
-		if sys_a.owner_id == act["owner_id"] and sys_b.owner_id == act["owner_id"] and \
-		   sys_a.battery_count >= ShipTypes.SHIELD_MIN_BATTERIES and \
-		   sys_b.battery_count >= ShipTypes.SHIELD_MIN_BATTERIES:
+		var owner_a = _get_entity_owner(act["system_a"])
+		var owner_b = _get_entity_owner(act["system_b"])
+		var bat_a = _get_entity_battery_count(act["system_a"])
+		var bat_b = _get_entity_battery_count(act["system_b"])
+		if owner_a == act["owner_id"] and owner_b == act["owner_id"] and \
+		   bat_a >= ShipTypes.SHIELD_MIN_BATTERIES and \
+		   bat_b >= ShipTypes.SHIELD_MIN_BATTERIES:
 			remaining_acts.append(act)
 		else:
-			# Reset both systems to FIGHTERS mode
-			if sys_a.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
-				sys_a.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
-			if sys_b.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
-				sys_b.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
+			# Reset endpoints
+			_reset_shield_activate_endpoint(act["system_a"])
+			_reset_shield_activate_endpoint(act["system_b"])
 	shield_activations = remaining_acts
 
 
@@ -2750,8 +2817,8 @@ func _check_shield_breaks() -> void:
 ## Get position for any entity (system or station) by ID
 func _get_entity_position(entity_id: int) -> Vector2:
 	if entity_id >= STATION_ID_OFFSET:
-		var idx = entity_id - STATION_ID_OFFSET
-		if idx >= 0 and idx < stations.size():
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
 			return stations[idx]["position"]
 		return Vector2.ZERO
 	if entity_id >= 0 and entity_id < systems.size():
@@ -2762,8 +2829,8 @@ func _get_entity_position(entity_id: int) -> Vector2:
 ## Get owner for any entity by ID
 func _get_entity_owner(entity_id: int) -> int:
 	if entity_id >= STATION_ID_OFFSET:
-		var idx = entity_id - STATION_ID_OFFSET
-		if idx >= 0 and idx < stations.size():
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
 			return stations[idx]["owner_id"]
 		return -1
 	if entity_id >= 0 and entity_id < systems.size():
@@ -2774,6 +2841,18 @@ func _get_entity_owner(entity_id: int) -> int:
 ## Check if an entity ID refers to a station
 func _is_station_id(entity_id: int) -> bool:
 	return entity_id >= STATION_ID_OFFSET
+
+
+## Get battery count for any entity by ID
+func _get_entity_battery_count(entity_id: int) -> int:
+	if entity_id >= STATION_ID_OFFSET:
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			return stations[idx]["battery_count"]
+		return 0
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].battery_count
+	return 0
 
 
 ## Convert ships to fighter-equivalents (FÄ): 1 bomber = 2 FÄ
@@ -2820,11 +2899,16 @@ func _is_station_in_scan_range(station: Dictionary, player_id: int) -> bool:
 		if system.owner_id == player_id:
 			if station_pos.distance_to(system.global_position) <= ShipTypes.STATION_PASSIVE_SCAN_RANGE:
 				return true
-	# Check distance to any owned operative station (full visibility range)
+	# Check distance to any owned station (operative = full range, partial build = half range)
 	for other in stations:
-		if other["owner_id"] == player_id and other["operative"] and other["id"] != station["id"]:
-			if station_pos.distance_to(other["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
-				return true
+		if other["owner_id"] == player_id and other["id"] != station["id"]:
+			if other["operative"]:
+				if station_pos.distance_to(other["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+					return true
+			elif other["build_progress"] >= ShipTypes.STATION_PARTIAL_SCAN_MIN_PROGRESS:
+				var partial_range = UniverseGenerator.MAX_SYSTEM_DISTANCE * ShipTypes.STATION_PARTIAL_SCAN_MULTIPLIER
+				if station_pos.distance_to(other["position"]) <= partial_range:
+					return true
 	return false
 
 
@@ -2867,6 +2951,7 @@ func _is_valid_station_placement(pos: Vector2) -> bool:
 func _place_station(pos: Vector2) -> void:
 	var station = {
 		"id": next_station_id,
+		"name": "S-%d" % (next_station_id + 1),
 		"position": pos,
 		"owner_id": current_player,
 		"operative": false,
@@ -2888,7 +2973,7 @@ func _place_station(pos: Vector2) -> void:
 	_create_station_area(stations.size() - 1)
 
 	station_placement_mode = false
-	system_info_label.text = "Station build site placed! Send fleets to deliver material."
+	system_info_label.text = "%s build site placed! Send fleets to deliver material." % station["name"]
 	queue_redraw()
 
 
@@ -2896,6 +2981,7 @@ func _place_station(pos: Vector2) -> void:
 func _place_station_for_player(pos: Vector2, player_id: int) -> void:
 	var station = {
 		"id": next_station_id,
+		"name": "S-%d" % (next_station_id + 1),
 		"position": pos,
 		"owner_id": player_id,
 		"operative": false,
@@ -2995,13 +3081,14 @@ func _on_station_hover_ended(_station_id: int) -> void:
 
 ## Get info text for a station
 func _get_station_info_text(station: Dictionary) -> String:
+	var sname = station.get("name", "Station")
 	var text = ""
 	if station["owner_id"] == current_player:
 		if not station["operative"]:
-			text = "Station (Building %d/%d)" % [station["build_progress"], ShipTypes.STATION_BUILD_ROUNDS]
+			text = "%s (Building %d/%d)" % [sname, station["build_progress"], ShipTypes.STATION_BUILD_ROUNDS]
 			text += " Material: %d/%d FÄ" % [station["material"], ShipTypes.STATION_BUILD_PER_ROUND]
 		else:
-			text = "Station"
+			text = sname
 			if station["fighter_count"] > 0 or station["bomber_count"] > 0:
 				text += " F:%d B:%d" % [station["fighter_count"], station["bomber_count"]]
 			if station["battery_count"] > 0:
@@ -3016,7 +3103,7 @@ func _get_station_info_text(station: Dictionary) -> String:
 		var owner_name = "Unknown"
 		if station["owner_id"] >= 0:
 			owner_name = players[station["owner_id"]].player_name
-		text = "Station - %s" % owner_name
+		text = "%s - %s" % [sname, owner_name]
 	return text
 
 
@@ -3029,12 +3116,16 @@ func _on_station_clicked(station_idx: int) -> void:
 
 	var station = stations[station_idx]
 
-	# Shield partner selection mode — stations can be shield endpoints
+	# Shield partner selection mode (source is a star system, target is a station)
 	if shield_select_source:
-		# Stations can't be shield activation targets (only systems have production modes)
-		# But operative stations with batteries can be shield line endpoints
-		system_info_label.text = "Shield activation requires two star systems"
+		_try_activate_shield_mixed_system_to_station(shield_select_source, station_idx)
 		shield_select_source = null
+		return
+
+	# Shield partner selection mode (source is a station, target is a station)
+	if _station_shield_source_idx >= 0:
+		_try_activate_shield_mixed_station_to_station(_station_shield_source_idx, station_idx)
+		_station_shield_source_idx = -1
 		return
 
 	# If we have a selected source (system or station) with ships, start send fleet
@@ -3100,16 +3191,21 @@ func _on_station_double_clicked(station_idx: int) -> void:
 func _show_station_action_panel(station_idx: int) -> void:
 	var station = stations[station_idx]
 
-	station_title_label.text = "Station"
+	station_title_label.text = station.get("name", "Station")
 
 	# Battery button
 	var can_build_battery = station["battery_count"] < ShipTypes.STATION_MAX_BATTERIES and not station["building_battery"]
 	station_battery_btn.disabled = not can_build_battery
 	station_battery_btn.text = "Build Battery (%d/%d)" % [station["battery_count"], ShipTypes.STATION_MAX_BATTERIES]
 
-	# Shield button (station shield lines not yet supported)
-	station_shield_btn.disabled = true
-	station_shield_btn.text = "Activate Shield (N/A)"
+	# Shield button
+	var can_activate_shield = station["operative"] \
+		and station["battery_count"] >= ShipTypes.SHIELD_MIN_BATTERIES \
+		and _count_shield_lines_for_station(station_idx) < ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM \
+		and not station.get("shield_activating", false)
+	station_shield_btn.disabled = not can_activate_shield
+	station_shield_btn.text = "Activate Shield (%d/%d)" % [
+		_count_shield_lines_for_station(station_idx), ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM]
 
 	# Position panel
 	var viewport_size = get_viewport().get_visible_rect().size
@@ -3134,12 +3230,26 @@ func _on_station_battery_pressed() -> void:
 	station["building_battery"] = true
 	station["battery_build_progress"] = 0
 	station["battery_material"] = 0
+	# Immediately consume garrison fighters/bombers as build material
+	var garrison_fae = _ships_to_fae(station["fighter_count"], station["bomber_count"])
+	station["battery_material"] += garrison_fae
+	station["fighter_count"] = 0
+	station["bomber_count"] = 0
 	system_info_label.text = _get_station_info_text(station)
 	_show_station_action_panel(selected_station_idx)
 
 
 func _on_station_shield_pressed() -> void:
-	pass  # Station shield lines not yet supported
+	if selected_station_idx < 0:
+		return
+	var station = stations[selected_station_idx]
+	if station["owner_id"] != current_player or not station["operative"]:
+		return
+	if station["battery_count"] < ShipTypes.SHIELD_MIN_BATTERIES:
+		return
+	_station_shield_source_idx = selected_station_idx
+	station_action_panel.visible = false
+	system_info_label.text = "Select partner system or station for shield line (ESC to cancel)"
 
 
 var _station_shield_source_idx: int = -1
@@ -3187,6 +3297,188 @@ func _count_shield_lines_for_station(station_idx: int) -> int:
 		if act["system_a"] == station_id or act["system_b"] == station_id:
 			count += 1
 	return count
+
+
+## Activate shield: star system source -> station target
+func _try_activate_shield_mixed_system_to_station(source: StarSystem, target_station_idx: int) -> void:
+	var station = stations[target_station_idx]
+	var station_id = station["id"] + STATION_ID_OFFSET
+
+	if source.owner_id != current_player:
+		system_info_label.text = "Source must be owned by you"
+		return
+	if station["owner_id"] != current_player:
+		system_info_label.text = "Target must be owned by you"
+		return
+	if not station["operative"]:
+		system_info_label.text = "Target station must be operative"
+		return
+	if source.battery_count < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Source needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	if station["battery_count"] < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Target needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	var distance = source.global_position.distance_to(station["position"])
+	if distance > UniverseGenerator.MAX_SYSTEM_DISTANCE:
+		system_info_label.text = "Too far apart"
+		return
+	if _count_shield_lines_for_system(source.system_id) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Source already has max shield lines"
+		return
+	if _count_shield_lines_for_station(target_station_idx) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Target already has max shield lines"
+		return
+	if _shield_line_matches(source.system_id, station_id):
+		system_info_label.text = "Shield line already exists"
+		return
+	if source.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
+		system_info_label.text = "Source is already activating a shield"
+		return
+	if station.get("shield_activating", false):
+		system_info_label.text = "Target is already activating a shield"
+		return
+	if not _can_add_shield_structure(source.system_id, station_id, current_player):
+		system_info_label.text = "Max %d independent shield structures reached" % ShipTypes.MAX_SHIELD_STRUCTURES
+		return
+
+	# Activate
+	source.set_production_mode(StarSystem.ProductionMode.SHIELD_ACTIVATE)
+	source.shield_activate_partner_id = station_id
+	station["shield_activating"] = true
+	station["shield_activate_progress"] = 0
+
+	shield_activations.append({
+		"system_a": source.system_id,
+		"system_b": station_id,
+		"owner_id": current_player,
+		"progress": 0
+	})
+	system_info_label.text = "Shield activation started between %s and %s" % [source.system_name, station.get("name", "Station")]
+	queue_redraw()
+
+
+## Activate shield: station source -> star system target
+func _try_activate_shield_mixed_station_to_system(source_station_idx: int, target: StarSystem) -> void:
+	var station = stations[source_station_idx]
+	var station_id = station["id"] + STATION_ID_OFFSET
+
+	if station["owner_id"] != current_player:
+		system_info_label.text = "Source must be owned by you"
+		return
+	if target.owner_id != current_player:
+		system_info_label.text = "Target must be owned by you"
+		return
+	if not station["operative"]:
+		system_info_label.text = "Source station must be operative"
+		return
+	if station["battery_count"] < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Source needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	if target.battery_count < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Target needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	var distance = station["position"].distance_to(target.global_position)
+	if distance > UniverseGenerator.MAX_SYSTEM_DISTANCE:
+		system_info_label.text = "Too far apart"
+		return
+	if _count_shield_lines_for_station(source_station_idx) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Source already has max shield lines"
+		return
+	if _count_shield_lines_for_system(target.system_id) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Target already has max shield lines"
+		return
+	if _shield_line_matches(station_id, target.system_id):
+		system_info_label.text = "Shield line already exists"
+		return
+	if station.get("shield_activating", false):
+		system_info_label.text = "Source is already activating a shield"
+		return
+	if target.production_mode == StarSystem.ProductionMode.SHIELD_ACTIVATE:
+		system_info_label.text = "Target is already activating a shield"
+		return
+	if not _can_add_shield_structure(station_id, target.system_id, current_player):
+		system_info_label.text = "Max %d independent shield structures reached" % ShipTypes.MAX_SHIELD_STRUCTURES
+		return
+
+	# Activate
+	station["shield_activating"] = true
+	station["shield_activate_progress"] = 0
+	target.set_production_mode(StarSystem.ProductionMode.SHIELD_ACTIVATE)
+	target.shield_activate_partner_id = station_id
+
+	shield_activations.append({
+		"system_a": station_id,
+		"system_b": target.system_id,
+		"owner_id": current_player,
+		"progress": 0
+	})
+	system_info_label.text = "Shield activation started between %s and %s" % [station.get("name", "Station"), target.system_name]
+	queue_redraw()
+
+
+## Activate shield: station source -> station target
+func _try_activate_shield_mixed_station_to_station(source_station_idx: int, target_station_idx: int) -> void:
+	if source_station_idx == target_station_idx:
+		system_info_label.text = "Cannot create shield line to same station"
+		return
+	var src = stations[source_station_idx]
+	var tgt = stations[target_station_idx]
+	var src_id = src["id"] + STATION_ID_OFFSET
+	var tgt_id = tgt["id"] + STATION_ID_OFFSET
+
+	if src["owner_id"] != current_player:
+		system_info_label.text = "Source must be owned by you"
+		return
+	if tgt["owner_id"] != current_player:
+		system_info_label.text = "Target must be owned by you"
+		return
+	if not src["operative"] or not tgt["operative"]:
+		system_info_label.text = "Both stations must be operative"
+		return
+	if src["battery_count"] < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Source needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	if tgt["battery_count"] < ShipTypes.SHIELD_MIN_BATTERIES:
+		system_info_label.text = "Target needs at least %d batteries" % ShipTypes.SHIELD_MIN_BATTERIES
+		return
+	var distance = src["position"].distance_to(tgt["position"])
+	if distance > UniverseGenerator.MAX_SYSTEM_DISTANCE:
+		system_info_label.text = "Too far apart"
+		return
+	if _count_shield_lines_for_station(source_station_idx) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Source already has max shield lines"
+		return
+	if _count_shield_lines_for_station(target_station_idx) >= ShipTypes.MAX_SHIELD_LINES_PER_SYSTEM:
+		system_info_label.text = "Target already has max shield lines"
+		return
+	if _shield_line_matches(src_id, tgt_id):
+		system_info_label.text = "Shield line already exists"
+		return
+	if src.get("shield_activating", false):
+		system_info_label.text = "Source is already activating a shield"
+		return
+	if tgt.get("shield_activating", false):
+		system_info_label.text = "Target is already activating a shield"
+		return
+	if not _can_add_shield_structure(src_id, tgt_id, current_player):
+		system_info_label.text = "Max %d independent shield structures reached" % ShipTypes.MAX_SHIELD_STRUCTURES
+		return
+
+	# Activate
+	src["shield_activating"] = true
+	src["shield_activate_progress"] = 0
+	tgt["shield_activating"] = true
+	tgt["shield_activate_progress"] = 0
+
+	shield_activations.append({
+		"system_a": src_id,
+		"system_b": tgt_id,
+		"owner_id": current_player,
+		"progress": 0
+	})
+	system_info_label.text = "Shield activation started between %s and %s" % [src.get("name", "Station"), tgt.get("name", "Station")]
+	queue_redraw()
 
 
 ## Start send fleet from system to station
@@ -3496,6 +3788,10 @@ func _destroy_station(station_idx: int) -> void:
 		send_target_station_idx = -1
 	elif send_target_station_idx > station_idx:
 		send_target_station_idx -= 1
+	if _station_shield_source_idx == station_idx:
+		_station_shield_source_idx = -1
+	elif _station_shield_source_idx > station_idx:
+		_station_shield_source_idx -= 1
 
 
 ## Destroy all stations belonging to a player (on elimination)
@@ -3558,6 +3854,7 @@ func _draw_single_station(station: Dictionary) -> void:
 	var pos = station["position"]
 	var size = STATION_DIAMOND_SIZE
 	var color: Color
+	var owned = station["owner_id"] == current_player
 
 	if station["owner_id"] >= 0 and station["owner_id"] < players.size():
 		color = players[station["owner_id"]].color
@@ -3570,7 +3867,7 @@ func _draw_single_station(station: Dictionary) -> void:
 
 	# Remembered (not in current visibility): gray
 	var in_scan = _is_station_in_scan_range(station, current_player)
-	if not in_scan and station["owner_id"] != current_player:
+	if not in_scan and not owned:
 		color = Color(0.5, 0.5, 0.5, 0.5)
 
 	# Draw diamond shape
@@ -3588,8 +3885,43 @@ func _draw_single_station(station: Dictionary) -> void:
 	for i in range(4):
 		draw_line(diamond[i], diamond[(i + 1) % 4], outline_color, 1.5)
 
+	# Selection halo (pulsing cyan, same style as star selection)
+	var station_idx = stations.find(station)
+	if station_idx == selected_station_idx and selected_station_idx >= 0:
+		var pulse_time = fmod(Time.get_ticks_msec() / 1000.0 * 2.0, 1.0)  # 2 cycles/sec
+		var pulse = (sin(pulse_time * TAU) + 1.0) / 2.0
+		var sel_color = Color(0.0, 0.9, 1.0, 0.8 + pulse * 0.2)
+		var halo_base_alpha = 0.3 + pulse * 0.2
+
+		# Solid cyan outline (4px) around diamond
+		var halo_offset = 4.0
+		var halo_diamond = PackedVector2Array([
+			pos + Vector2(0, -(size + halo_offset)),
+			pos + Vector2(size + halo_offset, 0),
+			pos + Vector2(0, size + halo_offset),
+			pos + Vector2(-(size + halo_offset), 0),
+		])
+		for i in range(4):
+			draw_line(halo_diamond[i], halo_diamond[(i + 1) % 4], sel_color, 4.0)
+
+		# Soft glow beyond outline
+		var glow_size = 10.0
+		for g in range(5):
+			var glow_offset = halo_offset + 4.0 + g * (glow_size / 5.0)
+			var glow_alpha = (1.0 - float(g) / 5.0) * halo_base_alpha
+			var glow_color = Color(0.0, 0.9, 1.0, glow_alpha)
+			var glow_diamond = PackedVector2Array([
+				pos + Vector2(0, -(size + glow_offset)),
+				pos + Vector2(size + glow_offset, 0),
+				pos + Vector2(0, size + glow_offset),
+				pos + Vector2(-(size + glow_offset), 0),
+			])
+			for i in range(4):
+				draw_line(glow_diamond[i], glow_diamond[(i + 1) % 4], glow_color, 1.5)
+		queue_redraw()  # Keep animating while selected
+
 	# Build progress indicator (ring around diamond)
-	if not station["operative"] and station["owner_id"] == current_player:
+	if not station["operative"] and owned:
 		var progress = float(station["build_progress"]) / float(ShipTypes.STATION_BUILD_ROUNDS)
 		if progress > 0:
 			var arc_radius = size + 4
@@ -3601,13 +3933,8 @@ func _draw_single_station(station: Dictionary) -> void:
 			if arc_points.size() > 1:
 				draw_polyline(arc_points, Color(0, 1, 1, 0.7), 2.0)
 
-	# Battery indicator
-	if station["battery_count"] > 0 and (station["owner_id"] == current_player or in_scan):
-		var bat_text = "[%d]" % station["battery_count"]
-		draw_string(ThemeDB.fallback_font, pos + Vector2(-10, size + 18), bat_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-
-	# Ship count (only for own stations or visible garrison)
-	if station["owner_id"] == current_player:
+	# Ship count label (above diamond, font size 20, like star Label)
+	if owned:
 		if station["operative"]:
 			var count_text = ""
 			if station["fighter_count"] > 0 or station["bomber_count"] > 0:
@@ -3615,12 +3942,29 @@ func _draw_single_station(station: Dictionary) -> void:
 					count_text = "%d/%d" % [station["fighter_count"], station["bomber_count"]]
 				else:
 					count_text = str(station["fighter_count"])
+			# Append battery indicator like stars: "10 [2]"
+			if station["battery_count"] > 0:
+				if count_text != "":
+					count_text += " [%d]" % station["battery_count"]
+				else:
+					count_text = "[%d]" % station["battery_count"]
 			if count_text != "":
-				draw_string(ThemeDB.fallback_font, pos + Vector2(-20, -size - 6), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-	elif station["fighter_count"] > 0 or station["bomber_count"] > 0:
-		# Enemy station with visible garrison
+				draw_string(ThemeDB.fallback_font, pos + Vector2(-40, -size - 22), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
+	elif in_scan:
+		# Enemy station in scan: show "?" for garrison, battery count visible
 		var count_text = "?"
-		draw_string(ThemeDB.fallback_font, pos + Vector2(-6, -size - 6), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+		if station["battery_count"] > 0:
+			count_text += " [%d]" % station["battery_count"]
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-40, -size - 22), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
+	elif current_player in station.get("discovered_by", []):
+		# Discovered but not in scan: show "?" with "[?]" for batteries
+		var count_text = "? [?]"
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-40, -size - 22), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(0.5, 0.5, 0.5))
+
+	# Name label (below diamond, font size 14, like star NameLabel)
+	var sname = station.get("name", "")
+	if sname != "":
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-60, size + 20), sname, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
 
 
 ## Perform passive scan from own systems and stations to discover enemy stations
@@ -3682,7 +4026,7 @@ func _process_station_fleet_arrivals(arriving_at_stations: Dictionary) -> void:
 				# Create combat report
 				var attacker_id = result["winner"]
 				var report_data = {
-					"system_name": "Station",
+					"system_name": station.get("name", "Station"),
 					"system_id": -1,
 					"defender_name": _get_owner_name(old_owner),
 					"defender_fighters": station["fighter_count"],

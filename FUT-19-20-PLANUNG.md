@@ -1,6 +1,6 @@
 # Planung: FUT-19 (Defensive Shield Lines) & FUT-20 (Raumstationen)
 
-> Stand: 2026-02-12 — Phase 1 bewertet, Phase 2 geplant (alle Entscheidungen getroffen)
+> Stand: 2026-02-16 — Phase 1 und Phase 2 implementiert. Station-Verbesserungen (Selektion, Labels, Naming, Shield-Aktivierung, Partial Scan, Battery-Garrison) umgesetzt.
 
 ## Motivation
 
@@ -370,6 +370,7 @@ Sichtbarkeitsstufen:
 2. Passiver Scan — Sterne & Stationen (jede Runde, IMMER erfolgreich):
    ├── Eigene besetzte Sterne:       200px Scanradius (STATION_PASSIVE_SCAN_RANGE)
    ├── Eigene operative Stationen:   volle Sichtweite als Scanradius (250px)
+   ├── Eigene Stationen im Bau (Fortschritt ≥ 2): 50% Reichweite (125px)
    ├── Deterministisch — keine Zufallskomponente
    └── Entdeckt: feindliche Station wird permanent sichtbar
 
@@ -482,6 +483,8 @@ Station verwalten:
 | `STATION_FLEET_SCAN_THRESHOLD` | 5 | Flotten mit ≤ 5 Schiffen haben keinen Scan |
 | `STATION_FLEET_SCAN_PER_SHIP` | 3px | Scan-Reichweite pro Schiff über Threshold |
 | `STATION_GARRISON` | 0 | Keine Startverteidigung |
+| `STATION_PARTIAL_SCAN_MULTIPLIER` | 0.5 | Scan-Reichweite von Stationen im Bau (50% der vollen Reichweite) |
+| `STATION_PARTIAL_SCAN_MIN_PROGRESS` | 2 | Mindest-Baufortschritt für Partial Scan (von 3 gesamt) |
 
 ### Beispielrechnungen
 
@@ -556,7 +559,7 @@ Fog of War Memory:
 
 | Mechanik | Interaktion |
 |----------|-------------|
-| Schildlinien (FUT-19) | Station mit ≥ 2 Batterien kann Schildlinien zu Sternen/Stationen bilden. Zerstörung bricht Schildlinien |
+| Schildlinien (FUT-19) | Station mit ≥ 2 Batterien kann Schildlinien zu Sternen und anderen Stationen bilden (alle Kombinationen: Stern↔Stern, Stern↔Station, Station↔Station). Zerstörung bricht Schildlinien |
 | Batterien (FUT-10) | Batterie-Ausbau auf Station durch Material-Lieferung statt Produktion. Max 2, konsistent mit Schildlinien |
 | Rebellion (FUT-18) | Stationen können NICHT rebellieren (keine Bevölkerung). Aber Rebellion kann Schildlinien zu Stationen brechen |
 | Bomber (FUT-07/12) | Bomber als Baumaterial (1 = 2 FÄ). Bomber-Angriff auf Station: keine Produktionsreduktion (keine Produktion) |
@@ -749,7 +752,16 @@ Stations-Jagd (FUT-20 — defensiv):
 Alle Design-Entscheidungen für FUT-19 wurden in der Bewertung vom 2026-02-12 getroffen.
 Siehe `FUT-07-14-BEWERTUNG.md` → Abschnitt "Bewertung: FUT-19 — Defensive Shield Lines" für Details.
 
-### Phase 2 (FUT-20) — alle geklärt
+### Phase 2 (FUT-20) — implementiert
 
-Alle Design-Entscheidungen für FUT-20 wurden am 2026-02-12 getroffen.
-Nächster Schritt: Vollständige Bewertung in `FUT-07-14-BEWERTUNG.md` durchführen.
+Alle Design-Entscheidungen für FUT-20 wurden am 2026-02-12 getroffen und implementiert.
+
+**Nachträgliche Station-Verbesserungen (2026-02-16):**
+- Stationen haben auto-generierte Namen ("S-1", "S-2", ...) — angezeigt in Labels, Info-Text, Kampfberichten
+- Selektierte Stationen zeigen pulsierenden Cyan-Halo (wie Stern-Selektion)
+- Beschriftung analog zu Sternen: Schiffanzahl (Font 20) oben, Batterien als "[N]" integriert, Name (Font 14) unten
+- Battery-Bau verbraucht vorhandene Garnison sofort als Material (FÄ-Umrechnung)
+- Shield-Aktivierung unterstützt gemischte Endpunkte: Stern↔Station, Station↔Stern, Station↔Station
+- Feindliche Stationen zeigen "[?]" für Batterie-Anzahl wenn nicht in Scanreichweite
+- Stationen im Bau (Fortschritt ≥ 2/3) scannen mit 50% Reichweite (STATION_PARTIAL_SCAN_MULTIPLIER)
+- Neue Parameter: `STATION_PARTIAL_SCAN_MULTIPLIER` (0.5), `STATION_PARTIAL_SCAN_MIN_PROGRESS` (2)

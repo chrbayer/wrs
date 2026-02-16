@@ -71,6 +71,8 @@ const STATION_PASSIVE_SCAN_RANGE: float = 200.0   # Star passive scan range for 
 const STATION_FLEET_SCAN_MAX: float = 60.0       # Max fleet scan range (px)
 const STATION_FLEET_SCAN_THRESHOLD: int = 5      # Fleets <= this have no scan
 const STATION_FLEET_SCAN_PER_SHIP: float = 3.0   # Scan range per ship above threshold
+const STATION_PARTIAL_SCAN_MULTIPLIER: float = 0.5  # Under-construction scan range factor
+const STATION_PARTIAL_SCAN_MIN_PROGRESS: int = 2    # Min build progress for partial scanning
 
 
 ## Get the travel speed for a fleet based on composition
