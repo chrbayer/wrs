@@ -66,6 +66,7 @@ const STATION_BUILD_ROUNDS: int = 3      # Rounds at full supply
 const MAX_STATIONS_PER_PLAYER: int = 3   # Max stations (including under construction)
 const STATION_MAX_BATTERIES: int = 2     # Max batteries per station
 const STATION_BATTERY_PER_ROUND: int = 4 # FÄ consumed per battery build round
+const STATION_PASSIVE_SCAN_RANGE: float = 200.0   # Star passive scan range for detecting stations (px)
 const STATION_FLEET_SCAN_MAX: float = 60.0       # Max fleet scan range (px)
 const STATION_FLEET_SCAN_THRESHOLD: int = 5      # Fleets <= this have no scan
 const STATION_FLEET_SCAN_PER_SHIP: float = 3.0   # Scan range per ship above threshold

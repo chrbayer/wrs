@@ -115,6 +115,10 @@ var last_setup_configs: Array = []  # [{is_ai, tactic}, ...]
 var visibility_texture: ImageTexture = null
 const VISIBILITY_COLOR = Color(0.3, 0.6, 1.0, 0.08)
 
+# Cached enemy scan zone texture (for station placement mode)
+var enemy_scan_texture: ImageTexture = null
+const ENEMY_SCAN_COLOR = Color(1.0, 0.2, 0.2, 0.10)
+
 # Shield lines (FUT-19)
 var shield_lines: Array = []           # [{system_a: int, system_b: int, owner_id: int}]
 var shield_activations: Array = []     # [{system_a: int, system_b: int, owner_id: int, progress: int}]
@@ -152,9 +156,9 @@ func _draw() -> void:
 		_draw_shield_lines()
 		_draw_stations()
 
-	# Draw placement zone when in station placement mode
-	if station_placement_mode:
-		_draw_station_placement_zones()
+	# Draw enemy scan zone overlay when in station placement mode
+	if station_placement_mode and enemy_scan_texture:
+		draw_texture(enemy_scan_texture, Vector2.ZERO)
 
 	if show_fleet_arrow and (_get_send_source_pos() != Vector2.ZERO) and (_get_send_target_pos() != Vector2.ZERO):
 		var start_pos = _get_send_source_pos()
@@ -582,6 +586,48 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 				img.set_pixel(x, y, VISIBILITY_COLOR)
 
 	visibility_texture = ImageTexture.create_from_image(img)
+
+	# Generate enemy scan zone texture (pixels in both FoW AND enemy scan range)
+	var scan_img = Image.create(int(viewport_size.x), int(viewport_size.y), false, Image.FORMAT_RGBA8)
+
+	# Collect enemy scan centers with their scan radii
+	var enemy_scans: Array = []  # [{pos: Vector2, radius_sq: float}]
+	var star_scan_sq = ShipTypes.STATION_PASSIVE_SCAN_RANGE * ShipTypes.STATION_PASSIVE_SCAN_RANGE
+	var station_scan_sq = radius_sq  # MAX_SYSTEM_DISTANCE squared
+	for sys in systems:
+		if sys.owner_id != current_player and sys.owner_id >= 0:
+			# Only include visible enemy stars (within own FoW)
+			var sys_visible = false
+			for center in scan_centers:
+				if sys.global_position.distance_squared_to(center) <= radius_sq:
+					sys_visible = true
+					break
+			if sys_visible:
+				enemy_scans.append({"pos": sys.global_position, "radius_sq": star_scan_sq})
+	for station in stations:
+		if station["owner_id"] != current_player and station["owner_id"] >= 0:
+			if _is_station_visible_to(station, current_player):
+				enemy_scans.append({"pos": station["position"], "radius_sq": station_scan_sq})
+
+	if enemy_scans.size() > 0:
+		for x in range(scan_img.get_width()):
+			for y in range(scan_img.get_height()):
+				var pos = Vector2(x, y)
+				# Must be in own FoW visible area
+				var in_fow = false
+				for center in scan_centers:
+					if pos.distance_squared_to(center) <= radius_sq:
+						in_fow = true
+						break
+				if not in_fow:
+					continue
+				# Check if in any enemy scan range
+				for enemy in enemy_scans:
+					if pos.distance_squared_to(enemy["pos"]) <= enemy["radius_sq"]:
+						scan_img.set_pixel(x, y, ENEMY_SCAN_COLOR)
+						break
+
+	enemy_scan_texture = ImageTexture.create_from_image(scan_img)
 	queue_redraw()
 
 
@@ -2729,12 +2775,12 @@ func _is_station_visible_to(station: Dictionary, player_id: int) -> bool:
 ## Check if a station is in scan range of a player (passive scan)
 func _is_station_in_scan_range(station: Dictionary, player_id: int) -> bool:
 	var station_pos = station["position"]
-	# Check distance to any owned system
+	# Check distance to any owned system (reduced scan range)
 	for system in systems:
 		if system.owner_id == player_id:
-			if station_pos.distance_to(system.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
+			if station_pos.distance_to(system.global_position) <= ShipTypes.STATION_PASSIVE_SCAN_RANGE:
 				return true
-	# Check distance to any owned operative station
+	# Check distance to any owned operative station (full visibility range)
 	for other in stations:
 		if other["owner_id"] == player_id and other["operative"] and other["id"] != station["id"]:
 			if station_pos.distance_to(other["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
@@ -2752,24 +2798,24 @@ func _is_valid_station_placement(pos: Vector2) -> bool:
 	for station in stations:
 		if pos.distance_to(station["position"]) < UniverseGenerator.MIN_SYSTEM_DISTANCE:
 			return false
-	# Check maximum distance — must be within range of own star OR own operative station
-	var in_range = false
+	# Must be within FoW visible area (own star or operative station within MAX_SYSTEM_DISTANCE)
+	var in_visible = false
 	for system in systems:
 		if system.owner_id == current_player:
 			if pos.distance_to(system.global_position) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
-				in_range = true
+				in_visible = true
 				break
-	if not in_range:
+	if not in_visible:
 		for station in stations:
 			if station["owner_id"] == current_player and station["operative"]:
 				if pos.distance_to(station["position"]) <= UniverseGenerator.MAX_SYSTEM_DISTANCE:
-					in_range = true
+					in_visible = true
 					break
-	if not in_range:
+	if not in_visible:
 		return false
-	# Check within map bounds
+	# Check within map bounds (half the star edge margin)
 	var viewport_size = get_viewport().get_visible_rect().size
-	var edge = UniverseGenerator.MAP_EDGE_MARGIN
+	var edge = UniverseGenerator.MIN_SYSTEM_DISTANCE / 2.0
 	if pos.x < edge or pos.x > viewport_size.x - edge:
 		return false
 	if pos.y < edge or pos.y > viewport_size.y - edge:
@@ -3066,6 +3112,12 @@ func _on_station_close_pressed() -> void:
 ## Build Station button handler
 func _on_build_station_pressed() -> void:
 	if game_ended or transition_screen.visible:
+		return
+	# Toggle off if already in placement mode
+	if station_placement_mode:
+		station_placement_mode = false
+		system_info_label.text = ""
+		queue_redraw()
 		return
 	if _count_player_stations(current_player) >= ShipTypes.MAX_STATIONS_PER_PLAYER:
 		system_info_label.text = "Maximum stations reached (%d/%d)" % [
@@ -3631,28 +3683,6 @@ func _process_station_fleet_arrivals(arriving_at_stations: Dictionary) -> void:
 				station["bomber_count"] = result["remaining_bombers"]
 
 
-## Draw station placement zones (valid/invalid areas)
-func _draw_station_placement_zones() -> void:
-	# Draw range circles around owned systems
-	for system in systems:
-		if system.owner_id == current_player:
-			_draw_placement_circle(system.global_position)
-	# Draw range circles around own operative stations
-	for station in stations:
-		if station["owner_id"] == current_player and station["operative"]:
-			_draw_placement_circle(station["position"])
-
-
-func _draw_placement_circle(center: Vector2) -> void:
-	var radius = UniverseGenerator.MAX_SYSTEM_DISTANCE
-	var segments = 48
-	var color = Color(0.0, 1.0, 0.5, 0.15)
-	var points = PackedVector2Array()
-	for i in range(segments + 1):
-		var angle = float(i) / float(segments) * TAU
-		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
-	if points.size() > 1:
-		draw_polyline(points, color, 1.5)
 
 
 func _on_restart_pressed() -> void:

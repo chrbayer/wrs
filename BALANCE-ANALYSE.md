@@ -304,13 +304,13 @@ Da Produktionsraten ganzzahlig sind, muss der Bonus entweder abgerundet oder als
 
 **Defensiver Wert:**
 - Schliesst Lucken im Schildnetzwerk
-- Passiver Scan uber volle Sichtweite (deckt Lucken zwischen Sternen ab)
+- Passiver Scan uber volle Sichtweite (250px, deckt Lucken zwischen Sternen ab)
 
 ### 5.3 Sichtbarkeits-Dynamik
 
 | Scan-Methode | Reichweite | Zuverlassigkeit | Kosten |
 |--------------|-----------|-----------------|--------|
-| Passiver Scan (Sterne) | MAX_SYSTEM_DISTANCE (250px) | 100% | Kostenlos |
+| Passiver Scan (Sterne) | STATION_PASSIVE_SCAN_RANGE (200px) | 100% | Kostenlos |
 | Passiver Scan (Stationen) | MAX_SYSTEM_DISTANCE (250px) | 100% | 1 Station-Slot |
 | Flotten-Scan (25+ Schiffe) | 60px | Situativ | Flotte muss vorbei |
 | Flotten-Scan (6-24 Schiffe) | 3-57px | Gering | Flotte muss nah vorbei |

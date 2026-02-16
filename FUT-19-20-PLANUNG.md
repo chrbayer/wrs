@@ -362,8 +362,8 @@ Sichtbarkeitsstufen:
    └── Schützt Station während verletzlicher Bauphase
 
 2. Passiver Scan — Sterne & Stationen (jede Runde, IMMER erfolgreich):
-   ├── Eigene besetzte Sterne:       volle Sichtweite als Scanradius
-   ├── Eigene operative Stationen:   volle Sichtweite als Scanradius
+   ├── Eigene besetzte Sterne:       200px Scanradius (STATION_PASSIVE_SCAN_RANGE)
+   ├── Eigene operative Stationen:   volle Sichtweite als Scanradius (250px)
    ├── Deterministisch — keine Zufallskomponente
    └── Entdeckt: feindliche Station wird permanent sichtbar
 
@@ -458,7 +458,7 @@ Station verwalten:
 | Flotten von Station senden | **Ja** | Nötig als Staging-Punkt |
 | Sichtbarkeit im Bau | **Unsichtbar** (keine Waffensignatur) | Schützt Bauphase |
 | Sichtbarkeit operativ | **Unsichtbar bis Kampfschiffe stationiert** | Waffensignaturen erst bei Garnison ortbar |
-| Passiver Scan | **Eigene Sterne + Stationen, volle Sichtweite** | Immer erfolgreich, deterministisch |
+| Passiver Scan | **Eigene Sterne (200px) + Stationen (250px)** | Immer erfolgreich, deterministisch |
 | Flotten-Scan | **Abhängig von Flottengröße** (0-60px) | `min(60, max(0, (fleet_size-5)×3))` — große Flotten scannen nebenbei, kleine nicht |
 | Einmal entdeckt | **Permanent sichtbar** für Entdecker | Kein "Verstecken" nach Entdeckung |
 
@@ -610,7 +610,7 @@ Fog of War Memory:
 
 **Phase E — Sichtbarkeit & Scan:**
 18. Sichtbarkeits-State pro Spieler: unsichtbar / entdeckt / sichtbar (Garnison)
-19. Passiver Scan: eigene Sterne + Stationen scannen volle Sichtweite (immer erfolgreich, deterministisch)
+19. Passiver Scan: eigene Sterne scannen 200px, eigene Stationen scannen 250px (immer erfolgreich, deterministisch)
 20. Flotten-Scan: `scan_range = min(60, max(0, (fleet_size - 5) × 3))` — kürzeste Distanz Pfad↔Station prüfen
 21. Garnison-Sichtbarkeit: Station mit Kampfschiffen → sichtbar für alle
 22. Einmal entdeckt → permanent sichtbar, Fog-of-War-Memory (grau)
@@ -682,7 +682,7 @@ Bomber-Durchbruch (FUT-19):
 
 Stealth-Infiltration (FUT-20 — offensiv):
 ├── Bauplatz hinter feindlicher Schildlinie bestimmen
-│   └── Außerhalb passiver Scan-Reichweite feindlicher Sterne/Stationen!
+│   └── Außerhalb passiver Scan-Reichweite feindlicher Sterne (200px) / Stationen (250px)!
 ├── Material-Flotten zum Baumarker senden (24 FÄ, mehrere Wellen)
 ├── Station bleibt unsichtbar (keine Waffensignatur im Bau)
 ├── Risiko: feindliche Flotten (>5 Schiffe) könnten Baustelle nebenbei entdecken
