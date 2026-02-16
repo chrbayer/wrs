@@ -2148,6 +2148,11 @@ func _process_turn_end() -> void:
 
 		# Build per-stage combat reports
 		var stages = result["stages"]
+		# Track all players involved across stages (for information continuity)
+		var cumulative_involved: Array[int] = []
+		if old_owner >= 0:
+			cumulative_involved.append(old_owner)
+
 		for stage_idx in range(stages.size()):
 			var stage = stages[stage_idx]
 			var is_last_stage = (stage_idx == stages.size() - 1)
@@ -2184,14 +2189,14 @@ func _process_turn_end() -> void:
 				"conquest_occurred": result["conquest_occurred"] if is_last_stage else false
 			}
 
-			# Add report for attacker and defender of this stage
-			var involved_players: Array[int] = []
-			if stage["defender_id"] >= 0:
-				involved_players.append(stage["defender_id"])
-			if stage["attacker_id"] not in involved_players:
-				involved_players.append(stage["attacker_id"])
+			# Add this stage's attacker and defender to cumulative tracking
+			if stage["attacker_id"] >= 0 and stage["attacker_id"] not in cumulative_involved:
+				cumulative_involved.append(stage["attacker_id"])
+			if stage["defender_id"] >= 0 and stage["defender_id"] not in cumulative_involved:
+				cumulative_involved.append(stage["defender_id"])
 
-			for player_id in involved_players:
+			# All players involved so far receive the report (information continuity)
+			for player_id in cumulative_involved:
 				if not pending_combat_reports.has(player_id):
 					pending_combat_reports[player_id] = []
 				pending_combat_reports[player_id].append(report_data)

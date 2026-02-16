@@ -161,7 +161,8 @@
 | C-15 | Combat reports shall indicate if conquest occurred and the associated penalty | ✅ Done |
 | C-15a | Combat reports shall show fighter morale when below 100% | ✅ Done |
 | C-16 | Combat shall apply fighter morale penalty to attacker's attack power based on fleet travel time | ✅ Done |
-| C-17 | When multiple attackers engage the same system, each engagement shall produce a separate combat report (per-stage reports) | ✅ Done |
+| ~~C-17~~ | ~~When multiple attackers engage the same system, each engagement shall produce a separate combat report (per-stage reports)~~ | ~~Done~~ |
+| C-17a | When multiple attackers engage the same system, each engagement shall produce a separate combat report. All players involved in any prior stage receive subsequent stage reports (information continuity: original defender sees all stages, not just their own) | ✅ Done |
 | C-18 | Attacker losses in combat reports shall be the total ship count (battery kills + combat losses combined) | ✅ Done |
 | C-19 | Combat reports shall omit zero fighter/bomber counts (no "0 F" or "0 B") | ✅ Done |
 | C-20 | Merged fleets exceeding `MAX_FLEET_SIZE` shall be split into waves. Each wave faces batteries independently and fights as a separate combat stage. Waves from the same owner reinforce if a prior wave already holds the system. | ✅ Done |
