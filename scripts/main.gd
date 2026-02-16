@@ -2382,6 +2382,17 @@ func _process_rebellions() -> void:
 
 				system.update_visuals()
 
+				# Update FoW memory so player sees known garrison after rebellion
+				if not system_memory.has(player_id):
+					system_memory[player_id] = {}
+				system_memory[player_id][system.system_id] = {
+					"owner_id": system.owner_id,
+					"fighter_count": combat_result.remaining_fighters,
+					"bomber_count": combat_result.remaining_bombers,
+					"battery_count": system.battery_count,
+					"has_batteries": system.battery_count > 0
+				}
+
 				# Build rebellion report
 				var report_data = {
 					"system_name": system.system_name,

@@ -184,6 +184,7 @@
 | RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
 | RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
 | RB-10 | A player's last remaining system is immune to rebellion | ✅ Done |
+| RB-11 | After a rebellion, the affected player's FoW memory is updated with the known garrison strength (remaining fighters/bombers shown in parentheses) | ✅ Done |
 
 ---
 
