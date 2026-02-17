@@ -382,27 +382,22 @@
 | FUT-01 | Save and load game state                                                                           | ❌ Not implemented |
 | FUT-02 | Show fleets in transit to their owner on the map                                                   | ❌ Not implemented |
 | FUT-03 | Sound effects for combat and UI actions                                                            | ❌ Not implemented |
-| ~~FUT-04~~ | ~~Optional AI opponents for single-player mode~~                                               | ~~Not implemented~~ |
-| FUT-04a | AI opponents with selectable tactics (Rush, Fortress, Economy, Bomber, Balanced)                  | ✅ Done |
+| FUT-04 | AI opponents with selectable tactics                                                               | ✅ Done |
 | FUT-05 | Visual effects for fleet movement on the map                                                       | ❌ Not implemented |
 | FUT-06 | Game settings (combat balance, universe size, etc.)                                                | ❌ Not implemented |
-| FUT-07 | Second ship type (Bomber): half speed, 2/3 defense strength, 3/2 attack strength, half production rate | ✅ Done |
-| FUT-08 | Conquering an enemy system reduces its production rate by 1 (exception: neutral systems)           | ✅ Done |
-| FUT-09 | Instead of producing fighters, a system can slowly increase its production rate (max 8)            | ✅ Done |
-| ~~FUT-10~~ | ~~Instead of ships or production, build defense batteries: strong vs fighters, weaker vs bombers (max 3 per system). Presence visible to all, strength only to owner~~ | ~~Done~~ |
-| FUT-10a | Build defense batteries: strong vs fighters (`BATTERY_VS_FIGHTER`), weaker vs bombers (`BATTERY_VS_BOMBER`), max `MAX_BATTERIES`. Presence visible to all, count only to owner | ✅ Done |
-| ~~FUT-11~~ | ~~Maintaining or repairing defense batteries requires skipping ship production and production rate upgrades~~ | ~~Removed~~ |
-| ~~FUT-11a~~ | ~~Maintaining batteries reduces production by `MAINTENANCE_PRODUCTION_MULTIPLIER` (independent toggle)~~ | ~~Removed~~ |
-| FUT-12 | Bomber attacks cause greater production rate loss on conquest and can reduce production even on failed attacks. Damage scales with attacker/defender strength ratio | ✅ Done |
-| FUT-13 | Production rate cannot fall below 1                                                                | ✅ Done |
-| FUT-14 | Mixed fleets (fighters + bombers) are allowed. Fleet speed is determined by slowest ship type      | ✅ Done |
-| FUT-15 | Battery build time scales with current level (like production upgrade). Maximum increased to 5     | ✅ Done |
-| ~~FUT-16~~ | ~~Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes~~    | ~~Done~~ |
-| FUT-16a | Fog of war memory: previously seen systems stay visible (grayed out) with last known attributes. Combat intel (ship counts, battery count) is remembered and shown in parentheses on non-owned systems | ✅ Done |
-| FUT-17 | Fighter morale malus on long travel: fighters lose `FIGHTER_MORALE_PENALTY` attack power per turn beyond `FIGHTER_MORALE_THRESHOLD` (min `FIGHTER_MORALE_MIN`). Bombers unaffected. | ✅ Done |
-| FUT-18 | Rebellion mechanic: systems of dominant players (multi-factor power score: systems, combat power, production) may spontaneously rebel, spawning neutral fighters that attack the garrison. Anti-snowball mechanic. | ✅ Done |
-| FUT-19 | Defensive shield lines: Manually activated (`SHIELD_ACTIVATE`, 2 turns, both systems blocked) between two owned systems with 2+ batteries. Max 2 lines/system, max 2 independent structures/player. Attrition (sum-based) + blockade (min-based, threshold 2.5). Closed rings grant production bonus (inner +25%, ring +12%). Battery support: connected neighbors contribute batteries × density × 0.5 to pre-combat fire. Bombers: 50% resistance. Permanent. See `FUT-19-20-PLANUNG.md` | ✅ Done |
-| FUT-20 | Space stations: Built by sacrificing ships (24 FÄ, 8/round, 3 rounds) anywhere in FoW visible area (min distance to other objects). No production — batteries (max 2) also require material delivery (4 FÄ/round). Invisible until combat ships garrisoned (weapon signatures). Detection: passive scan by own stars (200px range) and own stations (full 250px visibility range), fleet scan (size-dependent: `min(60, max(0, (fleet_size-5)*3))` px, fleets ≤5 ships have no scan). Placement mode shows enemy scan radii as red circles. Build mode toggled via button. Attackable like stars with defender bonus, destroyed on conquest. Max 3/player. Primarily offensive — enable attacks behind enemy shield lines. Requires FUT-19. See `FUT-19-20-PLANUNG.md` | ✅ Done |
+| FUT-07 | Second ship type (Bomber)                                                                          | ✅ Done |
+| FUT-08 | Conquest reduces production rate                                                                   | ✅ Done |
+| FUT-09 | Production rate upgrades                                                                           | ✅ Done |
+| FUT-10 | Defense batteries                                                                                  | ✅ Done |
+| FUT-12 | Bomber production damage on conquest and failed attacks                                            | ✅ Done |
+| FUT-13 | Production rate minimum 1                                                                          | ✅ Done |
+| FUT-14 | Mixed fleets (fighters + bombers)                                                                  | ✅ Done |
+| FUT-15 | Battery build time scales with level                                                               | ✅ Done |
+| FUT-16 | Fog of war memory with combat intel                                                                | ✅ Done |
+| FUT-17 | Fighter morale malus on long travel                                                                | ✅ Done |
+| FUT-18 | Rebellion mechanic (anti-snowball)                                                                 | ✅ Done |
+| FUT-19 | Defensive shield lines. See `FUT-19-20-PLANUNG.md`                                                 | ✅ Done |
+| FUT-20 | Space stations with graduated visibility. See `FUT-19-20-PLANUNG.md`                               | ✅ Done |
 
 ---
 
