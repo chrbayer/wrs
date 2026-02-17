@@ -166,7 +166,7 @@ Batterien skalieren linear -- sie werden nie ineffizienter. Das Wellen-Splitting
 
 | Aspekt | Bewertung | Kommentar |
 |--------|-----------|-----------|
-| Startpositionen | Gut | Greedy-Maximum-Distanz + Kompensation durch Nachbar-abhangige Startfighter |
+| Startpositionen | Gut | Greedy-Maximum-Distanz + Kompensation durch 1-Hop + 2-Hop Nachbar-abhängige Startfighter |
 | Produktionsraten | Fair | Zufall (1-5), aber alle Spieler starten mit Rate 3 |
 | Fog of War | Gut | Gleiche Sichtweite, Memory-System verhindert totale Blindheit |
 | Kampfsystem | Ausbalanciert | DEFENDER_BONUS 1.5x bevorzugt Verteidigung angemessen |

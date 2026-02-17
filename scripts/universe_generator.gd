@@ -125,23 +125,49 @@ static func generate_initial_fighters(production_rate: int) -> int:
 const FIGHTERS_PER_PLAYER: int = 30
 const MIN_START_FIGHTERS: int = 20
 const MAX_START_FIGHTERS: int = 40
+const SECOND_HOP_WEIGHT: float = 0.5
 
 static func generate_player_start_fighters(positions: Array, player_starts: Array,
 										   production_rates: Array = []) -> Array[int]:
+	## Scoring considers direct neighbors (full weight) and second-hop neighbors (half weight).
 	var player_count: int = player_starts.size()
 	var total_pool: int = FIGHTERS_PER_PLAYER * player_count
 
-	# Score each player's starting position by neighbor count weighted by production rate
+	# Score each player's starting position by neighbor production, including 2-hop neighbors
 	var position_scores: Array[float] = []
 	for p_idx in range(player_count):
 		var home_pos: Vector2 = positions[player_starts[p_idx]]
+		var home_idx: int = player_starts[p_idx]
 		var score: float = 0.0
+		var direct_neighbors: Array[int] = []
+
+		# 1-hop: direct neighbors (full weight)
 		for i in range(positions.size()):
-			if i in player_starts:
+			if i in player_starts or i == home_idx:
 				continue
 			if home_pos.distance_to(positions[i]) <= MAX_SYSTEM_DISTANCE:
 				var prod_rate: float = production_rates[i] if production_rates.size() > i else 3.0
 				score += prod_rate
+				direct_neighbors.append(i)
+
+		# 2-hop: neighbors of neighbors (half weight), excluding direct neighbors and player starts
+		var visited: Dictionary = {}
+		for dn in direct_neighbors:
+			visited[dn] = true
+		visited[home_idx] = true
+		for ps in player_starts:
+			visited[ps] = true
+
+		for dn in direct_neighbors:
+			var dn_pos: Vector2 = positions[dn]
+			for i in range(positions.size()):
+				if visited.has(i):
+					continue
+				if dn_pos.distance_to(positions[i]) <= MAX_SYSTEM_DISTANCE:
+					var prod_rate: float = production_rates[i] if production_rates.size() > i else 3.0
+					score += prod_rate * SECOND_HOP_WEIGHT
+					visited[i] = true
+
 		position_scores.append(maxf(1.0, score))
 
 	# Inverse proportional distribution: lower score → larger share
