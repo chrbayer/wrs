@@ -602,9 +602,13 @@ func _update_visibility_texture(owned_systems: Array[StarSystem]) -> void:
 	var scan_img = Image.create(int(viewport_size.x), int(viewport_size.y), false, Image.FORMAT_RGBA8)
 
 	# Collect enemy scan centers with their scan radii
+	# In placement mode, expand radii by build signature to show construction detection zone
 	var enemy_scans: Array = []  # [{pos: Vector2, radius_sq: float}]
-	var star_scan_sq = ShipTypes.STATION_PASSIVE_SCAN_RANGE * ShipTypes.STATION_PASSIVE_SCAN_RANGE
-	var station_scan_sq = radius_sq  # MAX_SYSTEM_DISTANCE squared
+	var build_sig = ShipTypes.STATION_BUILD_SIGNATURE if station_placement_mode else 0.0
+	var star_scan = ShipTypes.STATION_PASSIVE_SCAN_RANGE + build_sig
+	var star_scan_sq = star_scan * star_scan
+	var station_scan = UniverseGenerator.MAX_SYSTEM_DISTANCE + build_sig
+	var station_scan_sq = station_scan * station_scan
 	for sys in systems:
 		if sys.owner_id != current_player and sys.owner_id >= 0:
 			# Only include visible enemy stars (within own FoW)
@@ -2919,10 +2923,35 @@ func _is_station_visible_to(station: Dictionary, player_id: int) -> bool:
 	# Discovered stations are permanently visible
 	if player_id in station["discovered_by"]:
 		return true
-	# Stations with garrison are visible to all
-	if station["operative"] and (station["fighter_count"] > 0 or station["bomber_count"] > 0):
-		return true
+	# Graduated visibility: scan_range + signature_range (SS-09a, SS-10b)
+	var signature = _get_station_signature_range(station)
+	if signature > 0:
+		for sys in systems:
+			if sys.owner_id == player_id:
+				var detect_range = ShipTypes.STATION_PASSIVE_SCAN_RANGE + signature
+				if station["position"].distance_to(sys.global_position) <= detect_range:
+					return true
+		for other in stations:
+			if other["owner_id"] == player_id and other["id"] != station["id"]:
+				if other["operative"]:
+					var detect_range = UniverseGenerator.MAX_SYSTEM_DISTANCE + signature
+					if station["position"].distance_to(other["position"]) <= detect_range:
+						return true
+				elif other["build_progress"] >= ShipTypes.STATION_PARTIAL_SCAN_MIN_PROGRESS:
+					var partial_range = UniverseGenerator.MAX_SYSTEM_DISTANCE * ShipTypes.STATION_PARTIAL_SCAN_MULTIPLIER + signature
+					if station["position"].distance_to(other["position"]) <= partial_range:
+						return true
 	return false
+
+
+## Get the weapon signature range of a station (graduated visibility SS-09a)
+func _get_station_signature_range(station: Dictionary) -> float:
+	if station["operative"]:
+		var garrison = station["fighter_count"] + station["bomber_count"]
+		return garrison * ShipTypes.STATION_SIGNATURE_PER_SHIP
+	elif station["build_progress"] >= 1:
+		return ShipTypes.STATION_BUILD_SIGNATURE
+	return 0.0
 
 
 ## Check if a station is in scan range of a player (passive scan)
@@ -3121,6 +3150,9 @@ func _get_station_info_text(station: Dictionary) -> String:
 		if not station["operative"]:
 			text = "%s (Building %d/%d)" % [sname, station["build_progress"], ShipTypes.STATION_BUILD_ROUNDS]
 			text += "  Material: %d/%d FÄ" % [station["material"], ShipTypes.STATION_BUILD_PER_ROUND]
+			var sig_range = _get_station_signature_range(station)
+			if sig_range > 0:
+				text += "  Sig: %dpx" % int(sig_range)
 		else:
 			text = sname
 			var ship_parts: Array[String] = []
@@ -3133,6 +3165,9 @@ func _get_station_info_text(station: Dictionary) -> String:
 			if station["battery_count"] > 0:
 				var bat_label = "battery" if station["battery_count"] == 1 else "batteries"
 				text += "  [%d %s]" % [station["battery_count"], bat_label]
+			var sig_range = _get_station_signature_range(station)
+			if sig_range > 0:
+				text += "  Sig: %dpx" % int(sig_range)
 			if station["building_battery"]:
 				var target_rounds = station["battery_count"] + 1
 				text += "\nBuilding Battery (%d/%d)  Material: %d/%d FÄ" % [
@@ -3945,9 +3980,13 @@ func _draw_single_station(station: Dictionary) -> void:
 	if not station["operative"]:
 		color.a = 0.5
 
-	# Remembered (not in current visibility): gray
+	# Determine visibility level: in_scan (full intel), signature-only (partial), or remembered (gray)
 	var in_scan = _is_station_in_scan_range(station, current_player)
+	var signature_only = false
 	if not in_scan and not owned:
+		# Check if visible via signature (not in scan range, but signature extends detection)
+		if not (current_player in station.get("discovered_by", [])):
+			signature_only = true  # Only visible due to weapon signature
 		color = Color(0.5, 0.5, 0.5, 0.5)
 
 	# Draw diamond shape
@@ -4050,6 +4089,9 @@ func _draw_single_station(station: Dictionary) -> void:
 		if station["battery_count"] > 0:
 			count_text += " [%d]" % station["battery_count"]
 		draw_string(ThemeDB.fallback_font, pos + Vector2(-40, -size - 22), count_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
+	elif signature_only:
+		# Detected via weapon signature only: show "?" without battery info (SS-17b)
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-40, -size - 22), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color.WHITE)
 	elif current_player in station.get("discovered_by", []):
 		# Discovered but not in scan: show "?" with "[?]" for batteries
 		var count_text = "? [?]"
@@ -4068,8 +4110,36 @@ func _perform_passive_scan(player_id: int) -> void:
 			continue
 		if player_id in station["discovered_by"]:
 			continue
+		# Check passive scan (scan_range) + weapon signature (signature_range)
+		# Detection occurs when distance <= scan_range + signature_range (SS-10b)
 		if _is_station_in_scan_range(station, player_id):
 			station["discovered_by"].append(player_id)
+			continue
+		# If not detected by pure scan, check with additive signature
+		var signature = _get_station_signature_range(station)
+		if signature > 0:
+			var discovered = false
+			for sys in systems:
+				if sys.owner_id == player_id:
+					var detect_range = ShipTypes.STATION_PASSIVE_SCAN_RANGE + signature
+					if station["position"].distance_to(sys.global_position) <= detect_range:
+						discovered = true
+						break
+			if not discovered:
+				for other in stations:
+					if other["owner_id"] == player_id and other["id"] != station["id"]:
+						if other["operative"]:
+							var detect_range = UniverseGenerator.MAX_SYSTEM_DISTANCE + signature
+							if station["position"].distance_to(other["position"]) <= detect_range:
+								discovered = true
+								break
+						elif other["build_progress"] >= ShipTypes.STATION_PARTIAL_SCAN_MIN_PROGRESS:
+							var partial_range = UniverseGenerator.MAX_SYSTEM_DISTANCE * ShipTypes.STATION_PARTIAL_SCAN_MULTIPLIER + signature
+							if station["position"].distance_to(other["position"]) <= partial_range:
+								discovered = true
+								break
+			if discovered:
+				station["discovered_by"].append(player_id)
 
 
 ## Check if player has any stations (for elimination check)

@@ -73,6 +73,8 @@ const STATION_FLEET_SCAN_THRESHOLD: int = 5      # Fleets <= this have no scan
 const STATION_FLEET_SCAN_PER_SHIP: float = 3.0   # Scan range per ship above threshold
 const STATION_PARTIAL_SCAN_MULTIPLIER: float = 0.5  # Under-construction scan range factor
 const STATION_PARTIAL_SCAN_MIN_PROGRESS: int = 2    # Min build progress for partial scanning
+const STATION_SIGNATURE_PER_SHIP: float = 10.0      # Weapon signature range per garrisoned ship (px)
+const STATION_BUILD_SIGNATURE: float = 30.0         # Detection range for stations under construction (px)
 
 
 ## Get the travel speed for a fleet based on composition
