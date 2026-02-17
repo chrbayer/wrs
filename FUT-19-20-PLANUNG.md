@@ -359,43 +359,58 @@ Gesamtkosten voll ausgebaute Station:
 
 #### Sichtbarkeit & Entdeckung
 
+> **Überarbeitet 2026-02-17:** Sichtbarkeit skaliert jetzt mit Garnisonsgröße statt binär. Stationen im Bau haben eine Basis-Signatur.
+
 ```
-Sichtbarkeitsstufen:
+Sichtbarkeitsstufen (überarbeitet):
 
-1. Unsichtbar (Bauphase + operativ ohne Garnison):
-   ├── Keine Waffensignatur → nicht ortbar
-   ├── Kann NUR durch Scan entdeckt werden (siehe unten)
-   └── Schützt Station während verletzlicher Bauphase
+1. Unsichtbar (operativ ohne Garnison, keine Bau-Aktivität):
+   ├── Keine Waffensignatur, keine Bau-Energie → nicht ortbar
+   ├── Kann NUR durch passiven Scan / Fleet-Scan entdeckt werden
+   └── Batterie-Bau allein macht Station NICHT sichtbar
 
-2. Passiver Scan — Sterne & Stationen (jede Runde, IMMER erfolgreich):
+2. Bau-Signatur (Station im Bau, build_progress ≥ 1):
+   ├── Basis-Detektionsradius: STATION_BUILD_SIGNATURE (30px)
+   ├── Bau-Aktivität erzeugt Energiesignaturen (Materialverarbeitung)
+   ├── Feindliche Sterne/Stationen innerhalb scan_range + 30px entdecken die Baustelle
+   ├── Statt komplett unsichtbar: leichter Malus (entdeckbar im Nahbereich)
+   └── Schützt immer noch gegen weit entfernte Scans
+
+3. Waffensignatur (operative Station mit Garnison):
+   ├── Signaturreichweite = garrison_size × STATION_SIGNATURE_PER_SHIP (10px/Schiff)
+   │   ├──  1 Schiff:   10px  (praktisch unsichtbar)
+   │   ├──  3 Schiffe:  30px  (Nahbereich)
+   │   ├── 10 Schiffe: 100px  (mittlere Reichweite)
+   │   ├── 15 Schiffe: 150px  (deutlich sichtbar)
+   │   └── 20+ Schiffe: 200px+ (von fast jedem Nachbar-Stern entdeckbar)
+   ├── Feindliche Sterne/Stationen innerhalb scan_range + signature_range entdecken
+   ├── garrison_size = fighter_count + bomber_count
+   └── Anreiz: Garnison klein halten, Fighter erst Just-in-Time senden
+
+4. Passiver Scan — Sterne & Stationen (jede Runde, deterministisch):
    ├── Eigene besetzte Sterne:       200px Scanradius (STATION_PASSIVE_SCAN_RANGE)
-   ├── Eigene operative Stationen:   volle Sichtweite als Scanradius (250px)
+   ├── Eigene operative Stationen:   volle Sichtweite (250px)
    ├── Eigene Stationen im Bau (Fortschritt ≥ 2): 50% Reichweite (125px)
-   ├── Deterministisch — keine Zufallskomponente
-   └── Entdeckt: feindliche Station wird permanent sichtbar
+   ├── Entdeckt Station wenn: distance ≤ scan_range + station_signature_range
+   └── Entdeckt: permanent sichtbar (discovered_by Liste)
 
-3. Flotten-Scan (bewegungsbasiert, ABHÄNGIG VON FLOTTENGRÖßE):
+5. Flotten-Scan (bewegungsbasiert, ABHÄNGIG VON FLOTTENGRÖßE):
    ├── Scan-Reichweite = min(60, max(0, (fleet_size - 5) × 3))
-   │   ├──  1-5 Schiffe:   0px (kein Scan — zu wenige Sensoren)
-   │   ├──  6 Schiffe:     3px
+   │   ├──  1-5 Schiffe:   0px (kein Scan)
    │   ├── 10 Schiffe:    15px
-   │   ├── 15 Schiffe:    30px
    │   ├── 20 Schiffe:    45px
    │   └── 25+ Schiffe:   60px (Maximum)
-   ├── Prüfung: kürzeste Distanz Flugpfad ↔ versteckte Station
-   └── Entdeckt: feindliche Station wird permanent sichtbar
+   ├── Entdeckt wenn: Pfad-Distanz ≤ fleet_scan_range + station_signature_range
+   └── Entdeckt: permanent sichtbar
 
-4. Sichtbar für alle (kein Scan nötig):
-   └── Station hat Kampfschiffe stationiert → Waffensignatur ortbar
-
-Wichtig: Batterie-Bau allein macht Station NICHT sichtbar
-
-Strategische Konsequenz:
+Strategische Konsequenz (neu):
 ├── Eigene Sterne decken ihren Bereich passiv ab (kostenlos)
 ├── Eigene Stationen erweitern die Scan-Abdeckung (kostet 1 von 3 Slots)
-├── Große Flotten auf normalen Routen scannen nebenbei
-├── Kleine Flotten (≤5 Schiffe) haben keinen Scan → entdecken versteckte Stationen nicht
-├── Blinde Flecken existieren, sind aber durch Station-Platzierung kontrollierbar
+├── Große Flotten scannen nebenbei — und große Garnisonen sind leichter entdeckbar
+├── Stealth-Staging möglich: kleine Garnison (2-3 Schiffe) = kaum entdeckbar
+├── Just-in-Time-Angriff: Fighter erst kurz vor dem Angriff senden
+├── Material-Begrenzung unnötig: Sichtbarkeit reguliert Garnisonsgröße natürlich
+├── Baustellen sind nicht mehr 100% unsichtbar — clevere Platzierung bleibt wichtig
 └── Kein "Patrol in den leeren Raum" nötig — bestehende Mechaniken reichen
 ```
 
@@ -404,7 +419,8 @@ Strategische Konsequenz:
 - Entdeckte Stationen sind **angreifbar wie Sterne** (Flotten können dorthin gesendet werden)
 - **Verteidiger-Bonus** gilt (Garnison verteidigt)
 - Nach **Eroberung wird die Station zerstört** (nicht übernommen)
-- **Flotten unterwegs zu zerstörter Station gehen verloren** (Ziel existiert nicht mehr)
+- **Überlebende Angreifer gehen ebenfalls verloren** — es gibt keinen Rückkehrort. Der Kampfbericht zeigt die Überlebenden, gefolgt von einem "SURVIVORS LOST"-Abschnitt, der die mit der Station verlorenen Schiffe benennt
+- **Flotten unterwegs zu zerstörter Station gehen verloren** (Ziel existiert nicht mehr). Der Flottenbesitzer erhält einen **Verlustbericht** mit Stationsname, Flottenzusammensetzung und der Info, dass alle Schiffe verloren gingen (Ziel zerstört)
 - Bei **Spieler-Eliminierung** werden alle Stationen des Spielers zerstört
 
 #### Kettenbildung
@@ -458,15 +474,16 @@ Station verwalten:
 | Batterien | **Max 2** (4 FÄ/Baurunde, gleiche Mechanik) | Konsistent mit FUT-19, ermöglicht Schildlinien-Anbindung |
 | Stationen angreifbar | **Ja, wie Sterne** mit Verteidiger-Bonus | Entdeckte Stationen können zerstört werden |
 | Nach Eroberung | **Station wird zerstört** (nicht übernommen) | Verhindert Stations-Flipping, Slot wird frei |
-| Flotten zu zerstörter Station | **Gehen verloren** | Strategisches Risiko, belohnt Timing der Zerstörung |
+| Flotten zu zerstörter Station | **Gehen verloren + Verlustbericht** | Strategisches Risiko, belohnt Timing der Zerstörung. Spieler wird informiert |
+| Überlebende nach Station-Zerstörung | **Gehen verloren + im Kampfbericht angezeigt** | Kein Rückkehrort. Stärkt Stationen als Verteidigung — Angriff ist teuer auch bei Sieg |
 | Vom Besitzer zerstörbar | **Nein** | Commitment-Entscheidung (wie Schildlinien) |
 | Spieler eliminiert | **Stationen werden zerstört** | Kein herrenloses Infrastruktur-Artefakt |
 | Station als Flottenziel | **Ja** | Zentral für offensiven Einsatz (Staging) |
 | Flotten von Station senden | **Ja** | Nötig als Staging-Punkt |
-| Sichtbarkeit im Bau | **Unsichtbar** (keine Waffensignatur) | Schützt Bauphase |
-| Sichtbarkeit operativ | **Unsichtbar bis Kampfschiffe stationiert** | Waffensignaturen erst bei Garnison ortbar |
-| Passiver Scan | **Eigene Sterne (200px) + Stationen (250px)** | Immer erfolgreich, deterministisch |
-| Flotten-Scan | **Abhängig von Flottengröße** (0-60px) | `min(60, max(0, (fleet_size-5)×3))` — große Flotten scannen nebenbei, kleine nicht |
+| Sichtbarkeit im Bau | **Bau-Signatur 30px** ab Fortschritt ≥ 1 | Nicht komplett unsichtbar — Bau-Energie erkennbar im Nahbereich (überarbeitet 2026-02-17) |
+| Sichtbarkeit operativ | **Graduiert: garrison × 10px/Schiff** | Kleine Garnison = schwer entdeckbar, große = leicht. Just-in-Time-Anreiz (überarbeitet 2026-02-17) |
+| Passiver Scan | **Eigene Sterne (200px) + Stationen (250px)** | Entdeckt wenn distance ≤ scan_range + signature_range |
+| Flotten-Scan | **Abhängig von Flottengröße** (0-60px) | `min(60, max(0, (fleet_size-5)×3))` + station_signature_range |
 | Einmal entdeckt | **Permanent sichtbar** für Entdecker | Kein "Verstecken" nach Entdeckung |
 
 ### Parameter (final)
@@ -483,6 +500,8 @@ Station verwalten:
 | `STATION_FLEET_SCAN_THRESHOLD` | 5 | Flotten mit ≤ 5 Schiffen haben keinen Scan |
 | `STATION_FLEET_SCAN_PER_SHIP` | 3px | Scan-Reichweite pro Schiff über Threshold |
 | `STATION_GARRISON` | 0 | Keine Startverteidigung |
+| `STATION_SIGNATURE_PER_SHIP` | 10px | Waffensignatur-Reichweite pro stationiertem Schiff (Fighter oder Bomber) |
+| `STATION_BUILD_SIGNATURE` | 30px | Basis-Detektionsradius für Stationen im Bau (ab build_progress ≥ 1) |
 | `STATION_PARTIAL_SCAN_MULTIPLIER` | 0.5 | Scan-Reichweite von Stationen im Bau (50% der vollen Reichweite) |
 | `STATION_PARTIAL_SCAN_MIN_PROGRESS` | 2 | Mindest-Baufortschritt für Partial Scan (von 3 gesamt) |
 
@@ -765,3 +784,8 @@ Alle Design-Entscheidungen für FUT-20 wurden am 2026-02-12 getroffen und implem
 - Feindliche Stationen zeigen "[?]" für Batterie-Anzahl wenn nicht in Scanreichweite
 - Stationen im Bau (Fortschritt ≥ 2/3) scannen mit 50% Reichweite (STATION_PARTIAL_SCAN_MULTIPLIER)
 - Neue Parameter: `STATION_PARTIAL_SCAN_MULTIPLIER` (0.5), `STATION_PARTIAL_SCAN_MIN_PROGRESS` (2)
+
+**Verlustberichte bei Stationszerstörung (2026-02-16):**
+- SS-13 → SS-13a: Überlebende Angreifer nach Stationszerstörung gehen verloren (kein Rückkehrort). Kampfbericht zeigt "SURVIVORS LOST"-Abschnitt nach dem Outcome
+- SS-38: Kampfbericht bei Stationszerstörung enthält "SURVIVORS LOST" mit Anzahl verlorener Überlebender
+- SS-39: Flotten, die an einer zerstörten Station ankommen, erzeugen einen Verlustbericht für den Besitzer (Stationsname, Flottenzusammensetzung, "Target destroyed")

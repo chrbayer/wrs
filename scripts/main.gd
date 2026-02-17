@@ -103,6 +103,10 @@ const ARROW_COLORS: Array[Color] = [
 var pending_combat_reports: Dictionary = {}
 var current_report_index: int = 0
 var combat_report_system: StarSystem = null
+var combat_report_position: Vector2 = Vector2.ZERO
+
+# Destroyed station tombstones for loss reports (station_id -> {name, position})
+var destroyed_stations: Dictionary = {}
 
 # Fog of war memory (player_id -> {system_id -> {owner_id, fighter_count, bomber_count, battery_count, has_batteries}})
 var system_memory: Dictionary = {}
@@ -386,6 +390,7 @@ func _start_game(player_configs: Array = []) -> void:
 	players.clear()
 	system_memory.clear()
 	pending_combat_reports.clear()
+	destroyed_stations.clear()
 	shield_lines.clear()
 	shield_activations.clear()
 	shield_select_source = null
@@ -1872,7 +1877,16 @@ func _show_combat_report() -> void:
 	# Build structured report text
 	var report_text = ""
 
-	if report_data.get("is_rebellion", false):
+	if report_data.get("is_station_loss", false):
+		# Station loss report (SS-39): fleet arrived at destroyed station
+		report_text += "FLEET LOST\n"
+		report_text += "%s  •  %s\n\n" % [
+			report_data["fleet_owner_name"],
+			_format_fb(report_data["lost_fighters"], report_data["lost_bombers"])
+		]
+		report_text += "Target station destroyed.\nAll ships lost."
+
+	elif report_data.get("is_rebellion", false):
 		# Rebellion-specific format
 		report_text += "REBELLION!\n"
 		report_text += "Rebels: %s\n\n" % _format_fb(report_data["attacker_fighters"], 0)
@@ -1945,7 +1959,7 @@ func _show_combat_report() -> void:
 			report_text += "BOMBER DAMAGE\n"
 			report_text += "Production reduced by %d\n\n" % report_data["production_damage"]
 
-		if report_data["conquest_occurred"]:
+		if report_data["conquest_occurred"] and report_data["system_id"] >= 0:
 			report_text += "CONQUEST\n"
 			report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
 
@@ -1955,15 +1969,28 @@ func _show_combat_report() -> void:
 			_format_fb(report_data["remaining_fighters"], report_data["remaining_bombers"])
 		]
 
+		# SS-38: Survivors lost with destroyed station
+		var surv_f = report_data.get("survivors_lost_fighters", 0)
+		var surv_b = report_data.get("survivors_lost_bombers", 0)
+		if surv_f > 0 or surv_b > 0:
+			report_text += "\n\nSURVIVORS LOST\n"
+			report_text += "%s lost with station" % _format_fb(surv_f, surv_b)
+
 	report_label.text = report_text
 
-	# Highlight the system this report is about
+	# Highlight the system/station this report is about
 	if combat_report_system:
 		combat_report_system.set_selected(false)
-	combat_report_system = systems[report_data["system_id"]]
-	combat_report_system.set_selected(true)
+		combat_report_system = null
+	combat_report_position = Vector2.ZERO
+	if report_data["system_id"] >= 0:
+		combat_report_system = systems[report_data["system_id"]]
+		combat_report_system.set_selected(true)
+		combat_report_position = combat_report_system.global_position
+	elif report_data.has("report_position"):
+		combat_report_position = report_data["report_position"]
 
-	# Position the panel near the system
+	# Position the panel near the system/station
 	_position_combat_report_panel()
 
 	combat_report_screen.visible = true
@@ -1971,7 +1998,7 @@ func _show_combat_report() -> void:
 
 
 func _position_combat_report_panel() -> void:
-	if not combat_report_system:
+	if combat_report_position == Vector2.ZERO:
 		return
 
 	# Resize panel to fit content
@@ -1987,8 +2014,8 @@ func _position_combat_report_panel() -> void:
 	var margin = 20.0
 	var star_margin = 60.0
 
-	var system_pos = combat_report_system.global_position
-	var system_radius = combat_report_system._get_radius()
+	var system_pos = combat_report_position
+	var system_radius = combat_report_system._get_radius() if combat_report_system else STATION_DIAMOND_SIZE
 
 	# Try positions around the system (right, left, below, above)
 	var offsets = [
@@ -2026,6 +2053,7 @@ func _on_close_report_pressed() -> void:
 	if combat_report_system:
 		combat_report_system.set_selected(false)
 		combat_report_system = null
+	combat_report_position = Vector2.ZERO
 
 	# Move to next report
 	current_report_index += 1
@@ -2047,8 +2075,9 @@ func _on_close_report_pressed() -> void:
 
 
 func _process_turn_end() -> void:
-	# Clear previous combat reports
+	# Clear previous combat reports and destroyed station tombstones
 	pending_combat_reports.clear()
+	destroyed_stations.clear()
 
 	# 0. Process shield activations
 	_process_shield_activations()
@@ -2088,9 +2117,14 @@ func _process_turn_end() -> void:
 			var target_id = fleet.target_system_id
 			if _is_station_id(target_id):
 				# Fleet targeting a station
-				var station_idx = _find_station_by_id(target_id - STATION_ID_OFFSET)
+				var station_id = target_id - STATION_ID_OFFSET
+				var station_idx = _find_station_by_id(station_id)
 				if station_idx < 0:
-					continue  # Station destroyed — fleet lost
+					# Station destroyed — generate loss report for fleet owner
+					if destroyed_stations.has(station_id):
+						var tombstone = destroyed_stations[station_id]
+						_create_station_loss_report(fleet, tombstone["name"], tombstone["position"])
+					continue
 				if not arriving_at_stations.has(station_idx):
 					arriving_at_stations[station_idx] = []
 				arriving_at_stations[station_idx].append(fleet)
@@ -3086,19 +3120,27 @@ func _get_station_info_text(station: Dictionary) -> String:
 	if station["owner_id"] == current_player:
 		if not station["operative"]:
 			text = "%s (Building %d/%d)" % [sname, station["build_progress"], ShipTypes.STATION_BUILD_ROUNDS]
-			text += " Material: %d/%d FÄ" % [station["material"], ShipTypes.STATION_BUILD_PER_ROUND]
+			text += "  Material: %d/%d FÄ" % [station["material"], ShipTypes.STATION_BUILD_PER_ROUND]
 		else:
 			text = sname
-			if station["fighter_count"] > 0 or station["bomber_count"] > 0:
-				text += " F:%d B:%d" % [station["fighter_count"], station["bomber_count"]]
+			var ship_parts: Array[String] = []
+			if station["fighter_count"] > 0:
+				ship_parts.append("%d F" % station["fighter_count"])
+			if station["bomber_count"] > 0:
+				ship_parts.append("%d B" % station["bomber_count"])
+			if ship_parts.size() > 0:
+				text += "  " + " / ".join(ship_parts)
 			if station["battery_count"] > 0:
-				text += " [%d batteries]" % station["battery_count"]
+				var bat_label = "battery" if station["battery_count"] == 1 else "batteries"
+				text += "  [%d %s]" % [station["battery_count"], bat_label]
 			if station["building_battery"]:
 				var target_rounds = station["battery_count"] + 1
-				text += "\nBuilding Battery (%d/%d) Material: %d/%d FÄ" % [
+				text += "\nBuilding Battery (%d/%d)  Material: %d/%d FÄ" % [
 					station["battery_build_progress"], target_rounds,
 					station["battery_material"], ShipTypes.STATION_BATTERY_PER_ROUND
 				]
+			elif station.get("shield_activating", false):
+				text += "\nActivating Shield"
 	else:
 		var owner_name = "Unknown"
 		if station["owner_id"] >= 0:
@@ -3679,6 +3721,8 @@ func _resolve_station_combat(station: Dictionary, arriving_fleets: Dictionary) -
 		"conquest_occurred": false,
 		"production_damage": 0,
 		"battery_kills": 0,
+		"battery_fighter_kills": 0,
+		"battery_bomber_kills": 0,
 		"attacker_fighter_losses": 0,
 		"attacker_bomber_losses": 0,
 		"defender_fighter_losses": 0,
@@ -3700,11 +3744,20 @@ func _resolve_station_combat(station: Dictionary, arriving_fleets: Dictionary) -
 		var owner_waves = Combat.split_into_waves(attacker_id, force["fighters"], force["bombers"], force["fighter_morale"])
 		waves.append_array(owner_waves)
 
+	# Track total pre-battery attacker forces
+	var total_pre_fighters = 0
+	var total_pre_bombers = 0
+
 	for wave in waves:
 		wave["pre_fighters"] = wave["fighters"]
 		wave["pre_bombers"] = wave["bombers"]
 		wave["bat_fighter_kills"] = 0
 		wave["bat_bomber_kills"] = 0
+		total_pre_fighters += wave["fighters"]
+		total_pre_bombers += wave["bombers"]
+
+	result["total_attacker_fighters"] = total_pre_fighters
+	result["total_attacker_bombers"] = total_pre_bombers
 
 	# Battery pre-combat
 	if station["battery_count"] > 0 and waves.size() > 0:
@@ -3718,6 +3771,11 @@ func _resolve_station_combat(station: Dictionary, arriving_fleets: Dictionary) -
 			wave["bat_fighter_kills"] = battery_result["fighter_kills"]
 			wave["bat_bomber_kills"] = battery_result["bomber_kills"]
 			result["battery_kills"] += battery_result["fighter_kills"] + battery_result["bomber_kills"]
+			result["battery_fighter_kills"] += battery_result["fighter_kills"]
+			result["battery_bomber_kills"] += battery_result["bomber_kills"]
+			# Battery kills count as attacker losses (C-18)
+			result["attacker_fighter_losses"] += battery_result["fighter_kills"]
+			result["attacker_bomber_losses"] += battery_result["bomber_kills"]
 
 		var surviving_waves: Array = []
 		for wave in waves:
@@ -3768,6 +3826,11 @@ func _resolve_station_combat(station: Dictionary, arriving_fleets: Dictionary) -
 ## Destroy a station (removes from array, frees node)
 func _destroy_station(station_idx: int) -> void:
 	var station = stations[station_idx]
+	# Save tombstone for loss reports (fleets arriving next turn)
+	destroyed_stations[station["id"]] = {
+		"name": station.get("name", "Station"),
+		"position": station["position"]
+	}
 	if station.has("node") and station["node"]:
 		station["node"].queue_free()
 	# Remove shield lines connected to this station
@@ -3801,6 +3864,23 @@ func _destroy_player_stations(player_id: int) -> void:
 		if stations[i]["owner_id"] == player_id:
 			_destroy_station(i)
 		i -= 1
+
+
+## Create a loss report for a fleet arriving at a destroyed station (SS-39)
+func _create_station_loss_report(fleet: Fleet, station_name: String, station_pos: Vector2) -> void:
+	var report_data = {
+		"system_name": station_name,
+		"system_id": -1,
+		"report_position": station_pos,
+		"is_station_loss": true,
+		"fleet_owner_name": _get_owner_name(fleet.owner_id),
+		"lost_fighters": fleet.fighter_count,
+		"lost_bombers": fleet.bomber_count,
+	}
+	if fleet.owner_id >= 0:
+		if not pending_combat_reports.has(fleet.owner_id):
+			pending_combat_reports[fleet.owner_id] = []
+		pending_combat_reports[fleet.owner_id].append(report_data)
 
 
 ## Perform fleet scan for station discovery
@@ -3933,6 +4013,20 @@ func _draw_single_station(station: Dictionary) -> void:
 			if arc_points.size() > 1:
 				draw_polyline(arc_points, Color(0, 1, 1, 0.7), 2.0)
 
+	# Battery build progress indicator (orange arc around operative station)
+	if station["operative"] and owned and station.get("building_battery", false):
+		var target_rounds = station["battery_count"] + 1
+		var bat_progress = float(station["battery_build_progress"]) / float(target_rounds)
+		if bat_progress > 0:
+			var arc_radius = size + 4
+			var arc_points = PackedVector2Array()
+			var arc_steps = int(bat_progress * 32)
+			for i_step in range(arc_steps + 1):
+				var angle = -PI / 2.0 + (float(i_step) / 32.0) * TAU
+				arc_points.append(pos + Vector2(cos(angle), sin(angle)) * arc_radius)
+			if arc_points.size() > 1:
+				draw_polyline(arc_points, Color(1.0, 0.7, 0.0, 0.7), 2.0)
+
 	# Ship count label (above diamond, font size 20, like star Label)
 	if owned:
 		if station["operative"]:
@@ -4028,26 +4122,29 @@ func _process_station_fleet_arrivals(arriving_at_stations: Dictionary) -> void:
 				var report_data = {
 					"system_name": station.get("name", "Station"),
 					"system_id": -1,
+					"report_position": station["position"],
 					"defender_name": _get_owner_name(old_owner),
 					"defender_fighters": station["fighter_count"],
 					"defender_bombers": station["bomber_count"],
 					"defender_fighter_losses": result["defender_fighter_losses"],
 					"defender_bomber_losses": result["defender_bomber_losses"],
 					"attacker_name": _get_owner_name(attacker_id),
-					"attacker_fighters": result["attacker_fighter_losses"] + result["remaining_fighters"],
-					"attacker_bombers": result["attacker_bomber_losses"] + result["remaining_bombers"],
+					"attacker_fighters": result["total_attacker_fighters"],
+					"attacker_bombers": result["total_attacker_bombers"],
 					"attacker_fighter_losses": result["attacker_fighter_losses"],
 					"attacker_bomber_losses": result["attacker_bomber_losses"],
 					"attacker_fighter_morale": result["attacker_fighter_morale"],
-					"battery_fighter_kills": result["battery_kills"],
-					"battery_bomber_kills": 0,
+					"battery_fighter_kills": result["battery_fighter_kills"],
+					"battery_bomber_kills": result["battery_bomber_kills"],
 					"winner_name": _get_owner_name(attacker_id) + " (Station destroyed)",
 					"remaining_fighters": result["remaining_fighters"],
 					"remaining_bombers": result["remaining_bombers"],
 					"batteries_before": station["battery_count"],
 					"batteries_after": 0,
 					"production_damage": 0,
-					"conquest_occurred": true
+					"conquest_occurred": true,
+					"survivors_lost_fighters": result["remaining_fighters"],
+					"survivors_lost_bombers": result["remaining_bombers"],
 				}
 
 				# Report for involved players
@@ -4062,9 +4159,51 @@ func _process_station_fleet_arrivals(arriving_at_stations: Dictionary) -> void:
 
 				_destroy_station(station_idx)
 			else:
-				# Defender held
+				# Defender held — create combat report
 				station["fighter_count"] = result["remaining_fighters"]
 				station["bomber_count"] = result["remaining_bombers"]
+
+				# Determine attacker for report (first enemy in merged)
+				var attacker_id = -1
+				for aid in merged.keys():
+					if aid != old_owner:
+						attacker_id = aid
+						break
+
+				var report_data = {
+					"system_name": station.get("name", "Station"),
+					"system_id": -1,
+					"report_position": station["position"],
+					"defender_name": _get_owner_name(old_owner),
+					"defender_fighters": station["fighter_count"] + result["defender_fighter_losses"],
+					"defender_bombers": station["bomber_count"] + result["defender_bomber_losses"],
+					"defender_fighter_losses": result["defender_fighter_losses"],
+					"defender_bomber_losses": result["defender_bomber_losses"],
+					"attacker_name": _get_owner_name(attacker_id),
+					"attacker_fighters": result["total_attacker_fighters"],
+					"attacker_bombers": result["total_attacker_bombers"],
+					"attacker_fighter_losses": result["attacker_fighter_losses"],
+					"attacker_bomber_losses": result["attacker_bomber_losses"],
+					"attacker_fighter_morale": result["attacker_fighter_morale"],
+					"battery_fighter_kills": result["battery_fighter_kills"],
+					"battery_bomber_kills": result["battery_bomber_kills"],
+					"winner_name": _get_owner_name(old_owner),
+					"remaining_fighters": result["remaining_fighters"],
+					"remaining_bombers": result["remaining_bombers"],
+					"batteries_before": station["battery_count"],
+					"batteries_after": station["battery_count"],
+					"production_damage": 0,
+					"conquest_occurred": false
+				}
+
+				if old_owner >= 0:
+					if not pending_combat_reports.has(old_owner):
+						pending_combat_reports[old_owner] = []
+					pending_combat_reports[old_owner].append(report_data)
+				if attacker_id >= 0 and attacker_id != old_owner:
+					if not pending_combat_reports.has(attacker_id):
+						pending_combat_reports[attacker_id] = []
+					pending_combat_reports[attacker_id].append(report_data)
 
 
 

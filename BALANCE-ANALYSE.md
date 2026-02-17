@@ -1,6 +1,6 @@
 # Balance-Analyse: Weltraumschlacht
 
-> Stand: 2026-02-16 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen). Station-Verbesserungen (Naming, Selektion, Shield-Aktivierung Stern↔Station, Partial Scan) eingearbeitet.
+> Stand: 2026-02-17 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen). Updates: Graduierte Stations-Sichtbarkeit (SS-09a), Stationszerstorungs-Verluste (SS-13a/38/39), Kampfberichte fur alle Station-Kampfe.
 
 ---
 
@@ -308,22 +308,46 @@ Da Produktionsraten ganzzahlig sind, muss der Bonus entweder abgerundet oder als
 - Schliesst Lucken im Schildnetzwerk
 - Passiver Scan uber volle Sichtweite (250px, deckt Lucken zwischen Sternen ab)
 
-### 5.3 Sichtbarkeits-Dynamik
+**Zerstorungskosten (SS-13a):**
+Angreifende Schiffe, die eine Station erfolgreich zerstoren, gehen ebenfalls verloren (kein Ruckkehr-Ziel). Das macht Stationsangriffe grundsatzlich teurer als Systemangriffe:
+- Angreifer verliert **alle uberlebenden Schiffe** zusatzlich zu den Kampfverlusten
+- Ein 40-Fighter-Angriff auf eine garnisonslose Station kostet 40 Fighter (selbst bei null Gegenwehr)
+- Gegen Batterien: Batterie-Kills + alle Uberlebenden verloren = 100% Verlustrate
+- **Balance-Implikation:** Stationen als "Honeypot" -- Angreifer muss abwagen, ob Zerstorung die Totalverluste wert ist
+
+### 5.3 Sichtbarkeits-Dynamik (Graduierte Sichtbarkeit, SS-09a)
+
+Stationen sind nicht binär sichtbar/unsichtbar, sondern haben eine **Waffen-Signatur**, die proportional zur Garnisonsgrosse wachst:
+
+**Waffen-Signatur:** `signature_range = garrison_size × STATION_SIGNATURE_PER_SHIP (10px)`
+**Bau-Signatur:** `STATION_BUILD_SIGNATURE = 30px` (ab build_progress >= 1)
+
+| Garnison | Signatur-Reichweite | Taktische Bedeutung |
+|----------|--------------------|--------------------|
+| 0 Schiffe | 0px | Unsichtbar (nur passiver Scan entdeckt) |
+| 1-5 Schiffe | 10-50px | Praktisch unsichtbar |
+| 10 Schiffe | 100px | Von nahen Sternen/Stationen entdeckbar |
+| 20 Schiffe | 200px | Von den meisten Nachbarsternen entdeckbar |
+| 30+ Schiffe | 300px+ | Grossflachig sichtbar, kaum zu verbergen |
+| Im Bau | 30px | Minimale Bau-Signatur, schwer entdeckbar |
 
 | Scan-Methode | Reichweite | Zuverlassigkeit | Kosten |
 |--------------|-----------|-----------------|--------|
 | Passiver Scan (Sterne) | STATION_PASSIVE_SCAN_RANGE (200px) | 100% | Kostenlos |
 | Passiver Scan (Stationen, operativ) | MAX_SYSTEM_DISTANCE (250px) | 100% | 1 Station-Slot |
 | Passiver Scan (Stationen, im Bau ≥2/3) | 125px (50% von 250px) | 100% | 1 Station-Slot |
+| Waffen-Signatur | garrison × 10px | Proportional zur Starke | Tarnung verloren |
+| Bau-Signatur | 30px | Nur wahrend Bau | Gering |
 | Flotten-Scan (25+ Schiffe) | 60px | Situativ | Flotte muss vorbei |
 | Flotten-Scan (6-24 Schiffe) | 3-57px | Gering | Flotte muss nah vorbei |
-| Flotten-Scan (1-5 Schiffe) | 0px | Keine | Kein Scan |
-| Garnison-Sichtbarkeit | Global | 100% | Sicherheit verloren |
 
-**Analyse:** Stationen sind uberraschend schwer zu entdecken. Solange keine Garnison stationiert ist, kann nur passiver Scan (eigene Sterne/Stationen in Sichtweite) oder vorbeifliegende grosse Flotten sie aufspuren. Stationen im Bau beginnen ab Fortschritt 2/3 mit halbem Scanradius zu scannen (125px), was einen fruhen Aufklarungsvorteil bietet. Das schafft ein interessantes **Information-Asymmetry**-Spiel:
+**Analyse:** Die graduierte Sichtbarkeit schafft ein fundamentales Dilemma: **Starke vs Tarnung**. Eine leere Station ist unsichtbar, aber nutzlos im Kampf. Eine voll garnisierte Station (30+ Schiffe) ist kampfstark, aber weit sichtbar. Das erzwingt taktische Entscheidungen:
 
-- **Angreifer:** Muss Station bauen, ohne dass feindliche Sterne sie scannen. Optimalposition: ausserhalb aller feindlichen Scan-Radien.
-- **Verteidiger:** Muss Lucken in der eigenen Scan-Abdeckung identifizieren und ggf. eigene Aufklarungs-Station platzieren.
+- **Stealth-Staging:** Station leer halten, Fighter erst kurz vor Angriff schicken (Just-in-Time). Risiko: Fighter unterwegs sichtbar, Ankunftszeit kostet Uberraschung.
+- **Forward Operating Base:** Station permanent garnisieren. Vorteil: sofortige Einsatzbereitschaft. Nachteil: Signatur verrat Position.
+- **Bau-Phase:** STATION_BUILD_SIGNATURE = 30px ist sehr gering -- Station im Bau ist praktisch nur durch passiven Scan (Stern/Station in <30px Nahe) oder Zufall entdeckbar.
+
+**Balance-Implikation:** Die Signatur-Mechanik verhindert "unsichtbare Festungen" (eine Station mit 40 Garnison hat 400px Signatur -- praktisch kartenweit sichtbar) und belohnt taktische Zuruckhaltung bei der Garnisonierung.
 
 ### 5.4 Kettenbau-Reichweite
 
@@ -362,6 +386,8 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 | Stationen + Schildlinien | Station hinter Schild -> Umgehung der Verteidigung | **Kerndesign** -- Counter gegen Turtle |
 | Moral + Schildlinien | Geschwachte Fighter treffen auf Schild -> doppelte Bestrafung | **Potenziell zu hart** fur Fernangriffe |
 | Station + Moral | Station als Staging-Punkt -> volle Moral fur kurze Angriffe | **Gut** -- Counter gegen Moral-Malus |
+| Station + Zerstorungsverluste | Angreifer verliert alle Uberlebenden bei Stationszerstorung | **Gut** -- Stationen als "teures Ziel" |
+| Signatur + Garnison | Grosse Garnison = hohe Sichtbarkeit, Tarnung vs Kampfkraft | **Gut** -- erzwingt taktische Abwagung |
 
 ---
 
@@ -397,11 +423,14 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 
 **Neues Late-Game-Pattern:**
 1. Spieler A baut Schildwall
-2. Spieler B baut Station hinter dem Wall
-3. Spieler A muss Scan-Lucken schliessen oder Garnisonen im Hinterland halten
-4. Spieler B greift von Station aus hinter dem Wall an
-5. Schildlinie wird durch Eroberung eines Endpunkts gebrochen
-6. Spieler A muss neue Verteidigung aufbauen
+2. Spieler B baut Station hinter dem Wall (Bau-Signatur 30px, fast unsichtbar)
+3. Spieler B schickt Garnison zur Station -- ab ~20 Schiffen Signatur 200px, Entdeckungsgefahr steigt
+4. Spieler A muss Scan-Lucken schliessen oder Garnisonen im Hinterland halten
+5. Spieler B greift von Station aus an -- Stationszerstorung kostet Spieler A **alle** angreifenden Schiffe
+6. Schildlinie wird durch Eroberung eines Endpunkts gebrochen
+7. Spieler A muss neue Verteidigung aufbauen
+
+**Neues Dilemma fur Stations-Angriffe:** Die Zerstorung einer feindlichen Station kostet alle uberlebenden Angreifer. Spieler muss abwagen: Station zerstoren (teuer, aber sicher) oder Station ignorieren und direkt Systeme angreifen (riskant, feindliche Station bleibt aktiv).
 
 ---
 
@@ -454,7 +483,19 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 3. **Phase 3:** AI baut Stationen (Rush: offensiv, Fortress: defensiv)
 4. **Phase 4:** AI reagiert auf feindliche Stationen (Scan + Zerstorung)
 
-### 8.5 Risiko: Kleine vs grosse Reiche
+### 8.5 Risiko: Signatur-Tuning
+
+**Problem:** `STATION_SIGNATURE_PER_SHIP = 10px` konnte zu niedrig oder zu hoch sein:
+- **Zu niedrig:** Stationen mit 20+ Garnison bleiben unsichtbar -> "unsichtbare Festungen" dominieren
+- **Zu hoch:** Jede Garnison verrat die Station sofort -> Stealth-Aspekt verliert Bedeutung
+
+**Analyse:** Bei 10px/Schiff ist eine 20-Fighter-Garnison bei 200px sichtbar, was dem passiven Scan-Radius von Sternen entspricht. Das bedeutet: eine moderat garnisierte Station wird von Nachbarsternen (typische Distanz 150-250px) mit hoher Wahrscheinlichkeit entdeckt. Nur leere oder schwach garnisierte Stationen (<10 Schiffe) bleiben verborgen.
+
+**STATION_BUILD_SIGNATURE = 30px** ist bewusst niedrig gehalten. Nur Sterne/Stationen in unmittelbarer Nahe (<30px) entdecken eine Station im Bau. Das ermoglicht verdeckten Stationsbau in Lucken des feindlichen Scan-Netzwerks, was strategisch gewunscht ist.
+
+**Empfehlung:** 10px/Schiff als Startwert beibehalten, durch Playtesting validieren. Wenn "Just-in-Time"-Garnisonierung (Schiffe erst kurz vor Angriff schicken) zu dominant wird, auf 15-20px erhohen.
+
+### 8.6 Risiko: Kleine vs grosse Reiche
 
 **Problem:** Das Design bevorzugt explizit kleine, kompakte Reiche (kurze Distanzen = starke Schilder, 2 Strukturen reichen, 3 Stationen = volle Offensivkapazitat). Grosse Reiche haben mehr Lucken als Strukturen schliessen konnen.
 
@@ -479,6 +520,7 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 | Snowball-Kontrolle | Gut (Rebellion) | Sehr gut (Rebellion + Schildbruch) | Verbesserung |
 | Stalemate-Risiko | Mittel-Hoch | Mittel (dank Stationen) | Leichte Verbesserung |
 | Taktik-Vielfalt | 5 Taktiken, akzeptabel | Mehr Entscheidungen, besser | Verbesserung |
+| Information-Asymmetrie | Gering (nur FoW) | Hoch (Signatur, Scan, Stealth) | Deutliche Verbesserung |
 | Komplexitat | Moderat | Hoch | Erfordert gute UI/UX |
 | AI-Qualitat | Akzeptabel | Erfordert signifikante Erweiterung | Risiko |
 
@@ -501,6 +543,8 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 | `MAX_STATIONS_PER_PLAYER` | 3 | 2-4 | **Mittel** -- bestimmt offensives Potential |
 | `SHIELD_RING_BONUS_INNER` | 0.25 | 0.15-0.35 | **Niedrig** -- Bonus-Feintuning |
 | `SHIELD_RING_BONUS_RING` | 0.12 | 0.05-0.20 | **Niedrig** -- Bonus-Feintuning |
+| `STATION_SIGNATURE_PER_SHIP` | 10 px/Schiff | 5-20 | **Hoch** -- bestimmt Tarnung vs Sichtbarkeit der Stationen |
+| `STATION_BUILD_SIGNATURE` | 30 px | 15-50 | **Mittel** -- Bau-Entdeckungsrisiko |
 
 ---
 
@@ -511,6 +555,10 @@ Das aktuelle Spiel ist **solide balanciert** mit einem leichten Defensiv-Uberhan
 **FUT-19 (Schildlinien)** fugt eine dringend benotigte **territoriale Dimension** hinzu. Die Balance-Risiken (Turtle-Meta, Stalemate) sind real, werden aber durch das Design adressiert (Bomber-Resistenz, Rebellion, Max-Strukturen, Aktivierungskosten).
 
 **FUT-20 (Raumstationen)** ist der **essentielle Counter** gegen das von FUT-19 potentiell verstarkte Turtle-Meta. Stationen ermoglichen Flankenangriffe, Staging-Punkte und Informationsasymmetrie. Die hohen Baukosten (24-36 FA) und die begrenzte Anzahl (3) verhindern Missbrauch.
+
+**Stationszerstorung (SS-13a)** erhoht den defensiven Wert von Stationen signifikant: Angreifer verlieren bei erfolgreicher Zerstorung **alle uberlebenden Schiffe**. Das macht Stationsangriffe zu einer Kosten-Nutzen-Abwagung -- lohnt sich die Zerstorung der feindlichen Station den Totalverlust der Angriffsflotte? Kampfberichte (SS-38) und Verlustmeldungen (SS-39) stellen sicher, dass alle Verluste transparent kommuniziert werden.
+
+**Graduierte Sichtbarkeit (SS-09a)** schafft ein neues strategisches Dilemma: **Tarnung vs Kampfkraft**. Die Waffen-Signatur (`garrison × 10px`) sorgt dafur, dass starke Stationen sichtbar werden, wahrend leere oder schwach garnisierte Stationen verborgen bleiben. Das belohnt taktische Entscheidungen wie Just-in-Time-Garnisonierung und macht pauschales "Stealth-Stacking" unmogloch. Die Bau-Signatur (30px) erlaubt weiterhin verdeckten Stationsbau in feindlichen Lucken.
 
 **Beide Features mussen zusammen implementiert werden.** FUT-19 allein wurde das Spiel zu defensiv-lastig machen. FUT-20 allein ergibt ohne Schildlinien wenig Sinn (keine Barriere zum Umgehen).
 
