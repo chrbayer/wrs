@@ -82,6 +82,13 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var winner_label: Label = $HUD/GameOverScreen/VBox/WinnerLabel
 @onready var restart_button: Button = $HUD/GameOverScreen/VBox/RestartButton
 
+# Help screen
+@onready var help_screen: Panel = $HUD/HelpScreen
+@onready var help_title_label: Label = $HUD/HelpScreen/VBox/TitleLabel
+@onready var help_text_label: Label = $HUD/HelpScreen/VBox/ScrollContainer/HelpTextLabel
+@onready var close_help_button: Button = $HUD/HelpScreen/VBox/CloseHelpButton
+@onready var help_button: Button = $HUD/TopBar/HelpButton
+
 # Send fleet state
 var send_source_system: StarSystem = null
 var send_target_system: StarSystem = null
@@ -143,6 +150,179 @@ var send_target_station_idx: int = -1  # Station as fleet target
 # AI turn delay timer
 var ai_delay_timer: Timer = null
 const AI_TURN_DELAY: float = 0.3
+
+# Help screen
+var help_language: String = "de"
+
+const HELP_TEXT_DE: String = """= ZIEL DES SPIELS =
+
+Erobere alle Sternsysteme und vernichte alle feindlichen Flotten. Der letzte Spieler mit Systemen gewinnt.
+
+
+= STERNSYSTEME & PRODUKTION =
+
+Jedes Sternsystem produziert pro Runde Schiffe. Die Produktionsrate (1-8) kann mit "Upgrade Production" erhöht werden — das dauert so viele Runden wie die aktuelle Rate.
+
+Produktionsmodi (Doppelklick auf eigenes System):
+• Produce Fighters — Standard-Jäger produzieren
+• Produce Bombers — Bomber produzieren (halbe Rate)
+• Upgrade Production — Produktionsrate erhöhen
+• Build Battery — Verteidigungsbatterie bauen (max 5)
+
+Eroberte Systeme verlieren 1 Produktionsstufe.
+
+
+= SCHIFFSTYPEN =
+
+Fighter (Jäger):
+• Schnell (150 Pixel/Runde)
+• Standard-Angriff und Verteidigung
+• Moral sinkt nach 2 Runden Reisezeit (-0.2/Runde, min 0.5x)
+
+Bomber:
+• Langsam (75 Pixel/Runde, halb so schnell)
+• Starker Angriff (1.5x), schwache Verteidigung (0.67x)
+• Zerstören feindliche Produktionskapazität bei Eroberung (1-3 Stufen)
+• Halbe Batteriewirkung gegen Bomber
+
+
+= FLOTTEN & KAMPF =
+
+Flotte senden: Klicke ein eigenes System, dann ein Zielsystem. Stelle Fighter und Bomber ein und sende.
+
+Kampfmechaniken:
+• Verteidiger haben 1.5x Bonus
+• Batterien verursachen 3 Schaden pro Runde (halbe Wirkung gegen Bomber)
+• Flotten über 40 Schiffe kämpfen in Wellen
+• Pfeilfarben zeigen Reisezeit: Cyan=1, Grün=2, Gelb=3, Orange=4, Rot=5+ Runden
+
+
+= SCHILDLINIEN =
+
+Zwei Systeme mit jeweils mind. 2 Batterien können eine Schildlinie aktivieren (2 Runden Bauzeit). Max 2 Linien pro System.
+
+Schildlinien:
+• Verursachen Schaden an durchfliegenden feindlichen Schiffen
+• Können Passage komplett blockieren (abhängig von Batteriestärke)
+• Bomber haben doppelte Blockade-Schwelle (schwerer zu stoppen)
+
+
+= RAUMSTATIONEN =
+
+Baue Stationen im freien Raum (Kosten: 24 Ressourcen über 3 Runden). Max 3 pro Spieler.
+
+Stationen können:
+• Als Flottenrelais dienen (senden & empfangen)
+• Bis zu 2 Batterien zur Verteidigung bauen
+• Schildlinien mit Systemen oder anderen Stationen bilden
+• Schiffe garnisonieren
+
+Stationen haben begrenzte Sichtbarkeit — ihre Signatur wächst mit garnionierten Schiffen.
+
+
+= REBELLION =
+
+Wenn ein Spieler zu dominant wird (Systeme, Produktion, Kampfstärke), können neutrale Rebellen in seinen Systemen aufstehen. Das verhindert, dass ein Spieler das Spiel zu leicht dominiert.
+
+
+= FOG OF WAR =
+
+Du siehst nur Systeme und Flotten in Sichtweite deiner eigenen Systeme und Stationen (250 Pixel). Entfernte Systeme zeigen die letzte bekannte Information.
+
+
+= STEUERUNG =
+
+• Klick auf System — Auswählen / Info anzeigen
+• Klick auf zweites System — Flotten-Sendedialog öffnen
+• Doppelklick auf eigenes System — Produktionspanel öffnen
+• ESC — Aktuelle Aktion abbrechen / Panel schließen
+• Leertaste — KI-Spiel pausieren/fortsetzen
+"""
+
+const HELP_TEXT_EN: String = """= OBJECTIVE =
+
+Conquer all star systems and destroy all enemy fleets. The last player with systems wins.
+
+
+= STAR SYSTEMS & PRODUCTION =
+
+Each star system produces ships per turn. The production rate (1-8) can be increased with "Upgrade Production" — this takes as many turns as the current rate.
+
+Production modes (double-click your own system):
+• Produce Fighters — Produce standard fighters
+• Produce Bombers — Produce bombers (half rate)
+• Upgrade Production — Increase production rate
+• Build Battery — Build defense battery (max 5)
+
+Conquered systems lose 1 production level.
+
+
+= SHIP TYPES =
+
+Fighter:
+• Fast (150 pixels/turn)
+• Standard attack and defense
+• Morale drops after 2 turns of travel (-0.2/turn, min 0.5x)
+
+Bomber:
+• Slow (75 pixels/turn, half fighter speed)
+• Strong attack (1.5x), weak defense (0.67x)
+• Destroy enemy production capacity on conquest (1-3 levels)
+• Batteries are half as effective against bombers
+
+
+= FLEETS & COMBAT =
+
+Send fleet: Click your own system, then a target system. Set fighters and bombers and send.
+
+Combat mechanics:
+• Defenders get 1.5x bonus
+• Batteries deal 3 damage per round (half effect vs bombers)
+• Fleets over 40 ships fight in waves
+• Arrow colors show travel time: Cyan=1, Green=2, Yellow=3, Orange=4, Red=5+ turns
+
+
+= SHIELD LINES =
+
+Two systems with at least 2 batteries each can activate a shield line (2 turns build time). Max 2 lines per system.
+
+Shield lines:
+• Deal damage to passing enemy ships
+• Can completely block passage (depending on battery strength)
+• Bombers have double blockade threshold (harder to stop)
+
+
+= SPACE STATIONS =
+
+Build stations in open space (cost: 24 resources over 3 turns). Max 3 per player.
+
+Stations can:
+• Serve as fleet relays (send & receive)
+• Build up to 2 batteries for defense
+• Form shield lines with systems or other stations
+• Garrison ships
+
+Stations have limited visibility — their signature grows with garrisoned ships.
+
+
+= REBELLION =
+
+When a player becomes too dominant (systems, production, combat strength), neutral rebels may rise in their systems. This prevents any one player from dominating the game too easily.
+
+
+= FOG OF WAR =
+
+You can only see systems and fleets within range of your own systems and stations (250 pixels). Distant systems show last known information.
+
+
+= CONTROLS =
+
+• Click on system — Select / show info
+• Click on second system — Open fleet send dialog
+• Double-click own system — Open production panel
+• ESC — Cancel current action / close panel
+• Space — Pause/resume AI game
+"""
 
 
 func _ready() -> void:
@@ -233,6 +413,12 @@ func _setup_ui_connections() -> void:
 	station_shield_btn.pressed.connect(_on_station_shield_pressed)
 	station_close_btn.pressed.connect(_on_station_close_pressed)
 
+	# Help screen connections
+	help_button.pressed.connect(_on_help_pressed)
+	close_help_button.pressed.connect(_on_close_help_pressed)
+	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.pressed.connect(_on_language_de_pressed)
+	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.pressed.connect(_on_language_en_pressed)
+
 	# Create AI delay timer
 	ai_delay_timer = Timer.new()
 	ai_delay_timer.one_shot = true
@@ -248,6 +434,7 @@ func _show_setup_screen() -> void:
 	send_panel.visible = false
 	action_panel.visible = false
 	station_action_panel.visible = false
+	help_screen.visible = false
 	# Hide game UI during setup
 	$HUD/TopBar.visible = false
 	$HUD/BottomBar.visible = false
@@ -263,6 +450,10 @@ func _show_setup_screen() -> void:
 	player_count_option.select(count - 2)
 	_rebuild_player_config(count)
 	_resize_setup_screen()
+
+	# Set language button initial state
+	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.disabled = (help_language == "de")
+	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.disabled = (help_language == "en")
 
 
 func _on_player_count_changed(_index: int) -> void:
@@ -1244,6 +1435,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			queue_redraw()
 		elif combat_report_screen.visible:
 			_on_close_report_pressed()
+		elif help_screen.visible:
+			_on_close_help_pressed()
 		elif _station_shield_source_idx >= 0:
 			_station_shield_source_idx = -1
 			system_info_label.text = ""
@@ -2076,6 +2269,32 @@ func _on_close_report_pressed() -> void:
 
 	# Check for game over after closing all reports
 	_check_victory()
+
+
+func _on_help_pressed() -> void:
+	if help_language == "de":
+		help_title_label.text = "Spielanleitung"
+		help_text_label.text = HELP_TEXT_DE
+	else:
+		help_title_label.text = "Game Manual"
+		help_text_label.text = HELP_TEXT_EN
+	help_screen.visible = true
+
+
+func _on_close_help_pressed() -> void:
+	help_screen.visible = false
+
+
+func _on_language_de_pressed() -> void:
+	help_language = "de"
+	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.disabled = true
+	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.disabled = false
+
+
+func _on_language_en_pressed() -> void:
+	help_language = "en"
+	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.disabled = true
+	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.disabled = false
 
 
 func _process_turn_end() -> void:
