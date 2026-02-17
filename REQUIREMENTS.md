@@ -52,7 +52,8 @@
 | F-02b | Players shall be able to send fleets (fighters, bombers, or mixed) from one system to another | ✅ Done |
 | F-03 | Fleet travel time shall depend on the distance between systems           | ✅ Done |
 | F-03a | Mixed fleet speed shall be determined by the slowest ship type (`BOMBER_SPEED`) | ✅ Done |
-| F-04 | Fleets in transit shall not be visible to any player                     | ✅ Done |
+| ~~F-04~~ | ~~Fleets in transit shall not be visible to any player~~             | ~~Done~~ |
+| F-04a | Own fleets in transit shall be displayed as arrows on the map (interpolated position, color by remaining travel time) | ✅ Done |
 | F-05 | Fleets in transit cannot be redirected until they arrive                 | ✅ Done |
 | F-06 | Arriving fleets shall reinforce friendly systems or attack enemy/neutral | ✅ Done |
 | F-07 | Fleets shall require a minimum of 1 turn travel time                 | ✅ Done |
@@ -372,6 +373,8 @@
 | UI-31 | Setup screen allows per-player Human/AI selection with tactic choice | ✅ Done |
 | UI-32 | In all-AI spectator mode, Space key toggles pause/resume with "PAUSED" indicator | ✅ Done |
 | UI-33 | Setup screen shall restore previous game's settings (player count, human/AI, tactics) on restart | ✅ Done |
+| UI-34 | An "Orders" button toggles order mode; clicking source then target opens a config panel for recurring fleet transfers with garrison thresholds. Each source can have only one order. Fighters/bombers are sent separately by default. Double-click target for instant order. | ✅ Done |
+| UI-35 | Standing orders are shown as arrows on the map (only visible in order mode) with hover info, click to select (glow effect), and double-click to edit | ✅ Done |
 
 ---
 
@@ -380,7 +383,7 @@
 | ID     | Requirement                                                                                        | Status            |
 |--------|----------------------------------------------------------------------------------------------------|-------------------|
 | FUT-01 | Save and load game state                                                                           | ❌ Not implemented |
-| FUT-02 | Show fleets in transit to their owner on the map                                                   | ❌ Not implemented |
+| FUT-02 | Show fleets in transit to their owner on the map (interpolated arrows with ship count)              | ✅ Done |
 | FUT-03 | Sound effects for combat and UI actions                                                            | ❌ Not implemented |
 | FUT-04 | AI opponents with selectable tactics                                                               | ✅ Done |
 | FUT-05 | Visual effects for fleet movement on the map                                                       | ❌ Not implemented |
@@ -398,6 +401,8 @@
 | FUT-18 | Rebellion mechanic (anti-snowball)                                                                 | ✅ Done |
 | FUT-19 | Defensive shield lines. See `FUT-19-20-PLANUNG.md`                                                 | ✅ Done |
 | FUT-20 | Space stations with graduated visibility. See `FUT-19-20-PLANUNG.md`                               | ✅ Done |
+| FUT-21 | Standing orders: recurring fleet transfers with configurable garrison thresholds                    | ✅ Done |
+| FUT-22 | Client-server architecture: networked multiplayer with authoritative server                        | ❌ Not implemented |
 
 ---
 

@@ -89,6 +89,20 @@ var star_system_scene: PackedScene = preload("res://scenes/star_system.tscn")
 @onready var close_help_button: Button = $HUD/HelpScreen/VBox/CloseHelpButton
 @onready var help_button: Button = $HUD/TopBar/HelpButton
 
+# Order config panel
+@onready var order_config_panel: Panel = $HUD/OrderConfigPanel
+@onready var order_title_label: Label = $HUD/OrderConfigPanel/VBox/TitleLabel
+@onready var fighter_garrison_label: Label = $HUD/OrderConfigPanel/VBox/FighterGarrisonLabel
+@onready var fighter_garrison_slider: HSlider = $HUD/OrderConfigPanel/VBox/FighterGarrisonSlider
+@onready var bomber_garrison_label: Label = $HUD/OrderConfigPanel/VBox/BomberGarrisonLabel
+@onready var bomber_garrison_slider: HSlider = $HUD/OrderConfigPanel/VBox/BomberGarrisonSlider
+@onready var order_info_label: Label = $HUD/OrderConfigPanel/VBox/OrderInfoLabel
+@onready var split_send_button: Button = $HUD/OrderConfigPanel/VBox/SplitSendButton
+@onready var save_order_button: Button = $HUD/OrderConfigPanel/VBox/ButtonContainer/SaveOrderButton
+@onready var delete_order_button: Button = $HUD/OrderConfigPanel/VBox/ButtonContainer/DeleteOrderButton
+@onready var cancel_order_button: Button = $HUD/OrderConfigPanel/VBox/ButtonContainer/CancelOrderButton
+@onready var orders_button: Button = $HUD/TopBar/OrdersButton
+
 # Send fleet state
 var send_source_system: StarSystem = null
 var send_target_system: StarSystem = null
@@ -105,6 +119,12 @@ const ARROW_COLORS: Array[Color] = [
 	Color(1.0, 0.6, 0.0, 0.9),   # 4 turns: Orange
 	Color(1.0, 0.2, 0.0, 0.9),   # 5+ turns: Red
 ]
+
+# Fleet in-transit arrow constants
+const FLEET_ARROW_WIDTH: float = 2.0
+const FLEET_ARROW_HEAD_SIZE: float = 10.0
+const FLEET_ARROW_ALPHA: float = 0.6
+
 
 # Combat reports (player_id -> Array of {report: String, system_id: int})
 var pending_combat_reports: Dictionary = {}
@@ -146,6 +166,16 @@ var next_station_id: int = 0
 var selected_station_idx: int = -1     # Index into stations, -1 = none
 var send_source_station_idx: int = -1  # Station as fleet source
 var send_target_station_idx: int = -1  # Station as fleet target
+
+# Standing orders (player_id -> Array of {source_id, target_id, fighter_garrison, bomber_garrison, split_send})
+var standing_orders: Dictionary = {}
+var order_mode: bool = false           # Order creation mode active
+var order_mode_phase: int = 0          # 0=select source, 1=select target
+var order_pending_source_id: int = -1
+var selected_order_idx: int = -1       # Selected order arrow on map (-1=none)
+var hovered_order_idx: int = -1        # Hovered order arrow on map (-1=none)
+var order_editing_idx: int = -1        # Index of order being edited in config panel (-1=new)
+var order_split_send: bool = true      # Split send toggle state (default: on)
 
 # AI turn delay timer
 var ai_delay_timer: Timer = null
@@ -195,6 +225,23 @@ Kampfmechaniken:
 • Batterien verursachen 3 Schaden pro Runde (halbe Wirkung gegen Bomber)
 • Flotten über 40 Schiffe kämpfen in Wellen
 • Pfeilfarben zeigen Reisezeit: Cyan=1, Grün=2, Gelb=3, Orange=4, Rot=5+ Runden
+• Eigene Flotten in Transit werden als Pfeile auf der Karte angezeigt
+
+
+= DAUERAUFTRÄGE =
+
+Der "Orders"-Button aktiviert den Dauerauftrag-Modus.
+
+• Klicke Quelle (eigenes System/Station), dann Ziel — Config-Panel öffnet sich
+• Doppelklick auf Ziel = Sofort-Auftrag (alles senden, Garnison 0)
+• Stelle eine Garnison-Schwelle (Fighter/Bomber) für die Quelle ein
+• Jede Runde werden automatisch alle Schiffe über der Schwelle gesendet
+• Fighter/Bomber werden standardmäßig getrennt gesendet (schnellere Fighter zuerst)
+• Jedes System/Station kann nur Quelle eines einzigen Dauerauftrags sein
+• Klicke bestehende Auftragspfeile auf der Karte zum Auswählen/Bearbeiten
+• Doppelklick auf Pfeil = Auftrag bearbeiten
+• Aufträge werden entfernt wenn das Quellsystem verloren geht
+• Pfeile auf der Karte zeigen aktive Daueraufträge (nur im Auftragsmodus sichtbar)
 
 
 = SCHILDLINIEN =
@@ -235,6 +282,7 @@ Du siehst nur Systeme und Flotten in Sichtweite deiner eigenen Systeme und Stati
 • Klick auf System — Auswählen / Info anzeigen
 • Klick auf zweites System — Flotten-Sendedialog öffnen
 • Doppelklick auf eigenes System — Produktionspanel öffnen
+• "Orders"-Button — Dauerauftrag-Modus ein/aus
 • ESC — Aktuelle Aktion abbrechen / Panel schließen
 • Leertaste — KI-Spiel pausieren/fortsetzen
 """
@@ -280,6 +328,23 @@ Combat mechanics:
 • Batteries deal 3 damage per round (half effect vs bombers)
 • Fleets over 40 ships fight in waves
 • Arrow colors show travel time: Cyan=1, Green=2, Yellow=3, Orange=4, Red=5+ turns
+• Your fleets in transit are shown as arrows on the map
+
+
+= STANDING ORDERS =
+
+The "Orders" button activates order mode.
+
+• Click source (own system/station), then target — config panel opens
+• Double-click target = instant order (send all, garrison 0)
+• Set a garrison threshold (fighters/bombers) for the source
+• Each turn, all ships above the threshold are automatically sent
+• Fighters/bombers are sent separately by default (faster fighters arrive first)
+• Each system/station can only be the source of one standing order
+• Click existing order arrows on the map to select/edit
+• Double-click an arrow = edit order
+• Orders are removed if the source system is lost
+• Arrows on the map show active standing orders (only visible in order mode)
 
 
 = SHIELD LINES =
@@ -320,6 +385,7 @@ You can only see systems and fleets within range of your own systems and station
 • Click on system — Select / show info
 • Click on second system — Open fleet send dialog
 • Double-click own system — Open production panel
+• "Orders" button — Toggle order mode
 • ESC — Cancel current action / close panel
 • Space — Pause/resume AI game
 """
@@ -339,6 +405,28 @@ func _draw() -> void:
 	if game_started and not setup_screen.visible:
 		_draw_shield_lines()
 		_draw_stations()
+		if order_mode:
+			_draw_standing_order_arrows()
+			# Draw static preview arrow from source to target while config panel is open
+			if order_config_panel.visible and order_pending_source_id >= 0:
+				var src_pos = _get_entity_position(order_pending_source_id)
+				var tgt_id: int = order_config_panel.get_meta("target_id", -1)
+				var tgt_pos = _get_entity_position(tgt_id) if tgt_id >= 0 else Vector2.ZERO
+				if src_pos != Vector2.ZERO and tgt_pos != Vector2.ZERO:
+					var pcolor = players[current_player].color
+					var preview_color = Color(pcolor.r, pcolor.g, pcolor.b, 0.6)
+					var dir = (tgt_pos - src_pos).normalized()
+					var perp = Vector2(-dir.y, dir.x)
+					# Shorten at target
+					var tr: float = STATION_DIAMOND_SIZE + 5
+					if tgt_id < STATION_ID_OFFSET and tgt_id < systems.size():
+						tr = systems[tgt_id]._get_radius() + 10
+					var aend = tgt_pos - dir * tr
+					draw_line(src_pos, aend, preview_color, FLEET_ARROW_WIDTH)
+					var hb = aend - dir * FLEET_ARROW_HEAD_SIZE
+					draw_colored_polygon(PackedVector2Array([aend, hb + perp * FLEET_ARROW_HEAD_SIZE * 0.5, hb - perp * FLEET_ARROW_HEAD_SIZE * 0.5]), preview_color)
+		else:
+			_draw_fleet_arrows()
 
 	# Draw enemy scan zone overlay when in station placement mode
 	if station_placement_mode and enemy_scan_texture:
@@ -385,6 +473,14 @@ func _draw() -> void:
 		draw_colored_polygon(head_points, arrow_color)
 
 
+## Highlight/unhighlight a button (cyan tint for active modes)
+func _set_button_highlighted(btn: Button, active: bool) -> void:
+	if active:
+		btn.modulate = Color(0.4, 1.0, 1.0)  # Cyan tint
+	else:
+		btn.modulate = Color(1.0, 1.0, 1.0)  # Normal
+
+
 func _setup_ui_connections() -> void:
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	send_button.pressed.connect(_on_send_confirmed)
@@ -419,6 +515,15 @@ func _setup_ui_connections() -> void:
 	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.pressed.connect(_on_language_de_pressed)
 	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.pressed.connect(_on_language_en_pressed)
 
+	# Standing orders connections
+	orders_button.pressed.connect(_on_orders_pressed)
+	save_order_button.pressed.connect(_on_save_order_pressed)
+	delete_order_button.pressed.connect(_on_delete_order_pressed)
+	cancel_order_button.pressed.connect(_on_cancel_order_pressed)
+	fighter_garrison_slider.value_changed.connect(_on_order_slider_changed)
+	bomber_garrison_slider.value_changed.connect(_on_order_slider_changed)
+	split_send_button.pressed.connect(_on_split_send_toggled)
+
 	# Create AI delay timer
 	ai_delay_timer = Timer.new()
 	ai_delay_timer.one_shot = true
@@ -435,6 +540,7 @@ func _show_setup_screen() -> void:
 	action_panel.visible = false
 	station_action_panel.visible = false
 	help_screen.visible = false
+	order_config_panel.visible = false
 	# Hide game UI during setup
 	$HUD/TopBar.visible = false
 	$HUD/BottomBar.visible = false
@@ -908,10 +1014,19 @@ func _show_player_transition() -> void:
 	send_panel.visible = false
 	action_panel.visible = false
 	station_action_panel.visible = false
+	order_config_panel.visible = false
 	shield_select_source = null
 	station_placement_mode = false
 	selected_station_idx = -1
 	_station_shield_source_idx = -1
+	order_mode = false
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	selected_order_idx = -1
+	hovered_order_idx = -1
+	order_editing_idx = -1
+	_set_button_highlighted(orders_button, false)
+	_set_button_highlighted(build_station_btn, false)
 
 	# AI players: execute turn automatically (no transition screen)
 	if players[current_player].is_ai:
@@ -942,6 +1057,7 @@ func _show_player_transition() -> void:
 func _on_continue_pressed() -> void:
 	transition_screen.visible = false
 	_update_fog_of_war()
+	_execute_standing_orders(current_player)
 	_update_ui()
 	queue_redraw()  # Redraw visibility range circles
 
@@ -1014,8 +1130,29 @@ func _get_player_total_ships(player_id: int) -> int:
 func _on_system_clicked(system: StarSystem) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
+	if order_config_panel.visible:
+		return
 	if send_panel.visible:
 		return
+
+	# Order mode: source/target selection
+	if order_mode:
+		if order_mode_phase == 0:
+			if system.owner_id != current_player:
+				system_info_label.text = "Only owned systems can be selected as source!"
+				return
+			order_pending_source_id = system.system_id
+			# Mark source system as selected
+			if selected_system and selected_system != system:
+				selected_system.set_selected(false)
+			selected_system = system
+			system.set_selected(true)
+			order_mode_phase = 1
+			system_info_label.text = "Click target system/station (double-click = instant order, ESC to cancel)"
+			return
+		elif order_mode_phase == 1:
+			_open_order_config(order_pending_source_id, system.system_id)
+			return
 
 	# Station shield source selection mode (station -> system)
 	if _station_shield_source_idx >= 0:
@@ -1074,6 +1211,11 @@ func _on_system_double_clicked(system: StarSystem) -> void:
 	if send_panel.visible:
 		if system == send_target_system:
 			_on_send_max_confirmed()
+		return
+
+	# Order mode double-click on target = instant order (garrison 0/0)
+	if order_mode and order_mode_phase == 1:
+		_create_instant_order(order_pending_source_id, system.system_id)
 		return
 
 	if system.owner_id != current_player:
@@ -1428,9 +1570,46 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 
+	# Order arrow hover detection
+	if event is InputEventMouseMotion and game_started and not game_ended and not transition_screen.visible:
+		if order_mode and not order_config_panel.visible:
+			var mouse_pos = get_global_mouse_position()
+			var new_hover = _get_order_at_position(mouse_pos)
+			if new_hover != hovered_order_idx:
+				hovered_order_idx = new_hover
+				if hovered_order_idx < 0 and selected_order_idx < 0:
+					system_info_label.text = "ORDER MODE: Click an owned system/station as source..."
+				queue_redraw()
+
+	# Order arrow click/double-click detection
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		if game_started and not game_ended and not transition_screen.visible and not order_config_panel.visible and not send_panel.visible:
+			var mouse_pos = get_global_mouse_position()
+			var order_idx = _get_order_at_position(mouse_pos)
+			if order_idx >= 0:
+				if event.double_click:
+					# Double-click on order arrow = edit
+					var order = standing_orders[current_player][order_idx]
+					selected_order_idx = order_idx
+					_open_order_config(order["source_id"], order["target_id"], order_idx)
+				else:
+					# Single click = select/deselect
+					if selected_order_idx == order_idx:
+						selected_order_idx = -1
+					else:
+						selected_order_idx = order_idx
+				queue_redraw()
+				get_viewport().set_input_as_handled()
+				return
+
 	if event.is_action_pressed("ui_cancel"):
-		if station_placement_mode:
+		if order_config_panel.visible:
+			_on_cancel_order_pressed()
+		elif order_mode:
+			_exit_order_mode()
+		elif station_placement_mode:
 			station_placement_mode = false
+			_set_button_highlighted(build_station_btn, false)
 			system_info_label.text = ""
 			queue_redraw()
 		elif combat_report_screen.visible:
@@ -1449,6 +1628,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			_on_station_close_pressed()
 		elif action_panel.visible:
 			_on_action_close_pressed()
+		elif selected_order_idx >= 0:
+			selected_order_idx = -1
+			system_info_label.text = ""
+			queue_redraw()
 		elif selected_system:
 			selected_system.set_selected(false)
 			selected_system = null
@@ -1551,109 +1734,98 @@ func _start_send_fleet(source: StarSystem, target: StarSystem) -> void:
 	_update_send_count_label()
 
 
-func _position_send_panel() -> void:
+## Utility: Position a panel near a source→target route without overlapping the arrow or stars.
+## Resizes the panel to fit its VBox child, then tries 6 candidate positions around the source
+## and picks the one with the best score (far from arrow line and target, not overlapping).
+func _position_panel_near_route(panel: Panel, source_pos: Vector2, target_pos: Vector2) -> void:
 	# Resize panel to fit content
-	var vbox = send_panel.get_node("VBox")
-	var padding = Vector2(40, 40)  # 20px on each side
+	var vbox = panel.get_node("VBox")
+	var padding = Vector2(40, 40)
 	var needed_size = vbox.get_combined_minimum_size() + padding
-	needed_size.x = max(needed_size.x, send_panel.custom_minimum_size.x)
-	needed_size.y = max(needed_size.y, send_panel.custom_minimum_size.y)
-	send_panel.size = needed_size
+	needed_size.x = max(needed_size.x, panel.custom_minimum_size.x)
+	needed_size.y = max(needed_size.y, panel.custom_minimum_size.y)
+	panel.size = needed_size
 
 	var viewport_size = get_viewport().get_visible_rect().size
-	var panel_size = send_panel.size
+	var panel_size = panel.size
 	var margin = 20.0
-	var star_margin = 60.0  # Distance from star center
+	var offset_dist = 60.0
 
-	var source_pos = send_source_system.global_position
-	var target_pos = send_target_system.global_position
-	var source_radius = send_source_system._get_radius()
-
-	# Direction from source to target (we want to place panel away from this direction)
 	var to_target = (target_pos - source_pos).normalized()
-
-	# Try positions around the source star (away from target direction)
-	var positions = []
-
-	# Perpendicular directions (left and right of the arrow)
 	var perp = Vector2(-to_target.y, to_target.x)
-	var offset_dist = source_radius + star_margin
+	var mid_pos = source_pos.lerp(target_pos, 0.5)
 
-	# Position candidates: 6 directions around source (perp, behind, diagonals)
-	var offsets = [
-		perp * (offset_dist + panel_size.x / 2),                             # Left of arrow
-		-perp * (offset_dist + panel_size.x / 2),                            # Right of arrow
-		-to_target * (offset_dist + panel_size.y / 2),                        # Behind source
-		(-to_target + perp).normalized() * (offset_dist + panel_size.x / 2),  # Behind-left
-		(-to_target - perp).normalized() * (offset_dist + panel_size.x / 2),  # Behind-right
-		to_target * (offset_dist + panel_size.y / 2),                         # Ahead of source (last resort)
-	]
+	# Candidate anchors: source, midpoint, target — perpendicular and behind directions
+	var anchors = [source_pos, mid_pos, target_pos]
+	var positions: Array[Vector2] = []
+	for anchor in anchors:
+		for dir in [perp, -perp, -to_target, to_target]:
+			var panel_center = anchor + dir * (offset_dist + panel_size.x / 2)
+			var panel_pos = panel_center - panel_size / 2.0
+			panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
+			panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
+			positions.append(panel_pos)
 
-	for offset in offsets:
-		var panel_center = source_pos + offset
-		var panel_pos = panel_center - panel_size / 2.0
-
-		# Clamp to viewport bounds
-		panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
-		panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)  # +50 for top bar
-
-		positions.append(panel_pos)
-
-	# Find position that doesn't overlap with target star or arrow
 	var best_pos = positions[0]
 	var best_score = -INF
 	var arrow_len = source_pos.distance_to(target_pos)
 
 	for pos in positions:
-		var panel_center = pos + panel_size / 2.0
-
-		# Minimum distance from arrow line to panel rectangle (check corners + edge midpoints)
 		var check_points = [
-			pos,                                             # Top-left
-			pos + Vector2(panel_size.x, 0),                  # Top-right
-			pos + Vector2(0, panel_size.y),                  # Bottom-left
-			pos + panel_size,                                # Bottom-right
-			panel_center,                                    # Center
-			pos + Vector2(panel_size.x / 2, 0),              # Top-mid
-			pos + Vector2(panel_size.x / 2, panel_size.y),   # Bottom-mid
-			pos + Vector2(0, panel_size.y / 2),              # Left-mid
-			pos + Vector2(panel_size.x, panel_size.y / 2),   # Right-mid
+			pos, pos + Vector2(panel_size.x, 0),
+			pos + Vector2(0, panel_size.y), pos + panel_size,
+			pos + panel_size / 2.0,
+			pos + Vector2(panel_size.x / 2, 0), pos + Vector2(panel_size.x / 2, panel_size.y),
+			pos + Vector2(0, panel_size.y / 2), pos + Vector2(panel_size.x, panel_size.y / 2),
 		]
 
+		# Minimum distance from panel to arrow line
 		var min_dist_line = INF
 		for pt in check_points:
 			var to_pt = pt - source_pos
 			var proj = to_pt.dot(to_target)
-			var closest = source_pos + to_target * clamp(proj, 0, arrow_len)
+			var closest = source_pos + to_target * clampf(proj, 0, arrow_len)
 			min_dist_line = min(min_dist_line, pt.distance_to(closest))
 
-		# Distance from panel rect to target star (closest corner)
-		var min_dist_target = INF
-		for pt in check_points:
-			min_dist_target = min(min_dist_target, pt.distance_to(target_pos))
+		# Penalty if panel overlaps the line segment (rect intersection check)
+		var panel_rect = Rect2(pos, panel_size)
+		var line_overlap_penalty: float = 0.0
+		if min_dist_line < 5.0:
+			line_overlap_penalty = 600.0
+		elif min_dist_line < 20.0:
+			line_overlap_penalty = 300.0
 
-		# Distance from panel rect to source star
+		# Penalty for overlapping source or target
+		var source_penalty: float = 0.0
+		var target_penalty: float = 0.0
+		if panel_rect.has_point(source_pos):
+			source_penalty = 400.0
+		if panel_rect.has_point(target_pos):
+			target_penalty = 500.0
+
+		# Distance to target and source
+		var min_dist_target = INF
 		var min_dist_source = INF
 		for pt in check_points:
+			min_dist_target = min(min_dist_target, pt.distance_to(target_pos))
 			min_dist_source = min(min_dist_source, pt.distance_to(source_pos))
 
-		# Check if panel rect overlaps with target star (using expanded radius)
-		var target_radius = send_target_system._get_radius() + 20.0
-		var panel_rect = Rect2(pos, panel_size)
-		var target_overlap_penalty: float = 0.0
-		if panel_rect.has_point(target_pos):
-			target_overlap_penalty = 500.0
-		elif min_dist_target < target_radius:
-			target_overlap_penalty = 300.0
+		if min_dist_target < 30.0:
+			target_penalty = max(target_penalty, 300.0)
+		if min_dist_source < 30.0:
+			source_penalty = max(source_penalty, 200.0)
 
-		# Score: prefer far from arrow and both stars, heavily penalize target overlap
-		var score = min_dist_line * 2.0 + min_dist_target * 3.0 - min_dist_source * 0.2 - target_overlap_penalty
-
+		# Score: maximize distance from line, penalize overlaps
+		var score = min_dist_line * 3.0 + min_dist_target * 1.5 + min_dist_source * 1.0 - line_overlap_penalty - target_penalty - source_penalty
 		if score > best_score:
 			best_score = score
 			best_pos = pos
 
-	send_panel.position = best_pos
+	panel.position = best_pos
+
+
+func _position_send_panel() -> void:
+	_position_panel_near_route(send_panel, send_source_system.global_position, send_target_system.global_position)
 
 
 func _on_fighter_slider_changed(_value: float) -> void:
@@ -2295,6 +2467,232 @@ func _on_language_en_pressed() -> void:
 	help_language = "en"
 	$HUD/SetupScreen/VBox/LanguageBox/EnglishButton.disabled = true
 	$HUD/SetupScreen/VBox/LanguageBox/DeutschButton.disabled = false
+
+
+## Standing orders — Order mode toggle
+func _on_orders_pressed() -> void:
+	if game_ended or transition_screen.visible:
+		return
+	if order_mode:
+		_exit_order_mode()
+		return
+	# Close other panels
+	send_panel.visible = false
+	action_panel.visible = false
+	station_action_panel.visible = false
+	help_screen.visible = false
+	order_config_panel.visible = false
+	show_fleet_arrow = false
+	# Enter order mode
+	order_mode = true
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	selected_order_idx = -1
+	_set_button_highlighted(orders_button, true)
+	system_info_label.text = "ORDER MODE: Click an owned system/station as source..."
+	queue_redraw()
+
+
+func _deselect_order_source() -> void:
+	if selected_system:
+		selected_system.set_selected(false)
+		selected_system = null
+	selected_station_idx = -1
+
+
+func _exit_order_mode() -> void:
+	order_mode = false
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	selected_order_idx = -1
+	hovered_order_idx = -1
+	order_editing_idx = -1
+	order_config_panel.visible = false
+	_deselect_order_source()
+	_set_button_highlighted(orders_button, false)
+	system_info_label.text = ""
+	queue_redraw()
+
+
+## Open the order config panel for creating or editing an order
+func _open_order_config(source_id: int, target_id: int, edit_idx: int = -1) -> void:
+	if source_id == target_id:
+		system_info_label.text = "Source and target must be different!"
+		return
+
+	# Check unique source constraint (skip if editing the same order)
+	if edit_idx < 0 and _source_has_order(source_id):
+		system_info_label.text = "This source already has an order! Edit the existing one."
+		return
+
+	order_editing_idx = edit_idx
+	var src_name = _get_entity_display_name(source_id)
+	var tgt_name = _get_entity_display_name(target_id)
+
+	order_title_label.text = "Order: %s → %s" % [src_name, tgt_name]
+	fighter_garrison_label.text = "Fighter Garrison:"
+	bomber_garrison_label.text = "Bomber Garrison:"
+	split_send_button.text = "Send Fighter/Bomber separately"
+	save_order_button.text = "Save"
+	delete_order_button.text = "Delete"
+	cancel_order_button.text = "Cancel"
+
+	if edit_idx >= 0 and standing_orders.has(current_player) and edit_idx < standing_orders[current_player].size():
+		var order = standing_orders[current_player][edit_idx]
+		fighter_garrison_slider.value = order["fighter_garrison"]
+		bomber_garrison_slider.value = order["bomber_garrison"]
+		order_split_send = order.get("split_send", true)
+		_set_button_highlighted(split_send_button, order_split_send)
+		delete_order_button.visible = true
+	else:
+		fighter_garrison_slider.value = 0
+		bomber_garrison_slider.value = 0
+		order_split_send = true
+		_set_button_highlighted(split_send_button, true)
+		delete_order_button.visible = false
+
+	# Store source/target for save
+	order_config_panel.set_meta("source_id", source_id)
+	order_config_panel.set_meta("target_id", target_id)
+
+	_update_order_info_label()
+	_position_order_config_panel(source_id, target_id)
+	order_config_panel.visible = true
+
+
+func _position_order_config_panel(source_id: int, target_id: int) -> void:
+	var source_pos = _get_entity_position(source_id)
+	var target_pos = _get_entity_position(target_id)
+	_position_panel_near_route(order_config_panel, source_pos, target_pos)
+
+
+func _update_order_info_label() -> void:
+	var fg = int(fighter_garrison_slider.value)
+	var bg = int(bomber_garrison_slider.value)
+	if fg == 0 and bg == 0:
+		order_info_label.text = "Sends: all ships each turn"
+	else:
+		order_info_label.text = "Sends: all above %dF %dB each turn" % [fg, bg]
+
+
+func _on_split_send_toggled() -> void:
+	order_split_send = not order_split_send
+	_set_button_highlighted(split_send_button, order_split_send)
+
+
+func _on_order_slider_changed(_value: float) -> void:
+	_update_order_info_label()
+
+
+func _on_save_order_pressed() -> void:
+	var source_id: int = order_config_panel.get_meta("source_id")
+	var target_id: int = order_config_panel.get_meta("target_id")
+	if not standing_orders.has(current_player):
+		standing_orders[current_player] = []
+
+	var order_data = {
+		"source_id": source_id,
+		"target_id": target_id,
+		"fighter_garrison": int(fighter_garrison_slider.value),
+		"bomber_garrison": int(bomber_garrison_slider.value),
+		"split_send": order_split_send,
+	}
+
+	if order_editing_idx >= 0 and order_editing_idx < standing_orders[current_player].size():
+		standing_orders[current_player][order_editing_idx] = order_data
+	else:
+		standing_orders[current_player].append(order_data)
+
+	order_config_panel.visible = false
+	order_editing_idx = -1
+	_deselect_order_source()
+	# Stay in order mode for easy chaining
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	system_info_label.text = "ORDER MODE: Click an owned system/station as source..."
+	queue_redraw()
+
+
+func _on_delete_order_pressed() -> void:
+	if order_editing_idx >= 0 and standing_orders.has(current_player):
+		if order_editing_idx < standing_orders[current_player].size():
+			standing_orders[current_player].remove_at(order_editing_idx)
+	order_config_panel.visible = false
+	order_editing_idx = -1
+	selected_order_idx = -1
+	_deselect_order_source()
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	system_info_label.text = "ORDER MODE: Click an owned system/station as source..."
+	queue_redraw()
+
+
+func _on_cancel_order_pressed() -> void:
+	order_config_panel.visible = false
+	order_editing_idx = -1
+	_deselect_order_source()
+	# Stay in order mode
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	system_info_label.text = "ORDER MODE: Click an owned system/station as source..."
+
+
+## Create an instant order (double-click shortcut, garrison 0/0, split_send=true)
+func _create_instant_order(source_id: int, target_id: int) -> void:
+	if source_id == target_id:
+		system_info_label.text = "Source and target must be different!"
+		return
+	if _source_has_order(source_id):
+		system_info_label.text = "This source already has an order! Edit the existing one."
+		return
+	if not standing_orders.has(current_player):
+		standing_orders[current_player] = []
+	standing_orders[current_player].append({
+		"source_id": source_id,
+		"target_id": target_id,
+		"fighter_garrison": 0,
+		"bomber_garrison": 0,
+		"split_send": true,
+	})
+	_deselect_order_source()
+	# Stay in order mode, reset phase
+	order_mode_phase = 0
+	order_pending_source_id = -1
+	system_info_label.text = "ORDER MODE: Order created! Click next source..."
+	queue_redraw()
+
+
+## Check if a source already has a standing order for the current player
+func _source_has_order(source_id: int) -> bool:
+	if not standing_orders.has(current_player):
+		return false
+	for order in standing_orders[current_player]:
+		if order["source_id"] == source_id:
+			return true
+	return false
+
+
+## Get order index at mouse position (hit-detection on order arrows)
+func _get_order_at_position(mouse_pos: Vector2) -> int:
+	if not standing_orders.has(current_player):
+		return -1
+	const CLICK_THRESHOLD: float = 12.0
+	for i in range(standing_orders[current_player].size()):
+		var order = standing_orders[current_player][i]
+		var source_pos = _get_entity_position(order["source_id"])
+		var target_pos = _get_entity_position(order["target_id"])
+		if source_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
+			continue
+		# Point-to-segment distance
+		var seg = target_pos - source_pos
+		var seg_len_sq = seg.length_squared()
+		if seg_len_sq < 1.0:
+			continue
+		var t = clampf((mouse_pos - source_pos).dot(seg) / seg_len_sq, 0.0, 1.0)
+		var closest = source_pos + seg * t
+		if mouse_pos.distance_to(closest) < CLICK_THRESHOLD:
+			return i
+	return -1
 
 
 func _process_turn_end() -> void:
@@ -3407,10 +3805,29 @@ func _get_station_info_text(station: Dictionary) -> String:
 func _on_station_clicked(station_idx: int) -> void:
 	if game_ended or transition_screen.visible or combat_report_screen.visible:
 		return
-	if send_panel.visible:
+	if order_config_panel.visible or send_panel.visible:
 		return
 
 	var station = stations[station_idx]
+
+	# Order mode: source/target selection (stations)
+	if order_mode:
+		if order_mode_phase == 0:
+			if station["owner_id"] != current_player:
+				system_info_label.text = "Only owned stations can be selected as source!"
+				return
+			order_pending_source_id = station["id"] + STATION_ID_OFFSET
+			# Mark source station as selected
+			if selected_system:
+				selected_system.set_selected(false)
+				selected_system = null
+			selected_station_idx = station_idx
+			order_mode_phase = 1
+			system_info_label.text = "Click target system/station (double-click = instant order, ESC to cancel)"
+			return
+		elif order_mode_phase == 1:
+			_open_order_config(order_pending_source_id, station["id"] + STATION_ID_OFFSET)
+			return
 
 	# Shield partner selection mode (source is a star system, target is a station)
 	if shield_select_source:
@@ -3465,6 +3882,11 @@ func _on_station_double_clicked(station_idx: int) -> void:
 	if send_panel.visible:
 		if send_target_station_idx == station_idx:
 			_on_send_max_confirmed()
+		return
+
+	# Order mode double-click on target station = instant order
+	if order_mode and order_mode_phase == 1:
+		_create_instant_order(order_pending_source_id, stations[station_idx]["id"] + STATION_ID_OFFSET)
 		return
 
 	var station = stations[station_idx]
@@ -3562,6 +3984,7 @@ func _on_build_station_pressed() -> void:
 	# Toggle off if already in placement mode
 	if station_placement_mode:
 		station_placement_mode = false
+		_set_button_highlighted(build_station_btn, false)
 		system_info_label.text = ""
 		queue_redraw()
 		return
@@ -3570,6 +3993,7 @@ func _on_build_station_pressed() -> void:
 			_count_player_stations(current_player), ShipTypes.MAX_STATIONS_PER_PLAYER]
 		return
 	station_placement_mode = true
+	_set_button_highlighted(build_station_btn, true)
 	# Deselect current
 	if selected_system:
 		selected_system.set_selected(false)
@@ -3897,25 +4321,7 @@ func _get_send_target_id() -> int:
 
 ## Position send panel generically (for both system and station sources/targets)
 func _position_send_panel_generic() -> void:
-	var vbox = send_panel.get_node("VBox")
-	var padding = Vector2(40, 40)
-	var needed_size = vbox.get_combined_minimum_size() + padding
-	needed_size.x = max(needed_size.x, send_panel.custom_minimum_size.x)
-	needed_size.y = max(needed_size.y, send_panel.custom_minimum_size.y)
-	send_panel.size = needed_size
-
-	var viewport_size = get_viewport().get_visible_rect().size
-	var panel_size = send_panel.size
-	var margin = 20.0
-
-	var source_pos = _get_send_source_pos()
-	var target_pos = _get_send_target_pos()
-
-	# Simple positioning: to the right and center of source
-	var panel_pos = Vector2(source_pos.x + 60, source_pos.y - panel_size.y / 2.0)
-	panel_pos.x = clamp(panel_pos.x, margin, viewport_size.x - panel_size.x - margin)
-	panel_pos.y = clamp(panel_pos.y, margin + 50, viewport_size.y - panel_size.y - margin)
-	send_panel.position = panel_pos
+	_position_panel_near_route(send_panel, _get_send_source_pos(), _get_send_target_pos())
 
 
 ## Process station building each turn
@@ -4177,6 +4583,285 @@ func _point_to_segment_distance(point: Vector2, seg_start: Vector2, seg_end: Vec
 func _draw_stations() -> void:
 	for station in stations:
 		_draw_single_station(station)
+
+
+## Draw arrows for own fleets in transit at their interpolated positions
+func _draw_fleet_arrows() -> void:
+	for fleet in fleets_in_transit:
+		if fleet.owner_id != current_player:
+			continue
+		var source_pos = _get_entity_position(fleet.source_system_id)
+		var target_pos = _get_entity_position(fleet.target_system_id)
+		if source_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
+			continue
+
+		# Interpolate current position based on travel progress
+		var total_turns = float(fleet.arrival_turn - fleet.departure_turn)
+		var progress = clampf(float(current_turn - fleet.departure_turn) / total_turns, 0.0, 1.0) if total_turns > 0 else 1.0
+		var current_pos = source_pos.lerp(target_pos, progress)
+
+		# Shorten arrow end to not overlap with target
+		var target_radius: float = STATION_DIAMOND_SIZE + 5
+		if fleet.target_system_id < STATION_ID_OFFSET and fleet.target_system_id < systems.size():
+			target_radius = systems[fleet.target_system_id]._get_radius() + 10
+		var direction = (target_pos - current_pos).normalized()
+		var arrow_end = target_pos - direction * target_radius
+
+		# Skip if fleet is very close to target
+		if current_pos.distance_to(arrow_end) < FLEET_ARROW_HEAD_SIZE * 2:
+			continue
+
+		# Color by remaining turns
+		var turns_remaining = fleet.get_turns_remaining(current_turn)
+		var color_index = clampi(turns_remaining - 1, 0, ARROW_COLORS.size() - 1)
+		var arrow_color = Color(ARROW_COLORS[color_index], ARROW_COLORS[color_index].a * FLEET_ARROW_ALPHA)
+
+		# Draw line
+		draw_line(current_pos, arrow_end, arrow_color, FLEET_ARROW_WIDTH)
+
+		# Draw arrow head
+		var arrow_dir = (arrow_end - current_pos).normalized()
+		var perpendicular = Vector2(-arrow_dir.y, arrow_dir.x)
+		var head_base = arrow_end - arrow_dir * FLEET_ARROW_HEAD_SIZE
+		var head_left = head_base + perpendicular * FLEET_ARROW_HEAD_SIZE * 0.5
+		var head_right = head_base - perpendicular * FLEET_ARROW_HEAD_SIZE * 0.5
+		draw_colored_polygon(PackedVector2Array([arrow_end, head_left, head_right]), arrow_color)
+
+		# Draw ship count label at arrow midpoint, offset perpendicular
+		var label_parts: Array[String] = []
+		if fleet.fighter_count > 0:
+			label_parts.append("%dF" % fleet.fighter_count)
+		if fleet.bomber_count > 0:
+			label_parts.append("%dB" % fleet.bomber_count)
+		if label_parts.size() > 0:
+			var label_text = " ".join(label_parts)
+			var label_color = Color(arrow_color.r, arrow_color.g, arrow_color.b, 0.95)
+			var mid = current_pos.lerp(arrow_end, 0.5)
+			var label_pos = _find_label_position(mid, perpendicular, 16.0)
+			draw_string(ThemeDB.fallback_font, label_pos, label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, label_color)
+
+
+## Find a label position near a point, offset perpendicular to the arrow.
+## Tries both sides and further offsets to avoid overlapping systems/stations.
+func _find_label_position(base_pos: Vector2, perp_dir: Vector2, base_offset: float) -> Vector2:
+	var candidates = [
+		base_pos + perp_dir * base_offset,
+		base_pos - perp_dir * base_offset,
+		base_pos + perp_dir * (base_offset + 20),
+		base_pos - perp_dir * (base_offset + 20),
+		base_pos + perp_dir * (base_offset + 40),
+		base_pos - perp_dir * (base_offset + 40),
+	]
+	for candidate in candidates:
+		if not _overlaps_entity(candidate):
+			return candidate
+	return candidates[0]
+
+
+## Check if a position is too close to any system or station
+func _overlaps_entity(pos: Vector2) -> bool:
+	for system in systems:
+		if pos.distance_to(system.global_position) < system._get_radius() + 12:
+			return true
+	for station in stations:
+		if pos.distance_to(station["position"]) < STATION_DIAMOND_SIZE + 12:
+			return true
+	return false
+
+
+## Get display name for a system or station by entity ID
+func _get_entity_display_name(entity_id: int) -> String:
+	if entity_id >= STATION_ID_OFFSET:
+		var idx = _find_station_by_id(entity_id - STATION_ID_OFFSET)
+		if idx >= 0:
+			return stations[idx].get("name", "Station")
+		return "???"
+	if entity_id >= 0 and entity_id < systems.size():
+		return systems[entity_id].system_name
+	return "???"
+
+
+## Execute standing orders for a player at the start of their turn
+func _execute_standing_orders(player_id: int) -> void:
+	if not standing_orders.has(player_id):
+		return
+	var orders_to_remove: Array[int] = []
+	for i in range(standing_orders[player_id].size()):
+		var order = standing_orders[player_id][i]
+		var source_id: int = order["source_id"]
+		var target_id: int = order["target_id"]
+
+		# Check source ownership
+		var source_owner = _get_entity_owner(source_id)
+		if source_owner != player_id:
+			orders_to_remove.append(i)
+			continue
+
+		# Get available ships above garrison threshold
+		var source_fighters: int = 0
+		var source_bombers: int = 0
+		if source_id >= STATION_ID_OFFSET:
+			var idx = _find_station_by_id(source_id - STATION_ID_OFFSET)
+			if idx >= 0:
+				source_fighters = stations[idx]["fighter_count"]
+				source_bombers = stations[idx]["bomber_count"]
+		elif source_id >= 0 and source_id < systems.size():
+			source_fighters = systems[source_id].fighter_count
+			source_bombers = systems[source_id].bomber_count
+
+		var send_f: int = maxi(0, source_fighters - order["fighter_garrison"])
+		var send_b: int = maxi(0, source_bombers - order["bomber_garrison"])
+		if send_f + send_b <= 0:
+			continue
+
+		# Check shield blockade
+		var source_pos = _get_entity_position(source_id)
+		var target_pos = _get_entity_position(target_id)
+		if source_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
+			continue
+		var crossings = _get_shield_crossings(source_pos, target_pos, player_id, send_f, send_b)
+		var blocked = false
+		for effect in crossings:
+			if effect["fighter_blocked"] and (effect["bomber_blocked"] or send_b == 0):
+				blocked = true
+				break
+		if blocked:
+			continue
+
+		var distance: float = source_pos.distance_to(target_pos)
+
+		if order.get("split_send", false) and send_f > 0 and send_b > 0:
+			# Split send: separate fighter-only and bomber-only fleets
+			_create_order_fleet_waves(player_id, send_f, 0, source_id, target_id, distance)
+			_create_order_fleet_waves(player_id, 0, send_b, source_id, target_id, distance)
+		else:
+			# Combined fleet
+			_create_order_fleet_waves(player_id, send_f, send_b, source_id, target_id, distance)
+
+		# Remove ships from source
+		if source_id >= STATION_ID_OFFSET:
+			var idx = _find_station_by_id(source_id - STATION_ID_OFFSET)
+			if idx >= 0:
+				stations[idx]["fighter_count"] = maxi(0, stations[idx]["fighter_count"] - send_f)
+				stations[idx]["bomber_count"] = maxi(0, stations[idx]["bomber_count"] - send_b)
+		elif source_id >= 0 and source_id < systems.size():
+			systems[source_id].remove_fighters(send_f)
+			systems[source_id].remove_bombers(send_b)
+
+	# Remove invalid orders (reverse to preserve indices)
+	for i in range(orders_to_remove.size() - 1, -1, -1):
+		standing_orders[player_id].remove_at(orders_to_remove[i])
+
+
+## Create fleet waves for standing order execution
+func _create_order_fleet_waves(player_id: int, send_f: int, send_b: int, source_id: int, target_id: int, distance: float) -> void:
+	var remaining_f: int = send_f
+	var remaining_b: int = send_b
+	while remaining_f + remaining_b > 0:
+		var remaining_total: int = remaining_f + remaining_b
+		var wave_size: int = mini(remaining_total, ShipTypes.MAX_FLEET_SIZE)
+		var wave_f: int
+		var wave_b: int
+		if remaining_total <= ShipTypes.MAX_FLEET_SIZE:
+			wave_f = remaining_f
+			wave_b = remaining_b
+		else:
+			var f_ratio: float = float(remaining_f) / float(remaining_total)
+			wave_f = int(round(f_ratio * wave_size))
+			wave_f = mini(wave_f, remaining_f)
+			wave_b = mini(wave_size - wave_f, remaining_b)
+			if wave_f + wave_b < wave_size:
+				wave_f = mini(wave_f + (wave_size - wave_f - wave_b), remaining_f)
+		fleets_in_transit.append(Fleet.new(
+			player_id, wave_f, source_id, target_id,
+			current_turn, distance, wave_b
+		))
+		remaining_f -= wave_f
+		remaining_b -= wave_b
+
+
+## Draw standing order arrows (shown only in order mode, styled like fleet arrows)
+func _draw_standing_order_arrows() -> void:
+	if not standing_orders.has(current_player):
+		return
+	var player_color = players[current_player].color
+
+	for i in range(standing_orders[current_player].size()):
+		var order = standing_orders[current_player][i]
+		var source_pos = _get_entity_position(order["source_id"])
+		var target_pos = _get_entity_position(order["target_id"])
+		if source_pos == Vector2.ZERO or target_pos == Vector2.ZERO:
+			continue
+		var total_dist = source_pos.distance_to(target_pos)
+		if total_dist < 1.0:
+			continue
+		var direction = (target_pos - source_pos).normalized()
+		var perpendicular = Vector2(-direction.y, direction.x)
+
+		var is_sel: bool = (i == selected_order_idx)
+		var is_hov: bool = (i == hovered_order_idx)
+
+		# Arrow styling (like fleet arrows)
+		var alpha: float = FLEET_ARROW_ALPHA
+		var width: float = FLEET_ARROW_WIDTH
+		if is_sel:
+			alpha = 0.9
+			width = 3.0
+		elif is_hov:
+			alpha = 0.75
+			width = 2.5
+		var arrow_color = Color(player_color.r, player_color.g, player_color.b, alpha)
+
+		# Shorten arrow end to not overlap with target
+		var target_radius: float = STATION_DIAMOND_SIZE + 5
+		if order["target_id"] < STATION_ID_OFFSET and order["target_id"] < systems.size():
+			target_radius = systems[order["target_id"]]._get_radius() + 10
+		var arrow_end = target_pos - direction * target_radius
+
+		# Draw line
+		draw_line(source_pos, arrow_end, arrow_color, width)
+
+		# Draw arrow head (same style as fleet arrows)
+		var head_base = arrow_end - direction * FLEET_ARROW_HEAD_SIZE
+		var head_left = head_base + perpendicular * FLEET_ARROW_HEAD_SIZE * 0.5
+		var head_right = head_base - perpendicular * FLEET_ARROW_HEAD_SIZE * 0.5
+		draw_colored_polygon(PackedVector2Array([arrow_end, head_left, head_right]), arrow_color)
+
+		# Glow effect for selected order
+		if is_sel:
+			var glow_color = Color(0.0, 0.9, 1.0)
+			for g in range(4):
+				var gw = width + 2.0 + g * 2.0
+				var ga = 0.15 * (1.0 - float(g) / 4.0)
+				var gc = Color(glow_color.r, glow_color.g, glow_color.b, ga)
+				draw_line(source_pos, arrow_end, gc, gw)
+			# Glow on arrow head
+			var glow_head_color = Color(glow_color.r, glow_color.g, glow_color.b, 0.2)
+			var glow_head_base = arrow_end - direction * (FLEET_ARROW_HEAD_SIZE + 3)
+			var glow_head_left = glow_head_base + perpendicular * (FLEET_ARROW_HEAD_SIZE * 0.5 + 3)
+			var glow_head_right = glow_head_base - perpendicular * (FLEET_ARROW_HEAD_SIZE * 0.5 + 3)
+			draw_colored_polygon(PackedVector2Array([arrow_end, glow_head_left, glow_head_right]), glow_head_color)
+
+		# Label beside the arrow: only show garrison types that are set
+		var fg = order["fighter_garrison"]
+		var bg = order["bomber_garrison"]
+		var label_parts: Array[String] = []
+		if fg > 0:
+			label_parts.append("F:%d" % fg)
+		if bg > 0:
+			label_parts.append("B:%d" % bg)
+		if label_parts.size() > 0:
+			var label_text = " ".join(label_parts)
+			var label_color = Color(player_color.r, player_color.g, player_color.b, 0.95)
+			var mid_pos = source_pos.lerp(arrow_end, 0.5)
+			var label_pos = _find_label_position(mid_pos, perpendicular, 16.0)
+			draw_string(ThemeDB.fallback_font, label_pos, label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, label_color)
+
+		# Update info label for hovered/selected
+		if is_hov or is_sel:
+			var src_name = _get_entity_display_name(order["source_id"])
+			var tgt_name = _get_entity_display_name(order["target_id"])
+			system_info_label.text = "Order: %s → %s | F-Garrison: %d, B-Garrison: %d" % [src_name, tgt_name, fg, bg]
 
 
 ## Draw a single station (diamond shape)

@@ -53,6 +53,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Production: +0"
 
+[node name="OrdersButton" type="Button" parent="HUD/TopBar"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Orders"
+
 [node name="BuildStationButton" type="Button" parent="HUD/TopBar"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
@@ -452,6 +457,83 @@ layout_mode = 2
 size_flags_horizontal = 4
 theme_override_font_sizes/font_size = 22
 text = "Close"
+
+[node name="OrderConfigPanel" type="Panel" parent="HUD"]
+visible = false
+custom_minimum_size = Vector2(380, 280)
+theme_override_styles/panel = SubResource("StyleBoxFlat_dialog")
+
+[node name="VBox" type="VBoxContainer" parent="HUD/OrderConfigPanel"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = 15.0
+offset_right = -20.0
+offset_bottom = -15.0
+theme_override_constants/separation = 12
+
+[node name="TitleLabel" type="Label" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Standing Order"
+horizontal_alignment = 1
+
+[node name="FighterGarrisonLabel" type="Label" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Fighter Garrison:"
+
+[node name="FighterGarrisonSlider" type="HSlider" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 999.0
+value = 0.0
+
+[node name="BomberGarrisonLabel" type="Label" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Bomber Garrison:"
+
+[node name="BomberGarrisonSlider" type="HSlider" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+min_value = 0.0
+max_value = 999.0
+value = 0.0
+
+[node name="OrderInfoLabel" type="Label" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Sends: all ships each turn"
+horizontal_alignment = 1
+
+[node name="SplitSendButton" type="Button" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Send Fighter/Bomber separately"
+
+[node name="ButtonContainer" type="HBoxContainer" parent="HUD/OrderConfigPanel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SaveOrderButton" type="Button" parent="HUD/OrderConfigPanel/VBox/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Save"
+
+[node name="DeleteOrderButton" type="Button" parent="HUD/OrderConfigPanel/VBox/ButtonContainer"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Delete"
+
+[node name="CancelOrderButton" type="Button" parent="HUD/OrderConfigPanel/VBox/ButtonContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 20
+text = "Cancel"
 
 [node name="TransitionLayer" type="CanvasLayer" parent="."]
 layer = 10
