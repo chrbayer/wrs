@@ -192,6 +192,7 @@
 | RB-14 | Reconquering a rebel system applies an additional -1 production penalty on top of the standard `CONQUEST_PRODUCTION_LOSS` (total = -2). Rebel state and `rebel_production_decay` reset to 0 on reconquest | ✅ Done |
 | RB-15 | When a rebellion triggers, a fraction of garrison fighters defect to the rebel side: `floor(garrison_fighters × clamp((power_ratio - REBELLION_DOMINANCE_FACTOR) × REBELLION_DEFECTION_FACTOR, 0, REBELLION_DEFECTION_MAX))`. Bombers remain loyal (do not defect) | ✅ Done |
 | RB-16 | Rebellion combat uses no defender bonus (defender_bonus = 1.0 instead of DEFENDER_BONUS). Rebels are the locals — the garrison has no home-field advantage | ✅ Done |
+| RB-17 | Rebel systems shall be identified in the status bar and hover info. Status bar shows: `"<name> - Rebel (+<eff_rate>/turn, -<decay>/turn)"`. Hover additionally shows the reconquest cost: `"(reconquer costs -2 prod)"`. Normal neutral systems show no production rate (they do not produce) | ✅ Done |
 
 ---
 
@@ -352,7 +353,8 @@
 | UI-12 | A setup screen shall allow player count selection before game start | ✅ Done |
 | UI-13 | A cancel button shall allow aborting the fleet sending dialog      | ✅ Done |
 | ~~UI-14~~ | ~~Hovering over any visible system shows its name, owner, production rate, and travel time from selected system~~ | ~~Done~~ |
-| UI-14a | Hovering over systems shows name, owner, production rate; owned systems also show production mode | ✅ Done |
+| ~~UI-14a~~ | ~~Hovering over systems shows name, owner, production rate; owned systems also show production mode~~ | ~~Done~~ |
+| UI-14b | Hovering over systems shows name and owner. Owned systems show ship counts, production rate, and production mode. Rebel neutral systems show effective production rate and decay rate. Normal neutral systems show name only (no production rate — they do not produce) | ✅ Done |
 | ~~UI-15~~ | ~~Send fleet dialog shall be positioned near the source system without obscuring stars or the fleet arrow~~ | ~~Done~~ |
 | UI-15a | Send fleet dialog shall be positioned near the source system, dynamically avoiding overlap with target star, route arrow, and viewport edges | ✅ Done |
 | UI-16 | Combat report dialog shall be positioned near the relevant system  | ✅ Done |
@@ -380,6 +382,7 @@
 | UI-33 | Setup screen shall restore previous game's settings (player count, human/AI, tactics) on restart | ✅ Done |
 | UI-34 | An "Orders" button toggles order mode; clicking source then target opens a config panel for recurring fleet transfers with garrison thresholds. Each source can have only one order. Fighters/bombers are sent separately by default. Double-click target for instant order. | ✅ Done |
 | UI-35 | Standing orders are shown as arrows on the map (only visible in order mode) with hover info, click to select (glow effect), and double-click to edit | ✅ Done |
+| UI-36 | Fleet arrow and standing order arrow labels shall be positioned beside the arrow, not on it. The horizontal text anchor is adjusted based on the arrow angle: labels to the right of the arrow are left-aligned; labels to the left are right-aligned; labels above/below (nearly horizontal arrows) are centered | ✅ Done |
 
 ---
 
@@ -514,4 +517,5 @@
 - **Update 2026-02:** Station destruction loss reporting: Surviving attackers after station destruction are lost (no return destination) and shown in combat report "SURVIVORS LOST" section (SS-13a, SS-38). Fleets arriving at destroyed stations generate a loss report for the fleet owner (SS-39).
 - **Update 2026-02:** Graduated station visibility: Station detection now scales with garrison size instead of binary visible/invisible (SS-09a). Weapon signature range = `garrison_size × STATION_SIGNATURE_PER_SHIP` (10px/ship). Under-construction stations emit a base signature of `STATION_BUILD_SIGNATURE` (30px) once build progress ≥ 1. Passive scan and fleet scan add signature range to their detection radius. Own station info shows signature range. Placement mode shows build signature range. SS-10b, SS-17b, SS-18b replace previous versions. New requirements SS-40, SS-41. New parameters: STATION_SIGNATURE_PER_SHIP (10), STATION_BUILD_SIGNATURE (30).
 - **Update 2026-02-18:** Rebellion defection & no defender bonus (FUT-18 extension): Garrison fighters defect proportionally to dominance excess (up to 50%, bombers loyal). Rebellion combat uses no defender bonus (rebels are locals). RB-15, RB-16 added. New parameters: REBELLION_DEFECTION_FACTOR (0.5), REBELLION_DEFECTION_MAX (0.5).
+- **Update 2026-02-18:** Rebel status in UI (RB-17, UI-14b, UI-36): Rebel systems shown as "Rebel (+N/turn, -2/turn)" in status bar; hover adds reconquest cost hint. Normal neutral systems no longer show production rate. Fleet and standing order arrow labels now aligned beside the arrow based on angle (left/right/center depending on label side).
 - **Update 2026-02-18:** Rebel system production (FUT-18 extension): Rebel systems (`is_rebel = true`) now actively produce fighters each turn with a decaying rate (`production_rate - rebel_production_decay`, floor = `MIN_PRODUCTION_RATE`). `rebel_production_decay` increases by `REBELLION_PRODUCTION_DECAY` (2) per turn. Normal neutral systems remain non-productive. Reconquering a rebel system costs an additional -1 production point as war damage (total = -2 vs. -1 for normal neutral systems). Combat report shows actual total production loss. RB-07 updated; new requirements RB-12, RB-13, RB-14. New parameter: `REBELLION_PRODUCTION_DECAY` (2).

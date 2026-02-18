@@ -1252,7 +1252,11 @@ func _show_system_info(system: StarSystem) -> void:
 	else:
 		var select_info: String
 		if system.owner_id < 0:
-			select_info = "%s - Neutral (+%d/turn)" % [system.system_name, system.production_rate]
+			if system.is_rebel:
+				var eff_rate: int = max(ShipTypes.MIN_PRODUCTION_RATE, system.production_rate - system.rebel_production_decay)
+				select_info = "%s - Rebel (+%d/turn, -%d/turn)" % [system.system_name, eff_rate, ShipTypes.REBELLION_PRODUCTION_DECAY]
+			else:
+				select_info = "%s - Neutral" % system.system_name
 		else:
 			select_info = "%s - %s (+%d/turn)" % [system.system_name, players[system.owner_id].player_name, system.production_rate]
 		var memory = system_memory[current_player].get(system.system_id, {})
@@ -1687,9 +1691,13 @@ func _on_system_hover_started(system: StarSystem) -> void:
 				owner_name = players[memory["owner_id"]].player_name
 		info_text = "%s - %s (last seen)" % [system.system_name, owner_name]
 	elif system.owner_id < 0:
-		info_text = "%s - Neutral (+%d/turn)" % [
-			system.system_name, system.production_rate
-		]
+		if system.is_rebel:
+			var eff_rate: int = max(ShipTypes.MIN_PRODUCTION_RATE, system.production_rate - system.rebel_production_decay)
+			info_text = "%s - Rebel (+%d/turn, -%d/turn | reconquer costs -2 prod)" % [
+				system.system_name, eff_rate, ShipTypes.REBELLION_PRODUCTION_DECAY
+			]
+		else:
+			info_text = "%s - Neutral" % system.system_name
 	else:
 		info_text = "%s - %s (+%d/turn)" % [
 			system.system_name, players[system.owner_id].player_name, system.production_rate
@@ -4678,6 +4686,14 @@ func _draw_fleet_arrows() -> void:
 			var label_color = Color(arrow_color.r, arrow_color.g, arrow_color.b, 0.95)
 			var mid = current_pos.lerp(arrow_end, 0.5)
 			var label_pos = _find_label_position(mid, perpendicular, 16.0)
+			# Align text so it extends away from the arrow, not onto it.
+			# draw_string always renders left→right, so adjust x-anchor by arrow angle.
+			var text_w = ThemeDB.fallback_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			var dx = label_pos.x - mid.x
+			if dx < -2.0:
+				label_pos.x -= text_w        # label left of arrow: right-align
+			elif absf(dx) <= 2.0:
+				label_pos.x -= text_w * 0.5  # arrow nearly horizontal: center
 			draw_string(ThemeDB.fallback_font, label_pos, label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, label_color)
 
 
@@ -4895,6 +4911,12 @@ func _draw_standing_order_arrows() -> void:
 			var label_color = Color(player_color.r, player_color.g, player_color.b, 0.95)
 			var mid_pos = source_pos.lerp(arrow_end, 0.5)
 			var label_pos = _find_label_position(mid_pos, perpendicular, 16.0)
+			var text_w = ThemeDB.fallback_font.get_string_size(label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			var dx = label_pos.x - mid_pos.x
+			if dx < -2.0:
+				label_pos.x -= text_w
+			elif absf(dx) <= 2.0:
+				label_pos.x -= text_w * 0.5
 			draw_string(ThemeDB.fallback_font, label_pos, label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, label_color)
 
 		# Update info label for hovered/selected
