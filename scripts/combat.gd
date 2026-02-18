@@ -84,7 +84,8 @@ static func resolve_battery_combat(battery_count: int, attacker_fighters: int, a
 ## Returns CombatResult with detailed outcome
 static func resolve_combat(att_fighters: int, att_bombers: int, attacker_id: int,
 						   def_fighters: int, def_bombers: int, defender_id: int,
-						   battery_count: int = 0, attacker_fighter_morale: float = 1.0) -> CombatResult:
+						   battery_count: int = 0, attacker_fighter_morale: float = 1.0,
+						   defender_bonus: float = DEFENDER_BONUS) -> CombatResult:
 	var attackers_f = att_fighters
 	var attackers_b = att_bombers
 	var defenders_f = def_fighters
@@ -112,7 +113,7 @@ static func resolve_combat(att_fighters: int, att_bombers: int, attacker_id: int
 
 		# Calculate attack power for this round (attacker morale affects fighter attack only)
 		var attacker_power = calculate_attack_power(attackers_f, attackers_b, attacker_fighter_morale)
-		var defender_power = calculate_defense_power(defenders_f, defenders_b) * DEFENDER_BONUS
+		var defender_power = calculate_defense_power(defenders_f, defenders_b) * defender_bonus
 
 		# Attackers fire - calculate hits
 		var attacker_hits = 0

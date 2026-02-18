@@ -47,6 +47,9 @@ const REBELLION_DOMINANCE_WEIGHT_COMBAT: float = 0.1
 const REBELLION_DOMINANCE_WEIGHT_PRODUCTION: float = 0.5
 const REBELLION_CHANCE_PER_DOMINANCE: float = 0.3
 const REBELLION_STRENGTH_FACTOR: int = 3
+const REBELLION_PRODUCTION_DECAY: int = 2      # Rate reduction per turn for rebel systems
+const REBELLION_DEFECTION_FACTOR: float = 0.5  # Fraction of garrison that defects per dominance excess point
+const REBELLION_DEFECTION_MAX: float = 0.5     # Maximum fraction of garrison that can defect (50%)
 
 # Shield line constants (FUT-19)
 const SHIELD_MIN_BATTERIES: int = 2

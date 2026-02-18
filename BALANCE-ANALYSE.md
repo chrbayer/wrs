@@ -1,6 +1,6 @@
 # Balance-Analyse: Weltraumschlacht
 
-> Stand: 2026-02-17 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen). Updates: Graduierte Stations-Sichtbarkeit (SS-09a), Stationszerstorungs-Verluste (SS-13a/38/39), Kampfberichte fur alle Station-Kampfe.
+> Stand: 2026-02-18 -- Komplette Spielmechanik-Analyse unter Berucksichtigung von FUT-19 (Schildlinien) und FUT-20 (Raumstationen). Updates: Graduierte Stations-Sichtbarkeit (SS-09a), Stationszerstorungs-Verluste (SS-13a/38/39), Kampfberichte fur alle Station-Kampfe, Rebellenplaneten-Produktion (RB-12–14), Desertions-Mechanik + kein Defender-Bonus bei Rebellion (RB-15–16).
 
 ---
 
@@ -89,29 +89,40 @@ Batterien skalieren linear -- sie werden nie ineffizienter. Das Wellen-Splitting
 
 ### 1.5 Rebellions-Mechanik
 
-**Trigger:** Spieler besitzt > Durchschnitt x 1.3 Systeme.
+**Trigger:** Power Score eines Spielers > Durchschnitt × 1.3 (gewichtete Summe: Systemanzahl × 4.0, Kampfkraft × 0.1, Produktion × 0.5).
 
 **Beispiel (4 Spieler, 35 Systeme total):**
-- Durchschnitt = 8.75 Systeme pro Spieler
-- Dominanzschwelle = 8.75 x 1.3 = 11.4 -> ab 12 Systemen
-- Rebellionschance pro uberschussigem System = 5% pro ungeschutztem System
+- Chance pro ungeschutztem System = (power_ratio - 1.3) × 0.3
+- Bei power_ratio 1.5: Chance = (1.5 - 1.3) × 0.3 = 6% pro System
+- Bei power_ratio 2.0: Chance = (2.0 - 1.3) × 0.3 = 21% pro System
 
-| Systeme (bei avg 8.75) | Uberschuss | Chance/System | Erwartete Rebellionen/Runde |
-|------------------------|-----------|---------------|---------------------------|
-| 12 | 3.25 | 16.3% | ~2 bei 12 ungeschutzten |
-| 15 | 6.25 | 31.3% | ~4-5 bei 15 ungeschutzten |
-| 20 | 11.25 | 56.3% | ~8-10 bei 20 ungeschutzten |
+**Rebellionsstärke:** `prod_rate × 3` neutrale Fighter + desertierte Garrison-Fighter, ohne Defender-Bonus.
 
-**Rebellionsstarke:** `prod_rate x 3` neutrale Fighter gegen Garnison mit DEFENDER_BONUS.
+**Desertion (RB-15):** `floor(garrison_f × clamp((power_ratio - 1.3) × 0.5, 0, 0.5))` Fighter laufen über (Bomber bleiben loyal). Bei power_ratio 1.5: 10% desertieren. Bei power_ratio 2.0: 35%. Cap: 50%.
 
-| System-Rate | Rebel-Fighter | Zur Abwehr notige Garnison (mit 1.5x Bonus) |
-|-------------|--------------|---------------------------------------------|
-| 1 | 3 | ~2 F |
-| 3 | 9 | ~6 F |
-| 5 | 15 | ~10 F |
-| 8 | 24 | ~16 F |
+**Kein Defender-Bonus (RB-16):** Rebellen sind Einheimische — kein 1.5×-Heimvorteil für die Garnison.
 
-**Fazit:** Rebellion ist ein effektiver Snowball-Bremser. Ein dominanter Spieler muss substanzielle Garnisonen in allen Systemen halten (oder Batterien bauen), was seine offensive Schlagkraft reduziert. Batterien bieten abgestuften Schutz (20%/Level), nur 5 Batterien = immun.
+| System-Rate | Rebel-Fighter base | + Deserteure (10%) | Gesamt vs. 18F Garnison |
+|-------------|-------------------|--------------------|------------------------|
+| 1 | 3 | +2 | 5 vs 18 |
+| 3 | 9 | +2 | 11 vs 18 |
+| 5 | 15 | +2 | 17 vs 18 |
+| 8 | 24 | +2 | 26 vs 18 |
+
+**Neue Dynamik: Rebellenplaneten produzieren Fighter (2026-02-18)**
+
+Nach einer erfolgreichen Rebellion (is_rebel = true) produziert das System jede Runde Fighter:
+
+| Runde nach Rebellion | Produktion (bei Rate 5) | rebel_decay | Effektive Rate |
+|---------------------|------------------------|-------------|----------------|
+| 1 | 5 F/Runde | 0 | 5 |
+| 2 | 3 F/Runde | 2 | 3 |
+| 3 | 1 F/Runde | 4 | 1 (Untergrenze) |
+| 4+ | 1 F/Runde | 6+ | 1 (gedeckelt) |
+
+**Strategische Implikation:** Ein Rebellenplanet ist anfangs gefährlicher als ein normaler Neutralplanet, beruhigt sich aber von selbst. Je schneller der dominante Spieler zurückerobert, desto weniger Fighter haben sich angesammelt. Bei Rückeroberung: -2 Produktionspunkte (statt -1) als dauerhafter Kriegsschaden.
+
+**Fazit:** Rebellion ist ein effektiver Snowball-Bremser. Durch Desertion + keinen Defender-Bonus werden auch gut besetzte Systeme angreifbar, wenn der Spieler zu stark dominiert. Bomber-Garnisonen bieten natürliche Stabilität gegen Rebellion. Dominante Spieler müssen schnell reagieren und zahlen dauerhaft mehr Produktionskraft für Rückerobern.
 
 **Batterien als Rebellionsschutz -- Kosten-Nutzen:**
 - 1 Batterie: 1 Runde Bau, -20% Rebellionschance
@@ -383,6 +394,7 @@ Rebellion            Verlust  Verlust  Schutz    Neutral  Bricht   Immun    --
 | Batterien + Schildlinien + Wellen-Split | Dreifach-Verteidigung: Schildverluste -> Batterie-Kills -> Kampf mit Bonus | **Potenziell zu stark** |
 | Bomber + Schildlinien | 50% Resistenz -> Bomber als Schild-Durchbrecher | **Gut balanciert** -- gibt Bomber klare Rolle |
 | Rebellion + Schildlinien | Rebellion kann Schildlinie brechen (Batterien fallen unter 2) | **Gut** -- verhindert unverwundbare Festungen |
+| Rebellion + Produktion | Rebellenplanet produziert Fighter (abklingend) -> Zeitdruck + dauerhafter -2 Prod.-Malus bei Rückeroberung | **Gut** -- verschärft Anti-Snowball ohne Überhang |
 | Stationen + Schildlinien | Station hinter Schild -> Umgehung der Verteidigung | **Kerndesign** -- Counter gegen Turtle |
 | Moral + Schildlinien | Geschwachte Fighter treffen auf Schild -> doppelte Bestrafung | **Potenziell zu hart** fur Fernangriffe |
 | Station + Moral | Station als Staging-Punkt -> volle Moral fur kurze Angriffe | **Gut** -- Counter gegen Moral-Malus |

@@ -26,6 +26,8 @@ enum ProductionMode {
 
 var production_mode: ProductionMode = ProductionMode.FIGHTERS
 var bomber_production_progress: float = 0.0  # Batch delivery every 2 turns
+var is_rebel: bool = false          # True after rebels seize this system
+var rebel_production_decay: int = 0  # Cumulative rate reduction while rebel
 var upgrade_progress: float = 0.0  # Progress towards next production rate
 var battery_build_progress: float = 0.0  # Progress towards next battery (2 turns per battery)
 var shield_activate_progress: int = 0
@@ -290,7 +292,13 @@ func get_total_ships() -> int:
 
 ## Process production for this turn based on production mode
 func process_production(ring_bonus: float = 0.0) -> void:
-	if owner_id < 0:  # Only owned systems produce
+	if owner_id < 0:
+		# Rebel systems produce fighters with a decaying rate (floor: MIN_PRODUCTION_RATE)
+		if is_rebel:
+			var effective_rebel_rate: int = max(ShipTypes.MIN_PRODUCTION_RATE, production_rate - rebel_production_decay)
+			fighter_count += effective_rebel_rate
+			rebel_production_decay += ShipTypes.REBELLION_PRODUCTION_DECAY
+			update_visuals()
 		return
 
 	var effective_rate: int = production_rate
@@ -345,6 +353,14 @@ func apply_production_damage(damage_ratio: float) -> int:
 ## Apply conquest penalty (FUT-08)
 func apply_conquest_penalty() -> void:
 	production_rate = max(ShipTypes.MIN_PRODUCTION_RATE, production_rate - ShipTypes.CONQUEST_PRODUCTION_LOSS)
+	update_visuals()
+
+
+## Apply extra rate penalty when a rebel system is reconquered and reset rebel state
+func apply_rebel_reconquest_penalty() -> void:
+	production_rate = max(ShipTypes.MIN_PRODUCTION_RATE, production_rate - 1)
+	is_rebel = false
+	rebel_production_decay = 0
 	update_visuals()
 
 

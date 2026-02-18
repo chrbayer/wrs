@@ -186,7 +186,7 @@ Schildlinien auf der Karte:
 | Mechanik | Interaktion |
 |----------|-------------|
 | Batterien (FUT-10) | Vierfach-Nutzen: Lokale Verteidigung + Rebellionsreduktion + Schildlinien + Ring-Produktionsbonus |
-| Rebellion (FUT-18) | Systeme mit Batterien < max können rebellieren → Schildlinien brechen zusammen (strategisch verheerend) |
+| Rebellion (FUT-18) | Systeme mit Batterien < max können rebellieren → Schildlinien brechen zusammen (strategisch verheerend). Rebellenplaneten produzieren aktiv Fighter (abklingend), bestrafen Rückeroberung mit -2 Prod. Garnison-Fighter desertieren (bis 50%, proportional zur Dominanz); Bomber bleiben loyal → Bomber-Garnison rebellionsresistenter. Kein Defender-Bonus bei Rebellion. |
 | Bomber (FUT-07/12) | 50% Resistenz gegen Schilder: halbe Verluste, doppelter Blockade-Schwellwert (5.0 statt 2.5). Bomber als Schild-Brecher |
 | Fighter-Moral (FUT-17) | Moral-Malus + Schildverluste kumulieren sich → Fernangriffe durch Schildlinien extrem teuer |
 | Wellen-Splitting (C-20) | Jede Welle einzeln betroffen — große Flotten doppelt bestraft (Schild + Batterien bei Ankunft) |
@@ -580,7 +580,7 @@ Fog of War Memory:
 |----------|-------------|
 | Schildlinien (FUT-19) | Station mit ≥ 2 Batterien kann Schildlinien zu Sternen und anderen Stationen bilden (alle Kombinationen: Stern↔Stern, Stern↔Station, Station↔Station). Zerstörung bricht Schildlinien |
 | Batterien (FUT-10) | Batterie-Ausbau auf Station durch Material-Lieferung statt Produktion. Max 2, konsistent mit Schildlinien |
-| Rebellion (FUT-18) | Stationen können NICHT rebellieren (keine Bevölkerung). Aber Rebellion kann Schildlinien zu Stationen brechen |
+| Rebellion (FUT-18) | Stationen können NICHT rebellieren (keine Bevölkerung). Aber Rebellion kann Schildlinien zu Stationen brechen. Rebellenplaneten produzieren Fighter → zusätzlicher Zeitdruck. Desertions-Mechanik: Bomber-Besatzungen auf Stationen irrelevant (keine Rebellion bei Stationen) |
 | Bomber (FUT-07/12) | Bomber als Baumaterial (1 = 2 FÄ). Bomber-Angriff auf Station: keine Produktionsreduktion (keine Produktion) |
 | Fighter-Moral (FUT-17) | Staging-Vorteil: Flotten auf Station haben volle Moral für nahegelegene Ziele |
 | Wellen-Splitting (C-20) | Gilt auch bei Station-Angriff: Wellen treffen einzeln auf Garnison + Batterien |

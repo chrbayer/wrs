@@ -131,7 +131,7 @@
 | ~~PR-09a~~ | ~~After building a battery, maintenance toggle shall be enabled automatically~~ | ~~Removed~~ |
 | ~~PR-13~~ | ~~Battery maintenance is an independent toggle, orthogonal to production mode~~ | ~~Removed~~ |
 | PR-10 | Conquering an enemy system shall reduce its production rate by `CONQUEST_PRODUCTION_LOSS` | ✅ Done |
-| PR-11 | Conquest penalty shall not apply to neutral systems                     | ✅ Done |
+| PR-11 | Conquest penalty shall not apply to neutral systems (exception: rebel systems per RB-14) | ✅ Done |
 | PR-12 | Production rate reductions shall respect `MIN_PRODUCTION_RATE`          | ✅ Done |
 | PR-14 | On conquest, production mode shall reset to Fighters                    | ✅ Done |
 
@@ -182,11 +182,16 @@
 | RB-04 | Rebels attack garrison using standard combat (garrison gets `DEFENDER_BONUS`) | ✅ Done |
 | RB-05 | Home systems are immune to rebellion | ✅ Done |
 | RB-06 | Batteries reduce rebellion chance proportionally (1/MAX per level), only max batteries = immune | ✅ Done |
-| RB-07 | Rebel-won systems become neutral with remaining rebel fighters | ✅ Done |
+| RB-07 | Rebel-won systems become neutral (`is_rebel = true`, `rebel_production_decay = 0`) and start producing fighters each turn | ✅ Done |
 | RB-08 | Rebellion reports shown to system owner with dedicated format | ✅ Done |
 | RB-09 | Rebellions are processed after production, before fleet arrival | ✅ Done |
 | RB-10 | A player's last remaining system is immune to rebellion | ✅ Done |
 | RB-11 | After a rebellion, the affected player's FoW memory is updated with the known garrison strength (remaining fighters/bombers shown in parentheses) | ✅ Done |
+| RB-12 | Rebel systems (`is_rebel = true`) produce fighters each turn: `max(MIN_PRODUCTION_RATE, production_rate - rebel_production_decay)`. `rebel_production_decay` increases by `REBELLION_PRODUCTION_DECAY` per turn while rebel | ✅ Done |
+| RB-13 | Normal neutral systems (`is_rebel = false`, never owned) do not produce ships | ✅ Done |
+| RB-14 | Reconquering a rebel system applies an additional -1 production penalty on top of the standard `CONQUEST_PRODUCTION_LOSS` (total = -2). Rebel state and `rebel_production_decay` reset to 0 on reconquest | ✅ Done |
+| RB-15 | When a rebellion triggers, a fraction of garrison fighters defect to the rebel side: `floor(garrison_fighters × clamp((power_ratio - REBELLION_DOMINANCE_FACTOR) × REBELLION_DEFECTION_FACTOR, 0, REBELLION_DEFECTION_MAX))`. Bombers remain loyal (do not defect) | ✅ Done |
+| RB-16 | Rebellion combat uses no defender bonus (defender_bonus = 1.0 instead of DEFENDER_BONUS). Rebels are the locals — the garrison has no home-field advantage | ✅ Done |
 
 ---
 
@@ -455,6 +460,9 @@
 | ~~REBELLION_CHANCE_PER_EXCESS~~ | ~~0.05 (5%)~~ | ~~Replaced by REBELLION_CHANCE_PER_DOMINANCE~~ |
 | REBELLION_CHANCE_PER_DOMINANCE | 0.3 (30%) | Rebellion chance per unprotected system = (power_ratio - DOMINANCE_FACTOR) × this |
 | REBELLION_STRENGTH_FACTOR | 3 | Rebels = production_rate × this factor |
+| REBELLION_PRODUCTION_DECAY | 2 | Rate reduction per turn for rebel systems (floor: MIN_PRODUCTION_RATE) |
+| REBELLION_DEFECTION_FACTOR | 0.5 | Fraction of garrison fighters that defect per dominance-excess point |
+| REBELLION_DEFECTION_MAX | 0.5 (50%) | Maximum fraction of garrison fighters that can defect |
 | SHIELD_MIN_BATTERIES | 2 | Minimum batteries per system to participate in a shield line |
 | SHIELD_DAMAGE_FACTOR | 0.04 (4%) | Base attrition loss rate per shield-power-point × density |
 | SHIELD_BLOCKADE_THRESHOLD | 2.5 | Fighters blocked when `min(bat_a, bat_b) × density >= 2.5`; bombers at `>= 5.0` |
@@ -505,3 +513,5 @@
 - **Update 2026-02:** Station improvements: Stations now have auto-generated names ("S-1", "S-2") shown in labels, info text, and combat reports (SS-34, SS-14a). Station selection shows pulsing cyan halo like star selection (SS-16 update). Battery building consumes existing garrison immediately (SS-35). Shield activation supports mixed star/station endpoints (SL-36a, SS-36, SS-37). Enemy station battery display shows "?" when not in scan (SS-17a). Under-construction stations at build progress 2/3 provide partial scanning at 50% range (SS-26a). New parameters: STATION_PARTIAL_SCAN_MULTIPLIER (0.5), STATION_PARTIAL_SCAN_MIN_PROGRESS (2).
 - **Update 2026-02:** Station destruction loss reporting: Surviving attackers after station destruction are lost (no return destination) and shown in combat report "SURVIVORS LOST" section (SS-13a, SS-38). Fleets arriving at destroyed stations generate a loss report for the fleet owner (SS-39).
 - **Update 2026-02:** Graduated station visibility: Station detection now scales with garrison size instead of binary visible/invisible (SS-09a). Weapon signature range = `garrison_size × STATION_SIGNATURE_PER_SHIP` (10px/ship). Under-construction stations emit a base signature of `STATION_BUILD_SIGNATURE` (30px) once build progress ≥ 1. Passive scan and fleet scan add signature range to their detection radius. Own station info shows signature range. Placement mode shows build signature range. SS-10b, SS-17b, SS-18b replace previous versions. New requirements SS-40, SS-41. New parameters: STATION_SIGNATURE_PER_SHIP (10), STATION_BUILD_SIGNATURE (30).
+- **Update 2026-02-18:** Rebellion defection & no defender bonus (FUT-18 extension): Garrison fighters defect proportionally to dominance excess (up to 50%, bombers loyal). Rebellion combat uses no defender bonus (rebels are locals). RB-15, RB-16 added. New parameters: REBELLION_DEFECTION_FACTOR (0.5), REBELLION_DEFECTION_MAX (0.5).
+- **Update 2026-02-18:** Rebel system production (FUT-18 extension): Rebel systems (`is_rebel = true`) now actively produce fighters each turn with a decaying rate (`production_rate - rebel_production_decay`, floor = `MIN_PRODUCTION_RATE`). `rebel_production_decay` increases by `REBELLION_PRODUCTION_DECAY` (2) per turn. Normal neutral systems remain non-productive. Reconquering a rebel system costs an additional -1 production point as war damage (total = -2 vs. -1 for normal neutral systems). Combat report shows actual total production loss. RB-07 updated; new requirements RB-12, RB-13, RB-14. New parameter: `REBELLION_PRODUCTION_DECAY` (2).

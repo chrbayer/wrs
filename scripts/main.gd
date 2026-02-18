@@ -271,6 +271,14 @@ Stationen haben begrenzte Sichtbarkeit — ihre Signatur wächst mit garnioniert
 
 Wenn ein Spieler zu dominant wird (Systeme, Produktion, Kampfstärke), können neutrale Rebellen in seinen Systemen aufstehen. Das verhindert, dass ein Spieler das Spiel zu leicht dominiert.
 
+Je höher die Dominanz, desto gefährlicher die Rebellion:
+• Ein Teil der Garnisons-Fighter läuft zu den Rebellen über (bis zu 50%, proportional zur Dominanz). Bomber bleiben loyal.
+• Rebellen haben keinen Heimvorteil des Verteidigers — sie sind die Einheimischen.
+• Rebellensysteme produzieren jede Runde Fighter (anders als normale neutrale Systeme).
+• Die Produktionsrate sinkt um 2 pro Runde (Untergrenze: 1) — handle schnell!
+• Rückeroberung kostet -2 Produktionspunkte (normal -1, plus -1 Kriegsschaden).
+• Batterien schützen vor Rebellion (voll ausgebaute Systeme sind immun).
+
 
 = FOG OF WAR =
 
@@ -373,6 +381,14 @@ Stations have limited visibility — their signature grows with garrisoned ships
 = REBELLION =
 
 When a player becomes too dominant (systems, production, combat strength), neutral rebels may rise in their systems. This prevents any one player from dominating the game too easily.
+
+The higher the dominance, the more dangerous the rebellion:
+• Some garrison fighters defect to the rebels (up to 50%, proportional to dominance). Bombers remain loyal.
+• Rebels have no defender bonus — they are the locals.
+• Rebel systems produce fighters every turn (unlike normal neutral systems).
+• Their production rate drops by 2 per turn (floor: 1) — act fast!
+• Reconquering costs -2 production (normal -1, plus -1 war damage).
+• Batteries protect against rebellion (fully upgraded systems are immune).
 
 
 = FOG OF WAR =
@@ -2328,9 +2344,9 @@ func _show_combat_report() -> void:
 			report_text += "BOMBER DAMAGE\n"
 			report_text += "Production reduced by %d\n\n" % report_data["production_damage"]
 
-		if report_data["conquest_occurred"] and report_data["system_id"] >= 0:
+		if report_data.get("conquest_production_loss", 0) > 0 and report_data["system_id"] >= 0:
 			report_text += "CONQUEST\n"
-			report_text += "Production reduced by %d\n\n" % ShipTypes.CONQUEST_PRODUCTION_LOSS
+			report_text += "Production reduced by %d\n\n" % report_data["conquest_production_loss"]
 
 		report_text += "OUTCOME\n"
 		report_text += "%s wins with %s" % [
@@ -2710,12 +2726,14 @@ func _process_turn_end() -> void:
 	for pid in range(player_count):
 		_perform_passive_scan(pid)
 
-	# 1. Calculate ring bonuses and production in owned systems
+	# 1. Calculate ring bonuses and production in owned + rebel systems
 	var ring_bonuses = _calculate_ring_bonuses()
 	for system in systems:
 		if system.owner_id >= 0:
 			var bonus = ring_bonuses.get(system.system_id, 0.0)
 			system.process_production(bonus)
+		elif system.is_rebel:
+			system.process_production()
 
 	# 2. Rebellions (after production, before fleet arrival)
 	_process_rebellions()
@@ -2790,17 +2808,31 @@ func _process_turn_end() -> void:
 		var eff_batteries = _get_effective_battery_count(system)
 		var result = Combat.resolve_system_combat(system, merged, eff_batteries)
 
+		# Track rebel state before modifying (used for extra reconquest penalty)
+		var was_rebel: bool = system.is_rebel
+
 		# Apply results to system
 		system.owner_id = result["winner"]
 		system.fighter_count = result["remaining_fighters"]
 		system.bomber_count = result["remaining_bombers"]
 
-		# Apply conquest penalty (FUT-08)
+		# Apply conquest penalty (FUT-08) — only for player-owned systems (PR-11)
+		var conquest_production_loss: int = 0
 		if result["conquest_occurred"] and result["winner"] >= 0:
 			system.apply_conquest_penalty()
+			conquest_production_loss += ShipTypes.CONQUEST_PRODUCTION_LOSS
 			# Batteries take 50% damage on conquest
 			if system.battery_count > 0:
 				system.battery_count = system.battery_count / 2  # Integer division rounds down
+			system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
+
+		# Extra penalty for reconquering a rebel system (RB-14)
+		# Rebel systems are neutral so conquest_occurred is false (PR-11),
+		# but reconquest should cost the full -2 (base + war damage).
+		if was_rebel and result["winner"] >= 0:
+			system.apply_conquest_penalty()
+			system.apply_rebel_reconquest_penalty()
+			conquest_production_loss += ShipTypes.CONQUEST_PRODUCTION_LOSS + 1
 			system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 
 		# Apply production damage from bombers (FUT-12)
@@ -2849,7 +2881,8 @@ func _process_turn_end() -> void:
 				"batteries_before": stage["batteries_before"],
 				"batteries_after": system.battery_count if is_last_stage else stage["batteries_after"],
 				"production_damage": result["production_damage"] if is_last_stage else 0,
-				"conquest_occurred": result["conquest_occurred"] if is_last_stage else false
+				"conquest_occurred": result["conquest_occurred"] if is_last_stage else false,
+				"conquest_production_loss": conquest_production_loss if is_last_stage else 0
 			}
 
 			# Add this stage's attacker and defender to cumulative tracking
@@ -3033,7 +3066,9 @@ func _process_rebellions() -> void:
 			continue
 
 		var power_ratio: float = power / avg_power
-		var rebellion_chance: float = (power_ratio - ShipTypes.REBELLION_DOMINANCE_FACTOR) * ShipTypes.REBELLION_CHANCE_PER_DOMINANCE
+		var dominance_excess: float = power_ratio - ShipTypes.REBELLION_DOMINANCE_FACTOR
+		var rebellion_chance: float = dominance_excess * ShipTypes.REBELLION_CHANCE_PER_DOMINANCE
+		var defection_fraction: float = clamp(dominance_excess * ShipTypes.REBELLION_DEFECTION_FACTOR, 0.0, ShipTypes.REBELLION_DEFECTION_MAX)
 		var count: int = system_counts[player_id]
 
 		for system in systems:
@@ -3053,14 +3088,17 @@ func _process_rebellions() -> void:
 			var battery_reduction: float = float(system.battery_count) / float(ShipTypes.MAX_BATTERIES)
 			var effective_chance: float = rebellion_chance * (1.0 - battery_reduction)
 			if randf() < effective_chance:
-				var rebel_fighters: int = system.production_rate * ShipTypes.REBELLION_STRENGTH_FACTOR
-				var garrison_f: int = system.fighter_count
+				# Garrison fighters defect proportional to dominance (bombers stay loyal)
+				var defectors: int = int(floor(system.fighter_count * defection_fraction))
+				var rebel_fighters: int = system.production_rate * ShipTypes.REBELLION_STRENGTH_FACTOR + defectors
+				var garrison_f: int = system.fighter_count - defectors
 				var garrison_b: int = system.bomber_count
 
+				# No defender bonus: rebels are locals, no home-field disadvantage
 				var combat_result = Combat.resolve_combat(
 					rebel_fighters, 0, -1,
 					garrison_f, garrison_b, player_id,
-					0, 1.0
+					0, 1.0, 1.0
 				)
 
 				system.fighter_count = combat_result.remaining_fighters
@@ -3068,7 +3106,9 @@ func _process_rebellions() -> void:
 				system.owner_id = combat_result.winner_id
 
 				if combat_result.winner_id != player_id:
-					# Rebels won — system becomes neutral, reset production
+					# Rebels won — system becomes neutral and starts producing fighters
+					system.is_rebel = true
+					system.rebel_production_decay = 0
 					system.set_production_mode(StarSystem.ProductionMode.FIGHTERS)
 
 				system.update_visuals()
@@ -3084,7 +3124,7 @@ func _process_rebellions() -> void:
 					"has_batteries": system.battery_count > 0
 				}
 
-				# Build rebellion report
+				# Build rebellion report (garrison_f/b already reflect post-defection numbers)
 				var report_data = {
 					"system_name": system.system_name,
 					"system_id": system.system_id,
@@ -3095,7 +3135,7 @@ func _process_rebellions() -> void:
 					"defender_fighter_losses": garrison_f - (combat_result.remaining_fighters if combat_result.winner_id == player_id else 0),
 					"defender_bomber_losses": garrison_b - (combat_result.remaining_bombers if combat_result.winner_id == player_id else 0),
 					"attacker_name": "Rebels",
-					"attacker_fighters": rebel_fighters,
+					"attacker_fighters": rebel_fighters,  # includes defectors
 					"attacker_bombers": 0,
 					"attacker_fighter_losses": rebel_fighters - (combat_result.remaining_fighters if combat_result.winner_id == -1 else 0),
 					"attacker_bomber_losses": 0,

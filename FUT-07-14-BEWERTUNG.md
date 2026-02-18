@@ -804,11 +804,16 @@ Ohne Rebellion:
 
 ```
 Mit Rebellion:
-├── Spieler A dominiert (> Durchschnitt × 1.3 Systeme)
-├── Ungeschützte Systeme rebellieren mit Chance pro Überschuss-System
-├── Rebellen = Produktionsrate × 3 neutrale Fighter
-├── Verteidiger (Garnison) hat DEFENDER_BONUS
-├── Bei Rebel-Sieg: System wird neutral
+├── Spieler A dominiert (Power Score > Durchschnitt × 1.3)
+├── Ungeschützte Systeme rebellieren (Chance proportional zur Dominanz)
+├── Rebellen = Produktionsrate × 3 + desertierte Garrison-Fighter
+├── Desertion: floor(garrison_f × clamp(excess × 0.5, 0, 0.5)) — Bomber loyal
+├── Kein Defender-Bonus: Rebellen sind die Einheimischen (1.0× statt 1.5×)
+├── Bei Rebel-Sieg: System wird Rebellenplanet (is_rebel = true)
+│   ├── Produziert jede Runde Fighter: max(1, prod_rate - decay)
+│   ├── decay steigt um 2 pro Runde → Rate sinkt bis Untergrenze 1
+│   └── Zeitdruck: Je länger unbezwungen, desto mehr Fighter sammeln sich
+├── Bei Rückeroberung: -2 Produktion (normal -1 + Rebel-Malus -1)
 └── Nur der Führende wird gebremst → asymmetrisch
 ```
 
@@ -817,8 +822,11 @@ Mit Rebellion:
 | Parameter | Wert | Beschreibung |
 |-----------|------|--------------|
 | `REBELLION_DOMINANCE_FACTOR` | 1.3 | Auslöser: Spieler besitzt > Durchschnitt × 1.3 |
-| `REBELLION_CHANCE_PER_EXCESS` | 0.05 (5%) | Chance pro ungeschütztem System, pro Überschuss |
+| `REBELLION_CHANCE_PER_DOMINANCE` | 0.3 (30%) | Chance pro System = (power_ratio - DOMINANCE_FACTOR) × Wert |
 | `REBELLION_STRENGTH_FACTOR` | 3 | Rebellen = Produktionsrate × 3 |
+| `REBELLION_PRODUCTION_DECAY` | 2 | Ratenabbau/Runde für Rebellenplaneten (Untergrenze: 1) |
+| `REBELLION_DEFECTION_FACTOR` | 0.5 | Desertionsanteil = dominance_excess × Wert (Bomber immun) |
+| `REBELLION_DEFECTION_MAX` | 0.5 (50%) | Maximale Desertion der Garnisons-Fighter |
 
 ### Beispielrechnung
 
@@ -843,8 +851,9 @@ Mit Rebellion:
 
 | Bedingung | Immun? | Begründung |
 |-----------|--------|------------|
-| Heimatsystem | ✅ Ja | Ursprung des Spielers, loyale Bevölkerung |
-| Batterien > 0 | ✅ Ja | Militärische Präsenz unterdrückt Aufstände |
+| Heimatsystem (letztes System) | ✅ Ja | Indirekte Elimination verhindern |
+| Max Batterien (5) | ✅ Ja | Vollständige militärische Kontrolle |
+| Teilweise Batterien (1–4) | ✅ Reduziert | Chance sinkt um 20% pro Level |
 | Alle anderen | ❌ Nein | Ungeschützte Systeme können rebellieren |
 
 ### Strategische Implikationen
@@ -865,11 +874,14 @@ Dominanter Spieler — Rebellion-Management:
 ├── Batterien an Grenz-Systemen (Doppelschutz: vs Angriff + reduziert Rebellion)
 ├── Garnisonen: Mindestens rate×3 Fighter pro System
 ├── Selektive Expansion: Nur hochproduktive Systeme besetzen
+├── Rebellensysteme SOFORT zurückeroben — je länger gewartet, desto mehr Fighter
 └── Kontrolle: Weniger Systeme, aber besser geschützt
 
 Verfolger — Rebellion ausnutzen:
-├── Rebellen-Systeme sind neutral → leichte Beute
-├── Führender verliert Produktion + Schiffe
+├── Rebellen-Systeme produzieren Fighter → werden stärker, je länger sie neutral bleiben
+├── Rebellen-Systeme angreifen bevor Fighter zu viel werden (nur rate/turn anfangs)
+├── Oder warten: decay lässt Rebellen auf min. Rate schrumpfen, dann leichter
+├── Führender verliert Produktion bei Rückeroberung (-2 statt -1) → dauerhafte Schwächung
 ├── Timing: Angriff wenn Rebellionen den Führer schwächen
 └── Indirekte Hilfe: Rebellionen öffnen Flanken
 ```
@@ -880,13 +892,17 @@ Verfolger — Rebellion ausnutzen:
 |----------|-------------|
 | Batterien (FUT-10) | Doppelter Nutzen: Verteidigung + Rebellionsreduktion (immun erst bei max) |
 | Fortress-KI | Natürlicher Vorteil: baut ohnehin Batterien |
-| Rush-KI | Natürlicher Nachteil: viele Systeme, wenig Batterien |
-| Economy-KI | Gemischt: hohe Produktion = starke Rebellen, aber auch starke Garnisonen |
-| Fighter-Moral (FUT-17) | Garnisonen haben volle Moral (Verteidiger) |
+| Rush-KI | Natürlicher Nachteil: viele Systeme, wenig Batterien; Rebellenplaneten häufen Fighter an |
+| Economy-KI | Gemischt: hohe Produktion = starke Rebellen anfangs, aber decay begrenzt Bedrohung |
+| Fighter-Moral (FUT-17) | Garnisonen haben volle Moral (Verteidiger); Rebellenfighter haben volle Moral |
+| Rückeroberung (FUT-08) | Rebel-Rückeroberung kostet -2 Produktionspunkte (statt -1) als Kriegsschaden |
+| Bomber als Garnison | Bomber desertieren nicht → Bomber-Garnison ist rebellionsresistenter; neuer Vorteil für defensive Bomber-Nutzung |
 
 ### Fazit
 
 FUT-18 löst das zentrale Balance-Problem des Spiels: den Snowball-Effekt. Als **asymmetrische** Mechanik trifft sie nur den dominierenden Spieler und gibt Verfolgern eine Chance. Batterien reduzieren die Rebellionschance graduell (20% pro Level), erst bei maximalem Ausbau (Level 5) ist ein System vollständig immun. Das macht Expansion teuer — entweder voll ausbauen oder Rebellionsrisiko akzeptieren. Für FUT-19 bedeutet das: Schildlinien auf nicht voll ausgebauten Systemen können durch Rebellion zusammenbrechen.
+
+**Erweiterung (2026-02-18): Rebellensysteme produzieren Fighter.** Rebel-gewonnene Systeme (is_rebel = true) produzieren jede Runde `max(1, prod_rate - rebel_production_decay)` Fighter. `rebel_production_decay` wächst um 2 pro Runde. Das schafft Zeitdruck: Der dominante Spieler muss schnell zurückerobern, sonst sammeln sich Fighter. Bei Rückeroberung verliert das System -2 Produktionspunkte statt -1 (Kriegsschaden). Verfolger können zwischen "sofort kontern" (System noch schwach) und "warten" (decay begrenzt Bedrohung) wählen — oder das System selbst als "geborgten Vorposten" nutzen.
 
 ---
 

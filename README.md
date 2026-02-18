@@ -23,7 +23,7 @@ Ein rundenbasiertes Strategiespiel, entwickelt mit [Godot 4.6](https://godotengi
 - **Schildlinien**: Territoriale Verteidigung zwischen Systemen mit Attrition, Blockade und Ring-Produktionsbonus
 - **Raumstationen**: Offensive Vorposten hinter feindlichen Linien, gebaut durch Materiallieferung (Fighter/Bomber als FÄ)
 - Graduierte Stations-Sichtbarkeit: Waffensignatur skaliert mit Garnisonsgröße
-- Rebellionsmechanik als Anti-Snowball
+- **Rebellionsmechanik** als Anti-Snowball: Rebellensysteme produzieren aktiv Fighter (sinkende Rate, Untergrenze 1), Rückeroberung kostet -2 Produktion (statt normal -1)
 - Fighter-Moral bei Fernangriffen
 - Fog of War mit Erinnerungssystem und Kampf-Intel
 - Kampfberichte mit Systemhervorhebung
